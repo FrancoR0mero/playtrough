@@ -12,6 +12,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     {
         base.OnModelCreating(builder);
 
+        // Identity tables use domain names, not the framework's AspNet* prefix.
+        // Data is preserved by RENAME TABLE (never recreated) in migrations.
+        builder.Entity<ApplicationUser>().ToTable("Users");
+        builder.Entity<IdentityRole<int>>().ToTable("Roles");
+        builder.Entity<IdentityUserRole<int>>().ToTable("UserRoles");
+        builder.Entity<IdentityRoleClaim<int>>().ToTable("RoleClaims");
+        builder.Entity<IdentityUserClaim<int>>().ToTable("UserClaims");
+        builder.Entity<IdentityUserLogin<int>>().ToTable("UserLogins");
+        builder.Entity<IdentityUserToken<int>>().ToTable("UserTokens");
+
         // Identity makes NormalizedUserName unique but not NormalizedEmail.
         builder.Entity<ApplicationUser>(entity =>
         {
