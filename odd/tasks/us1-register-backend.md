@@ -38,6 +38,7 @@ Implement `POST /api/auth/register` so a visitor can register with email, userna
 10. **400 uses `ValidationProblemDetails`** (via `ValidationProblem(ModelState)`); Identity password-policy errors are folded into the `Password` field.
 11. **409/500 use plain `ProblemDetails`** with no internal details; unexpected failures are logged via `ILogger` without passwords or sensitive data.
 12. **Service returns typed `ServiceResult<T>`** with error codes `EmailAlreadyExists`, `UsernameAlreadyExists`, `ValidationError` (weak password/validation), `Unexpected`; no exceptions for expected failures.
+13. **Identity tables use domain names, not `AspNet*`** (`Users`, `Roles`, `UserRoles`, `RoleClaims`, `UserClaims`, `UserLogins`, `UserTokens`). User convention (2026-10-11): keep this naming in ALL future work. Implemented via `ToTable` + a `RenameTable` migration (data-preserving); FKs/indexes/PKs renamed too so the schema stays consistent with EF snapshots.
 
 ## Tasks
 
@@ -69,7 +70,7 @@ Implement `POST /api/auth/register` so a visitor can register with email, userna
 - [x] T6.3 `dotnet build` 0 warnings/errors; `dotnet test` green.
 
 ### T7 — Verification and delivery
-- [x] T7.1 Do NOT run `dotnet ef database update` — user must approve the migration content first. (RESPECTED — migration still pending.)
+- [x] T7.1 Do NOT run `dotnet ef database update` — user must approve the migration content first. (MIGRATION `RenameIdentityTablesAndAddUserCreatedAt` APPROVED + APPLIED 2026-10-11.)
 - [x] T7.2 Commit work units (conventional, no AI attribution):
   - `ce21dbc` feat(identity): add CreatedAt to ApplicationUser (+ migration `AddUserCreatedAt`)
   - `b23c29b` feat(auth): add register DTOs, repository and service
@@ -82,6 +83,6 @@ Implement `POST /api/auth/register` so a visitor can register with email, userna
 
 - `dotnet build backend/Playtrought.sln` → Build succeeded, **0 warnings / 0 errors**.
 - `dotnet test backend/Playtrought.sln` → **Passed: 7, Failed: 0, Skipped: 0** (duration ~552 ms). Tests: success+commit, trim, duplicate email, duplicate username, weak password (ValidationError + rollback), create race DuplicateEmail (→ EmailAlreadyExists + rollback), role-assign failure (Unexpected + rollback).
-- Migration `20261011021411_AddUserCreatedAt` **NOT applied** — pending user approval of its content: `migrationBuilder.AddColumn<DateTime>(name: "CreatedAt", table: "AspNetUsers", type: "datetime(6)", nullable: false)`; `Down()` drops the column. No SQL default (value set by C# initializer `= DateTime.UtcNow`).
+- Migration `20261011194139_RenameIdentityTablesAndAddUserCreatedAt` **APPLIED with user approval**: 7× `RenameTable` (AspNet* → Users/Roles/UserRoles/RoleClaims/UserClaims/UserLogins/UserTokens) + index/FK/PK renames + `AddColumn CreatedAt` (`datetime(6)` NOT NULL). No `DropTable`; roles User(1)/Admin(2) preserved; verified via `SHOW TABLES` + `information_schema`. DB default `0001-01-01 00:00:00` on CreatedAt is a one-time safety default for pre-existing rows (app always writes the value via C# initializer).
 - Container `playtrought-mysql` healthy again after environment restart (docker compose up -d); DB reachable for the apply step.
 - RDD native review of this slice: **pending** — `gentle-ai review assess` to run against a work-unit boundary after the user-facing delivery steps.
