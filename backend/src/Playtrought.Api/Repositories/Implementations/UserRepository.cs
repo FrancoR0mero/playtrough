@@ -3,8 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Playtrought.Api.Data;
 using Playtrought.Api.Models;
+using Playtrought.Api.Repositories.Interfaces;
 
-namespace Playtrought.Api.Repositories;
+namespace Playtrought.Api.Repositories.Implementations;
 
 /// <summary>User persistence backed by ASP.NET Core Identity and the app DbContext.
 /// Contains no business logic; duplicate checks compare normalized values.</summary>

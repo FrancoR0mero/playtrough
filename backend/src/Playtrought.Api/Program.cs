@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Playtrought.Api.Data;
 using Playtrought.Api.Models;
-using Playtrought.Api.Repositories;
+using Playtrought.Api.Repositories.Implementations;
+using Playtrought.Api.Repositories.Interfaces;
 using Playtrought.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);

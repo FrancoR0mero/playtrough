@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore.Storage;
 using Playtrought.Api.Models;
 
-namespace Playtrought.Api.Repositories;
+namespace Playtrought.Api.Repositories.Interfaces;
 
 /// <summary>Persistence boundary for application users.</summary>
 public interface IUserRepository

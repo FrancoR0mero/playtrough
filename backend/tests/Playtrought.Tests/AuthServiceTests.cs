@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Playtrought.Api.Dtos.Auth;
 using Playtrought.Api.Models;
-using Playtrought.Api.Repositories;
+using Playtrought.Api.Repositories.Interfaces;
 using Playtrought.Api.Services;
 using Xunit;
 

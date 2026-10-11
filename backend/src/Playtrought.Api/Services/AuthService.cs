@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Playtrought.Api.Dtos.Auth;
 using Playtrought.Api.Models;
-using Playtrought.Api.Repositories;
+using Playtrought.Api.Repositories.Interfaces;
 
 namespace Playtrought.Api.Services;
 
