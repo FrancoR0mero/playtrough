@@ -1,0 +1,65 @@
+<section class="mx-auto mt-16 max-w-md rounded-lg border border-slate-700 p-8 shadow-sm">
+  <h1 class="mb-6 text-2xl font-semibold text-white">Crear cuenta</h1>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
+    <div>
+      <label for="email" class="mb-1 block text-sm font-medium text-slate-200">Email</label>
+      <input
+        id="email"
+        type="email"
+        formControlName="email"
+        autocomplete="email"
+        placeholder="tu@email.com"
+        class="w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent"
+      />
+      @if (fieldError('email'); as emailError) {
+        <p class="mt-1 text-sm text-red-600">{{ emailError }}</p>
+      }
+    </div>
+
+    <div>
+      <label for="username" class="mb-1 block text-sm font-medium text-slate-200">
+        Nombre de usuario
+      </label>
+      <input
+        id="username"
+        type="text"
+        formControlName="username"
+        autocomplete="username"
+        placeholder="ana_dev"
+        class="w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent"
+      />
+      @if (fieldError('username'); as usernameError) {
+        <p class="mt-1 text-sm text-red-600">{{ usernameError }}</p>
+      }
+    </div>
+
+    <div>
+      <label for="password" class="mb-1 block text-sm font-medium text-slate-200">
+        Contraseña
+      </label>
+      <input
+        id="password"
+        type="password"
+        formControlName="password"
+        autocomplete="new-password"
+        placeholder="••••••••"
+        class="w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent"
+      />
+      @if (fieldError('password'); as passwordError) {
+        <p class="mt-1 text-sm text-red-600">{{ passwordError }}</p>
+      }
+      <p class="mt-1 text-xs text-slate-400">
+        Mínimo 8 caracteres, con mayúscula, minúscula y número.
+      </p>
+    </div>
+
+    <button
+      type="submit"
+      [disabled]="form.invalid"
+      class="w-full rounded-md bg-accent px-4 py-2 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      Crear cuenta
+    </button>
+  </form>
+</section>
