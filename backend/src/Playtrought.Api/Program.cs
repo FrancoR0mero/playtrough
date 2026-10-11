@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Playtrought.Api.Data;
 using Playtrought.Api.Models;
+using Playtrought.Api.OpenApi;
 using Playtrought.Api.Repositories.Implementations;
 using Playtrought.Api.Repositories.Interfaces;
 using Playtrought.Api.Services;
@@ -37,7 +38,10 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Swagger / OpenAPI
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.OperationFilter<RegisterEndpointExamplesFilter>();
+});
 
 // CORS — Angular dev server
 builder.Services.AddCors(o =>
