@@ -7,6 +7,8 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
+import type { RegisterRequest } from './models/register';
+import { AuthService, RegisterError } from './services/auth';
 
 type RegisterField = 'email' | 'username' | 'password';
 
@@ -44,8 +46,13 @@ const passwordComplexityValidator: ValidatorFn = (
 })
 export class RegisterComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly auth = inject(AuthService);
 
+  protected readonly submitting = signal(false);
+  protected readonly success = signal(false);
   protected readonly submitAttempted = signal(false);
+  protected readonly fieldErrors = signal<Record<string, string>>({});
+  protected readonly formError = signal<string | null>(null);
 
   protected readonly form = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -64,13 +71,42 @@ export class RegisterComponent {
   protected onSubmit(): void {
     this.submitAttempted.set(true);
     this.form.markAllAsTouched();
+    this.fieldErrors.set({});
+    this.formError.set(null);
+    this.success.set(false);
 
-    if (this.form.invalid) {
+    if (this.form.invalid || this.submitting()) {
       return;
     }
+
+    this.submitting.set(true);
+    const payload: RegisterRequest = this.form.getRawValue();
+
+    this.auth.register(payload).subscribe({
+      next: () => {
+        this.submitting.set(false);
+        this.success.set(true);
+      },
+      error: (error: unknown) => {
+        this.submitting.set(false);
+
+        if (error instanceof RegisterError) {
+          this.fieldErrors.set(error.fieldErrors);
+          this.formError.set(error.formError);
+          return;
+        }
+
+        this.formError.set('Ocurrió un error inesperado. Inténtalo de nuevo.');
+      },
+    });
   }
 
   protected fieldError(field: RegisterField): string | null {
+    const serverError = this.fieldErrors()[field];
+    if (serverError) {
+      return serverError;
+    }
+
     const control = this.form.controls[field];
     if (!control.invalid || (!control.touched && !this.submitAttempted())) {
       return null;
