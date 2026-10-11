@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Playtrought.Api.Data;
 using Playtrought.Api.Models;
+using Playtrought.Api.Repositories;
+using Playtrought.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,12 +18,22 @@ builder.Services.AddDbContext<AppDbContext>(o =>
         ?? throw new InvalidOperationException("Connection string 'ConnectionStrings:DefaultConnection' is not configured.")));
 
 // ASP.NET Core Identity (int keys). Password policy and auto-login/auth middleware come with US1.
+// NIST SP 800-63B: length dominates strength, so a required symbol is NOT enforced.
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 {
     options.User.RequireUniqueEmail = true;
+    options.Password.RequiredLength = 8;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireDigit = true;
+    options.Password.RequireNonAlphanumeric = false;
 })
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
+
+// Application services
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Swagger / OpenAPI
 builder.Services.AddSwaggerGen();
