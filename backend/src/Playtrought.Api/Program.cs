@@ -1,5 +1,9 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Playtrought.Api.Data;
 using Playtrought.Api.Models;
 using Playtrought.Api.OpenApi;
@@ -19,7 +23,7 @@ builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseMySQL(builder.Configuration.GetConnectionString("DefaultConnection")
         ?? throw new InvalidOperationException("Connection string 'ConnectionStrings:DefaultConnection' is not configured.")));
 
-// ASP.NET Core Identity (int keys). Password policy and auto-login/auth middleware come with US1.
+// ASP.NET Core Identity (int keys).
 // NIST SP 800-63B: length dominates strength, so a required symbol is NOT enforced.
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 {
@@ -36,9 +40,50 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
+builder.Services.AddOptions<JwtSettings>()
+    .Bind(builder.Configuration.GetSection(JwtSettings.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(settings => Encoding.UTF8.GetByteCount(settings.Key) >= 32 &&
+        !settings.Key.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase),
+        "Jwt:Key must be a secret of at least 32 bytes, supplied via user-secrets or environment variables.")
+    .ValidateOnStart();
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultForbidScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer();
+
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtSettings>>((options, settings) =>
+    {
+        var jwt = settings.Value;
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwt.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+            ValidateLifetime = true,
+            RequireExpirationTime = true,
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = "unique_name",
+            RoleClaimType = "role",
+        };
+    });
+builder.Services.AddAuthorization();
+
 // Application services
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddScoped<ITokenService, TokenService>();
 
 // Swagger / OpenAPI
 builder.Services.AddSwaggerGen(options =>
@@ -69,6 +114,8 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("AngularDev");
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 app.Run();
