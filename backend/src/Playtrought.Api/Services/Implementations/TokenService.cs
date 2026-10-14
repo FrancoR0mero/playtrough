@@ -7,8 +7,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Playtrought.Api.Models;
 using Playtrought.Api.Repositories.Interfaces;
+using Playtrought.Api.Services.Contracts;
+using Playtrought.Api.Services.Interfaces;
 
-namespace Playtrought.Api.Services;
+namespace Playtrought.Api.Services.Implementations;
 
 public class TokenService(
     IOptions<JwtSettings> options,

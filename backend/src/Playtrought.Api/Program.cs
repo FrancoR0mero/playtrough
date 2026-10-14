@@ -9,7 +9,8 @@ using Playtrought.Api.Models;
 using Playtrought.Api.OpenApi;
 using Playtrought.Api.Repositories.Implementations;
 using Playtrought.Api.Repositories.Interfaces;
-using Playtrought.Api.Services;
+using Playtrought.Api.Services.Implementations;
+using Playtrought.Api.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 

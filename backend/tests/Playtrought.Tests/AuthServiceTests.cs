@@ -5,7 +5,9 @@ using Moq;
 using Playtrought.Api.Dtos.Auth;
 using Playtrought.Api.Models;
 using Playtrought.Api.Repositories.Interfaces;
-using Playtrought.Api.Services;
+using Playtrought.Api.Services.Contracts;
+using Playtrought.Api.Services.Implementations;
+using Playtrought.Api.Services.Interfaces;
 using Xunit;
 
 namespace Playtrought.Tests;

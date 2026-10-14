@@ -1,4 +1,4 @@
-namespace Playtrought.Api.Services;
+namespace Playtrought.Api.Services.Contracts;
 
 /// <summary>Outcome categories for authentication operations.</summary>
 public enum AuthError

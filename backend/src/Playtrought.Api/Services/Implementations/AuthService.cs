@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Identity;
 using Playtrought.Api.Dtos.Auth;
 using Playtrought.Api.Models;
 using Playtrought.Api.Repositories.Interfaces;
+using Playtrought.Api.Services.Contracts;
+using Playtrought.Api.Services.Interfaces;
 
-namespace Playtrought.Api.Services;
+namespace Playtrought.Api.Services.Implementations;
 
 /// <summary>Registration and login use cases. Identity handles passwords and lockout;
 /// token generation is delegated to ITokenService.</summary>

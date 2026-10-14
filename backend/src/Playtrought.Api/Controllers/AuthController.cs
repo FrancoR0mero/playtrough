@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Playtrought.Api.Dtos.Auth;
-using Playtrought.Api.Services;
+using Playtrought.Api.Services.Contracts;
+using Playtrought.Api.Services.Interfaces;
 
 namespace Playtrought.Api.Controllers;
 

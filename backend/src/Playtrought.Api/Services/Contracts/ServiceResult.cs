@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace Playtrought.Api.Services;
+namespace Playtrought.Api.Services.Contracts;
 
 /// <summary>Typed result for service operations; expected failures are values, not exceptions.</summary>
 public sealed class ServiceResult<T>

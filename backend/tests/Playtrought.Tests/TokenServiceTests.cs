@@ -6,7 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Moq;
 using Playtrought.Api.Models;
 using Playtrought.Api.Repositories.Interfaces;
-using Playtrought.Api.Services;
+using Playtrought.Api.Services.Implementations;
 using Xunit;
 
 namespace Playtrought.Tests;

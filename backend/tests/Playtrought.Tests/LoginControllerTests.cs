@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Playtrought.Api.Controllers;
 using Playtrought.Api.Dtos.Auth;
-using Playtrought.Api.Services;
+using Playtrought.Api.Services.Contracts;
+using Playtrought.Api.Services.Interfaces;
 using Xunit;
 
 namespace Playtrought.Tests;
