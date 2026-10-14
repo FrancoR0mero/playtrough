@@ -8,6 +8,8 @@ namespace Playtrought.Api.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>(options)
 {
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -21,6 +23,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.Entity<IdentityUserClaim<int>>().ToTable("UserClaims");
         builder.Entity<IdentityUserLogin<int>>().ToTable("UserLogins");
         builder.Entity<IdentityUserToken<int>>().ToTable("UserTokens");
+
+        builder.Entity<RefreshToken>(entity =>
+        {
+            entity.ToTable("RefreshTokens");
+            entity.Property(t => t.TokenHash).HasMaxLength(64).IsRequired();
+            entity.Property(t => t.ReplacedByToken).HasMaxLength(64);
+            entity.HasIndex(t => t.TokenHash).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(t => t.UserId);
+        });
 
         // Identity makes NormalizedUserName unique but not NormalizedEmail.
         builder.Entity<ApplicationUser>(entity =>
