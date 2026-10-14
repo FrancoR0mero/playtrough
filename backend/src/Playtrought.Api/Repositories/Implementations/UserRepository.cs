@@ -13,6 +13,24 @@ public class UserRepository(
     UserManager<ApplicationUser> userManager,
     AppDbContext dbContext) : IUserRepository
 {
+    public Task<ApplicationUser?> FindByEmailAsync(string email, CancellationToken ct = default)
+    {
+        var normalized = userManager.NormalizeEmail(email);
+        return dbContext.Users.SingleOrDefaultAsync(u => u.NormalizedEmail == normalized, ct);
+    }
+
+    public Task<ApplicationUser?> FindByUsernameAsync(string username, CancellationToken ct = default)
+    {
+        var normalized = userManager.NormalizeName(username);
+        return dbContext.Users.SingleOrDefaultAsync(u => u.NormalizedUserName == normalized, ct);
+    }
+
+    public Task<IList<string>> GetRolesAsync(ApplicationUser user, CancellationToken ct = default)
+        => userManager.GetRolesAsync(user);
+
+    public Task<IdentityResult> ResetAccessFailedCountAsync(ApplicationUser user, CancellationToken ct = default)
+        => userManager.ResetAccessFailedCountAsync(user);
+
     public Task<bool> ExistsByEmailAsync(string email, CancellationToken ct = default)
     {
         var normalized = userManager.NormalizeEmail(email);

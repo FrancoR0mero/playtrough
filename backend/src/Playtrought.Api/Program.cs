@@ -24,6 +24,9 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 {
     options.User.RequireUniqueEmail = true;
+    options.Lockout.AllowedForNewUsers = true;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     options.Password.RequiredLength = 8;
     options.Password.RequireUppercase = true;
     options.Password.RequireLowercase = true;

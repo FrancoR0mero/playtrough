@@ -8,4 +8,6 @@ public enum AuthError
     UsernameAlreadyExists,
     ValidationError,
     Unexpected,
+    InvalidCredentials,
+    AccountLocked,
 }

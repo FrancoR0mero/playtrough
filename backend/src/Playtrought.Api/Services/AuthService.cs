@@ -9,9 +9,53 @@ namespace Playtrought.Api.Services;
 /// Create-user and add-role run inside one transaction; any failure rolls both back.</summary>
 public class AuthService(
     IUserRepository userRepository,
-    ILogger<AuthService> logger) : IAuthService
+    ILogger<AuthService> logger,
+    SignInManager<ApplicationUser> signInManager,
+    ITokenService tokenService) : IAuthService
 {
     private const string UserRole = "User";
+
+    public async Task<ServiceResult<LoginResponseDto>> LoginAsync(LoginRequestDto dto, CancellationToken ct = default)
+    {
+        try
+        {
+            var identifier = dto.Identifier.Trim();
+            var user = identifier.Contains('@')
+                ? await userRepository.FindByEmailAsync(identifier, ct)
+                : await userRepository.FindByUsernameAsync(identifier, ct);
+
+            if (user is null)
+                return ServiceResult<LoginResponseDto>.Fail(AuthError.InvalidCredentials);
+
+            var signIn = await signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
+            if (signIn.IsLockedOut)
+                return ServiceResult<LoginResponseDto>.Fail(AuthError.AccountLocked);
+
+            if (!signIn.Succeeded)
+                return ServiceResult<LoginResponseDto>.Fail(AuthError.InvalidCredentials);
+
+            var reset = await userRepository.ResetAccessFailedCountAsync(user, ct);
+            if (!reset.Succeeded)
+                return ServiceResult<LoginResponseDto>.Fail(AuthError.Unexpected);
+
+            var roles = await userRepository.GetRolesAsync(user, ct);
+            var tokens = await tokenService.CreateAsync(user, roles, ct);
+            var role = roles.Contains("Admin") ? "Admin" : roles.OrderBy(r => r, StringComparer.Ordinal).FirstOrDefault() ?? string.Empty;
+
+            return ServiceResult<LoginResponseDto>.Ok(new LoginResponseDto(
+                tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresAt,
+                new LoginUserDto(user.Id, user.UserName ?? string.Empty, user.Email ?? string.Empty, role)));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected failure during login");
+            return ServiceResult<LoginResponseDto>.Fail(AuthError.Unexpected);
+        }
+    }
 
     public async Task<ServiceResult<RegisterResponseDto>> RegisterAsync(RegisterRequestDto dto, CancellationToken ct = default)
     {

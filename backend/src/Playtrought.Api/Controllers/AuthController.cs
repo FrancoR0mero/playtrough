@@ -10,6 +10,34 @@ namespace Playtrought.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
+    [HttpPost("login")]
+    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status423Locked)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> Login([FromBody] LoginRequestDto dto, CancellationToken ct)
+    {
+        var result = await authService.LoginAsync(dto, ct);
+        if (result.Success)
+            return Ok(result.Value);
+
+        return result.Error switch
+        {
+            AuthError.InvalidCredentials => Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Invalid credentials",
+                detail: "The email/username or password is incorrect."),
+            AuthError.AccountLocked => Problem(
+                statusCode: StatusCodes.Status423Locked,
+                title: "Account locked",
+                detail: "This account is temporarily locked after too many failed login attempts. Try again in 15 minutes."),
+            _ => Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "An unexpected error occurred while logging in."),
+        };
+    }
+
     [HttpPost("register")]
     [ProducesResponseType(typeof(RegisterResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
