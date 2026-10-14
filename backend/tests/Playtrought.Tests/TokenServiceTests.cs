@@ -79,14 +79,21 @@ public class TokenServiceTests
         var tokens = await new TokenService(Options.Create(_settings), repo.Object).CreateAsync(
             new ApplicationUser { Id = 1 }, ["User"]);
         var validation = Validation();
+        var accessToken = tokens.AccessToken;
         switch (invalid)
         {
             case "issuer": validation.ValidIssuer = "OtherIssuer"; break;
             case "audience": validation.ValidAudience = "OtherAudience"; break;
             case "signature": validation.IssuerSigningKey = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(64)); break;
-            case "expiry": validation.LifetimeValidator = (_, expires, _, _) => expires > DateTime.UtcNow.AddMinutes(16); break;
+            case "expiry":
+                accessToken = new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(
+                    issuer: _settings.Issuer, audience: _settings.Audience,
+                    notBefore: DateTime.UtcNow.AddMinutes(-16), expires: DateTime.UtcNow.AddMinutes(-1),
+                    signingCredentials: new SigningCredentials(
+                        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key)), SecurityAlgorithms.HmacSha256)));
+                break;
         }
-        Assert.ThrowsAny<SecurityTokenException>(() => new JwtSecurityTokenHandler().ValidateToken(tokens.AccessToken, validation, out _));
+        Assert.ThrowsAny<SecurityTokenException>(() => new JwtSecurityTokenHandler().ValidateToken(accessToken, validation, out _));
     }
 
     private TokenValidationParameters Validation() => new()

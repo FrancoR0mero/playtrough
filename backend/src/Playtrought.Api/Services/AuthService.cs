@@ -5,8 +5,8 @@ using Playtrought.Api.Repositories.Interfaces;
 
 namespace Playtrought.Api.Services;
 
-/// <summary>Registration use case: unique email/username, Identity-hashed password, role assignment.
-/// Create-user and add-role run inside one transaction; any failure rolls both back.</summary>
+/// <summary>Registration and login use cases. Identity handles passwords and lockout;
+/// token generation is delegated to ITokenService.</summary>
 public class AuthService(
     IUserRepository userRepository,
     ILogger<AuthService> logger,

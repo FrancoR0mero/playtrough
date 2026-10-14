@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Playtrought.Api.Dtos.Auth;
@@ -5,12 +6,14 @@ using Playtrought.Api.Services;
 
 namespace Playtrought.Api.Controllers;
 
-/// <summary>Registration endpoint. No business logic: maps service results to HTTP responses.</summary>
+/// <summary>Authentication endpoints. Maps service results to HTTP responses.</summary>
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
     [HttpPost("login")]
+    [AllowAnonymous]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -39,6 +42,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [HttpPost("register")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(RegisterResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

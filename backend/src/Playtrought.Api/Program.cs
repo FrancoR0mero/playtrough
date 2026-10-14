@@ -15,6 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Controllers
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
 
 // EF Core - MySQL (Oracle provider MySql.EntityFrameworkCore).
 // This provider exposes no ServerVersion/AutoDetect API: migration generation never
@@ -76,6 +77,20 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             NameClaimType = "unique_name",
             RoleClaimType = "role",
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                context.Response.Headers.WWWAuthenticate = "Bearer";
+                await Results.Problem(statusCode: StatusCodes.Status401Unauthorized,
+                    title: "Unauthorized", detail: "A valid access token is required.")
+                    .ExecuteAsync(context.HttpContext);
+            },
+            OnForbidden = context => Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: "Forbidden", detail: "You do not have permission to access this resource.")
+                .ExecuteAsync(context.HttpContext),
+        };
     });
 builder.Services.AddAuthorization();
 
@@ -111,6 +126,7 @@ builder.Services.AddHealthChecks();
 var app = builder.Build();
 
 // Pipeline
+app.UseExceptionHandler();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("AngularDev");

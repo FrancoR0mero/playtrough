@@ -1,0 +1,59 @@
+@baseUrl = http://localhost:5000
+@username = login_demo
+@email = login_demo@example.com
+@password = Str0ngPass123
+
+### Preparar cuenta de prueba (201 la primera vez; 409 si ya existe).
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{"email":"{{email}}","username":"{{username}}","password":"{{password}}"}
+
+### Login por email: 200 con tokens y user.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"identifier":"{{email}}","password":"{{password}}"}
+
+### Login por username: 200. También resetea intentos fallidos.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"identifier":"{{username}}","password":"{{password}}"}
+
+### Contraseña incorrecta: 401 (si la cuenta no está bloqueada).
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"identifier":"{{username}}","password":"IncorrectPassword1"}
+
+### Usuario inexistente: 401, mismo título y detalle que contraseña incorrecta.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"identifier":"missing_login_demo@example.com","password":"IncorrectPassword1"}
+
+### Campos requeridos: 400 ValidationProblemDetails.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"identifier":"","password":""}
+
+### Preparar otra cuenta para probar el bloqueo sin afectar la anterior.
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{"email":"login_block_demo@example.com","username":"login_block_demo","password":"{{password}}"}
+
+### Ejecutar ESTA petición cinco veces: las primeras cuatro dan 401; la quinta, 423.
+# Para repetir la prueba completa, esperar 15 minutos o usar otra cuenta de prueba.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"identifier":"login_block_demo","password":"IncorrectPassword1"}
+
+### Cuenta bloqueada: 423 incluso con la contraseña correcta, durante 15 minutos.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"identifier":"login_block_demo","password":"{{password}}"}
