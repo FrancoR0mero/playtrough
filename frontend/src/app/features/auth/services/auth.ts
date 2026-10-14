@@ -25,12 +25,23 @@ export class RegisterError extends Error {
   }
 }
 
+export class LoginError extends Error {
+  constructor(
+    readonly fieldErrors: Record<string, string>,
+    readonly formError: string | null,
+  ) {
+    super(formError ?? 'Login failed');
+    this.name = 'LoginError';
+  }
+}
+
 const GENERIC_ERROR = 'Ocurrió un error inesperado. Inténtalo de nuevo.';
 const FIELD_FALLBACK = 'El valor introducido no es válido.';
 
 /** Spanish translations for the known backend/Identity messages (400 ValidationProblemDetails). */
 const BACKEND_MESSAGE_TRANSLATIONS: Record<string, string> = {
   'Email is required.': 'El email es obligatorio.',
+  'Email or username is required.': 'El email o nombre de usuario es obligatorio.',
   'A valid email address is required.': 'El email no es válido.',
   'Username is required.': 'El nombre de usuario es obligatorio.',
   'Username must be between 3 and 20 characters.':
@@ -66,6 +77,7 @@ export class AuthService {
         this.storage.save(response);
         this.setSession(response);
       }),
+      catchError((error: unknown) => throwError(() => this.toLoginError(error))),
     );
   }
 
@@ -94,6 +106,36 @@ export class AuthService {
       .pipe(
         catchError((error: HttpErrorResponse) => throwError(() => this.toRegisterError(error))),
       );
+  }
+
+  private toLoginError(error: unknown): LoginError {
+    if (!(error instanceof HttpErrorResponse)) return new LoginError({}, GENERIC_ERROR);
+    if (error.status === 401) return new LoginError({}, 'Credenciales incorrectas');
+    if (error.status === 423)
+      return new LoginError(
+        {},
+        'Tu cuenta está bloqueada temporalmente. Intentá iniciar sesión más tarde.',
+      );
+    if (error.status !== 400) return new LoginError({}, GENERIC_ERROR);
+
+    const problem = error.error as ValidationProblemDetails | null;
+    const fieldErrors: Record<string, string> = {};
+    const generalErrors: string[] = [];
+    for (const [key, value] of Object.entries(problem?.errors ?? {})) {
+      if (!Array.isArray(value)) continue;
+      const messages = value
+        .filter((message): message is string => typeof message === 'string')
+        .map((message) => BACKEND_MESSAGE_TRANSLATIONS[message] ?? message)
+        .join(' ');
+      if (!messages) continue;
+      const field = key.split('.').pop()?.toLowerCase();
+      if (field === 'identifier' || field === 'password') fieldErrors[field] = messages;
+      else generalErrors.push(messages);
+    }
+    const formError =
+      generalErrors.join(' ') ||
+      (Object.keys(fieldErrors).length === 0 ? 'Revisá los datos ingresados.' : null);
+    return new LoginError(fieldErrors, formError);
   }
 
   private toRegisterError(error: HttpErrorResponse): RegisterError {

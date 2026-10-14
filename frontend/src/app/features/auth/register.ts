@@ -3,13 +3,14 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   AbstractControl,
   FormBuilder,
@@ -19,7 +20,8 @@ import {
   Validators,
 } from '@angular/forms';
 import type { RegisterRequest } from './models/register';
-import { AuthService, RegisterError } from './services/auth';
+import { AuthService, LoginError, RegisterError } from './services/auth';
+import { authDestination } from './auth-navigation';
 
 type RegisterField = 'email' | 'username' | 'password';
 
@@ -55,11 +57,12 @@ const passwordComplexityValidator: ValidatorFn = (
   templateUrl: './register.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
@@ -67,7 +70,21 @@ export class RegisterComponent {
 
   protected readonly isLogin = computed(() => this.routeData()['mode'] === 'login');
   protected readonly showPassword = signal(false);
-  protected readonly returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+  private readonly queryParams = toSignal(this.route.queryParamMap, {
+    initialValue: this.route.snapshot.queryParamMap,
+  });
+  protected readonly returnUrl = computed(() => this.queryParams().get('returnUrl'));
+
+  ngOnInit(): void {
+    this.auth.restoreSession();
+    if (this.auth.isAuthenticated()) this.redirectAfterLogin();
+  }
+
+  private redirectAfterLogin(): void {
+    void this.router.navigateByUrl(authDestination(this.router, this.returnUrl()), {
+      replaceUrl: true,
+    });
+  }
 
   protected readonly submitting = signal(false);
   protected readonly success = signal(false);
@@ -183,7 +200,16 @@ export class RegisterComponent {
         finalize(() => this.submitting.set(false)),
       )
       .subscribe({
-        error: () => this.formError.set('Ocurrió un error inesperado. Inténtalo de nuevo.'),
+        next: () => this.redirectAfterLogin(),
+        error: (error: unknown) => {
+          if (error instanceof LoginError) {
+            this.fieldErrors.set(error.fieldErrors);
+            this.formError.set(error.formError);
+            this.focusFirstError();
+          } else {
+            this.formError.set('Ocurrió un error inesperado. Inténtalo de nuevo.');
+          }
+        },
       });
   }
 
