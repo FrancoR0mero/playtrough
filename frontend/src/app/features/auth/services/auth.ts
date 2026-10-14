@@ -1,6 +1,8 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, throwError } from 'rxjs';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import { Observable, catchError, tap, throwError } from 'rxjs';
+import type { LoginRequest, LoginResponse } from '../models/login';
+import { TokenStorageService } from './token-storage';
 import { environment } from '../../../../environments/environment';
 import type {
   ProblemDetails,
@@ -45,17 +47,61 @@ const BACKEND_MESSAGE_TRANSLATIONS: Record<string, string> = {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly storage = inject(TokenStorageService);
+  private readonly session = signal<LoginResponse | null>(null);
+  private expiryTimer: ReturnType<typeof setTimeout> | undefined;
+
+  readonly currentUser = computed(() => this.session()?.user ?? null);
+  readonly isAuthenticated = computed(() => this.session() !== null);
+
+  constructor() {
+    this.restoreSession();
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.expiryTimer));
+  }
+
+  login(identifier: string, password: string): Observable<LoginResponse> {
+    const payload: LoginRequest = { identifier: identifier.trim(), password };
+    return this.http.post<LoginResponse>(`${environment.apiUrl}/auth/login`, payload).pipe(
+      tap((response) => {
+        this.storage.save(response);
+        this.setSession(response);
+      }),
+    );
+  }
+
+  restoreSession(): void {
+    this.setSession(this.storage.read());
+  }
+
+  logout(): void {
+    this.storage.clear();
+    this.setSession(null);
+  }
+
+  private setSession(session: LoginResponse | null): void {
+    clearTimeout(this.expiryTimer);
+    this.session.set(session);
+    if (session) {
+      const remaining = Math.min(Date.parse(session.expiresAt) - Date.now(), 2_147_483_647);
+      this.expiryTimer = setTimeout(() => this.restoreSession(), Math.max(0, remaining));
+    }
+  }
 
   /** Registers a new account; maps server failures to a typed RegisterError with Spanish messages. */
   register(payload: RegisterRequest): Observable<RegisterResponse> {
     return this.http
       .post<RegisterResponse>(`${environment.apiUrl}/auth/register`, payload)
-      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toRegisterError(error))));
+      .pipe(
+        catchError((error: HttpErrorResponse) => throwError(() => this.toRegisterError(error))),
+      );
   }
 
   private toRegisterError(error: HttpErrorResponse): RegisterError {
     if (error.status === 400) {
-      return new RegisterError(this.mapValidationErrors(error.error as ValidationProblemDetails), null);
+      return new RegisterError(
+        this.mapValidationErrors(error.error as ValidationProblemDetails),
+        null,
+      );
     }
 
     if (error.status === 409) {

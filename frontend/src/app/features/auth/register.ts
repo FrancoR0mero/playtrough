@@ -1,12 +1,14 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   AbstractControl,
@@ -58,6 +60,7 @@ export class RegisterComponent {
   private readonly auth = inject(AuthService);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly routeData = toSignal(this.route.data, {
     initialValue: this.route.snapshot.data,
   });
@@ -101,7 +104,7 @@ export class RegisterComponent {
 
   private focusFirstError(): void {
     const fields = this.isLogin() ? ['identifier', 'password'] : ['email', 'username', 'password'];
-    const form = this.isLogin() ? this.loginForm : this.form;
+    const form: AbstractControl = this.isLogin() ? this.loginForm : this.form;
     const field = fields.find((name) => form.get(name)?.invalid || this.fieldErrors()[name]);
     if (field)
       this.element.nativeElement
@@ -126,8 +129,7 @@ export class RegisterComponent {
   protected onSubmit(): void {
     if (this.submitting()) return;
     if (this.isLogin()) {
-      this.loginForm.markAllAsTouched();
-      this.focusFirstError();
+      this.submitLogin();
       return;
     }
     this.submitAttempted.set(true);
@@ -162,6 +164,27 @@ export class RegisterComponent {
         this.formError.set('Ocurrió un error inesperado. Inténtalo de nuevo.');
       },
     });
+  }
+
+  private submitLogin(): void {
+    this.loginForm.markAllAsTouched();
+    this.fieldErrors.set({});
+    this.formError.set(null);
+    if (this.loginForm.invalid) {
+      this.focusFirstError();
+      return;
+    }
+    this.submitting.set(true);
+    const { identifier, password } = this.loginForm.getRawValue();
+    this.auth
+      .login(identifier, password)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.submitting.set(false)),
+      )
+      .subscribe({
+        error: () => this.formError.set('Ocurrió un error inesperado. Inténtalo de nuevo.'),
+      });
   }
 
   protected fieldError(field: RegisterField): string | null {
