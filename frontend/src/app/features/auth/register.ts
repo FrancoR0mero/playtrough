@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   AbstractControl,
   FormBuilder,
@@ -40,19 +49,65 @@ const passwordComplexityValidator: ValidatorFn = (
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './register.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RegisterComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly auth = inject(AuthService);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly routeData = toSignal(this.route.data, {
+    initialValue: this.route.snapshot.data,
+  });
+
+  protected readonly isLogin = computed(() => this.routeData()['mode'] === 'login');
+  protected readonly showPassword = signal(false);
+  protected readonly returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
 
   protected readonly submitting = signal(false);
   protected readonly success = signal(false);
   protected readonly submitAttempted = signal(false);
   protected readonly fieldErrors = signal<Record<string, string>>({});
   protected readonly formError = signal<string | null>(null);
+
+  protected readonly loginForm = this.formBuilder.nonNullable.group({
+    identifier: ['', Validators.required],
+    password: ['', Validators.required],
+  });
+
+  protected loginFieldError(field: 'identifier' | 'password'): string | null {
+    const control = this.loginForm.controls[field];
+    if (!control.touched) return null;
+    return (
+      this.fieldErrors()[field] ??
+      (control.hasError('required')
+        ? field === 'identifier'
+          ? 'El email o nombre de usuario es obligatorio.'
+          : 'La contraseña es obligatoria.'
+        : null)
+    );
+  }
+
+  protected clearFieldError(field: string): void {
+    this.fieldErrors.update((errors) => {
+      const updated = { ...errors };
+      delete updated[field];
+      return updated;
+    });
+    this.formError.set(null);
+  }
+
+  private focusFirstError(): void {
+    const fields = this.isLogin() ? ['identifier', 'password'] : ['email', 'username', 'password'];
+    const form = this.isLogin() ? this.loginForm : this.form;
+    const field = fields.find((name) => form.get(name)?.invalid || this.fieldErrors()[name]);
+    if (field)
+      this.element.nativeElement
+        .querySelector<HTMLInputElement>(`[formControlName="${field}"]`)
+        ?.focus();
+  }
 
   protected readonly form = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -69,6 +124,12 @@ export class RegisterComponent {
   });
 
   protected onSubmit(): void {
+    if (this.submitting()) return;
+    if (this.isLogin()) {
+      this.loginForm.markAllAsTouched();
+      this.focusFirstError();
+      return;
+    }
     this.submitAttempted.set(true);
     this.form.markAllAsTouched();
     this.fieldErrors.set({});
@@ -76,6 +137,7 @@ export class RegisterComponent {
     this.success.set(false);
 
     if (this.form.invalid || this.submitting()) {
+      this.focusFirstError();
       return;
     }
 
@@ -93,6 +155,7 @@ export class RegisterComponent {
         if (error instanceof RegisterError) {
           this.fieldErrors.set(error.fieldErrors);
           this.formError.set(error.formError);
+          this.focusFirstError();
           return;
         }
 
