@@ -22,7 +22,7 @@ Finish US1 on the client + API docs: a registration form at `/auth/register` (Sp
 - `frontend/src/app/app.html` → `<app-layout />`; layout component in `shared/components/layout/` exposes `<router-outlet />` (verified), so the lazy route renders inside the existing layout; layout behavior untouched.
 - No `@angular/material` — Tailwind is the styling approach.
 - Conventions (project skill scope-rule-architect-angular): standalone (no NgModules), no `.component`/`.service` suffixes in filenames, feature folder `features/<feature>/`, `inject()`, `input()`/`output()`, OnPush, signals + computed, native control flow `@if/@for`, typed reactive forms, no `any`, NO lifecycle hooks like `ngOnInit`, Scope Rule (code used by 1 feature stays local in the feature).
-- **Backend**: `backend/src/Playtrought.Api` (net10.0, Swashbuckle `AddSwaggerGen` already configured). Controller `AuthController.Register` already returns 201 Created / 400 `ValidationProblemDetails` / 409 `ProblemDetails` / 500 Problem. Identity policy: 8+, upper, lower, digit, no symbol. Tables renamed (Users/Roles/..., applied).
+- **Backend**: `backend/src/Playtrough.Api` (net10.0, Swashbuckle `AddSwaggerGen` already configured). Controller `AuthController.Register` already returns 201 Created / 400 `ValidationProblemDetails` / 409 `ProblemDetails` / 500 Problem. Identity policy: 8+, upper, lower, digit, no symbol. Tables renamed (Users/Roles/..., applied).
 - CORS AngularDev allows `http://localhost:4200` — no change needed.
 
 ## Decisions (final, user-approved 2026-10-11)
@@ -59,13 +59,13 @@ Finish US1 on the client + API docs: a registration form at `/auth/register` (Sp
 - [x] T4.2 Run `ng test` (vitest) green; fix any pre-existing broken test only if it blocks the run (report it).
 
 ### T5 — Swagger examples (Opción A, no packages)
-- [x] T5.1 `backend/src/Playtrought.Api/OpenApi/RegisterEndpointExamplesFilter.cs`: `IOperationFilter` that, ONLY for `AuthController.Register`, sets request body example + response examples for 201 / 400 / 409 (realistic JSON matching `RegisterRequestDto`, `RegisterResponseDto`, `ValidationProblemDetails`, `ProblemDetails`).
+- [x] T5.1 `backend/src/Playtrough.Api/OpenApi/RegisterEndpointExamplesFilter.cs`: `IOperationFilter` that, ONLY for `AuthController.Register`, sets request body example + response examples for 201 / 400 / 409 (realistic JSON matching `RegisterRequestDto`, `RegisterResponseDto`, `ValidationProblemDetails`, `ProblemDetails`).
 - [x] T5.2 Register the filter in `AddSwaggerGen` (`options.OperationFilter<RegisterEndpointExamplesFilter>()`).
 - [x] T5.3 Build backend 0 warnings/0 errors; verify examples appear in `swagger.json` (confirmed by running the API and reading `/swagger/v1/swagger.json`).
 
 ### T6 — Verification and delivery
 - [x] T6.1 Frontend: `ng test` green, `ng build` green (Tailwind included).
-- [x] T6.2 Backend: `dotnet build backend/Playtrought.sln` 0/0.
+- [x] T6.2 Backend: `dotnet build backend/Playtrough.sln` 0/0.
 - [x] T6.3 Work-unit commits (conventional, no AI attribution; English commit messages):
   1. `feat(auth): add register form with tailwind and reactive validations`
   2. `feat(auth): add auth service with server error mapping`
@@ -76,7 +76,7 @@ Finish US1 on the client + API docs: a registration form at `/auth/register` (Sp
 ### T7 — Fix: response examples hidden by the default media type (2026-10-11, post user review)
 Detected while the user reviewed Swagger UI by hand: the 201/400/409 examples were present in `swagger.json` but the UI showed schema-generated samples (`{"id": 0, "username": "string", ...}`).
 - **Root cause**: ASP.NET Core output formatters make Swashbuckle list `text/plain, application/json, text/json` for each response, with `text/plain` FIRST. Swagger UI defaults its media type dropdown to the first entry, so it rendered `text/plain` (no example) instead of `application/json` (with the example). Forcing `application/json` in the running UI DID reveal all three examples — the filter was correct; the default selection was wrong.
-- [x] T7.1 `backend/src/Playtrought.Api/OpenApi/JsonOnlyContentFilter.cs`: `IOperationFilter` that prunes every non-`application/json` media type from request and response content (skips bodies that have no JSON variant, so no empty content list).
+- [x] T7.1 `backend/src/Playtrough.Api/OpenApi/JsonOnlyContentFilter.cs`: `IOperationFilter` that prunes every non-`application/json` media type from request and response content (skips bodies that have no JSON variant, so no empty content list).
 - [x] T7.2 Register it in `AddSwaggerGen`, after `RegisterEndpointExamplesFilter`.
 - [ ] T7.3 Rebuild + restart the backend and confirm the Swagger UI shows 201/400/409 examples WITHOUT touching the media type dropdown (pending the user's restart — no build performed here per the project rule).
 
@@ -91,14 +91,14 @@ Detected while the user reviewed Swagger UI by hand: the 201/400/409 examples we
 - Modified: `frontend/src/app/app.routes.ts` (lazy `auth/register` route). `styles.css` already had `@import 'tailwindcss';` — untouched.
 
 **Backend files created**
-- `backend/src/Playtrought.Api/OpenApi/RegisterEndpointExamplesFilter.cs` — `IOperationFilter` scoped to `AuthController.Register`; sets JsonNode examples for request body, 201, 400, 409 (guards nullable `Content`/`Responses` per Microsoft.OpenApi 2.7.5 annotations).
-- `backend/src/Playtrought.Api/OpenApi/JsonOnlyContentFilter.cs` — `IOperationFilter` (T7) that prunes non-`application/json` media types from request/response content so Swagger UI defaults to JSON and shows the examples.
-- Modified: `backend/src/Playtrought.Api/Program.cs` — `AddSwaggerGen(options => { options.OperationFilter<RegisterEndpointExamplesFilter>(); options.OperationFilter<JsonOnlyContentFilter>(); })`.
+- `backend/src/Playtrough.Api/OpenApi/RegisterEndpointExamplesFilter.cs` — `IOperationFilter` scoped to `AuthController.Register`; sets JsonNode examples for request body, 201, 400, 409 (guards nullable `Content`/`Responses` per Microsoft.OpenApi 2.7.5 annotations).
+- `backend/src/Playtrough.Api/OpenApi/JsonOnlyContentFilter.cs` — `IOperationFilter` (T7) that prunes non-`application/json` media types from request/response content so Swagger UI defaults to JSON and shows the examples.
+- Modified: `backend/src/Playtrough.Api/Program.cs` — `AddSwaggerGen(options => { options.OperationFilter<RegisterEndpointExamplesFilter>(); options.OperationFilter<JsonOnlyContentFilter>(); })`.
 
 **Verification (exact outputs)**
 - `npx ng test --watch=false` → `Test Files 2 passed (2)`, `Tests 7 passed (7)` (5 new + 2 pre-existing app.spec).
 - `npx ng build` → success; initial total 244.72 kB, register lazy chunk 46.49 kB, styles 10.89 kB (Tailwind CSS emitted).
-- `dotnet build backend/Playtrought.sln` → `Build succeeded. 0 Warning(s) 0 Error(s)`.
+- `dotnet build backend/Playtrough.sln` → `Build succeeded. 0 Warning(s) 0 Error(s)`.
 - Live check: `GET http://localhost:5000/swagger/v1/swagger.json` → request example `{"email":"ana@example.com","username":"ana_dev","password":"Str0ngPass1"}`, 201/400/409 examples present, incl. `"title":"Email already registered"`. API process stopped afterwards.
 - Root cause of the "examples not visible in the UI" report (T7): the spec response content keys are `text/plain, application/json, text/json` (text/plain first), and Swagger UI defaulted its media type dropdown to `text/plain`. Setting the dropdown to `application/json` in the running UI rendered all three examples (201 `ana_dev` + `createdAt 12:00:00`, 400 password `uppercase` error, 409 `already registered`).
 

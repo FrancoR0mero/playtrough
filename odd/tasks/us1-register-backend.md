@@ -17,10 +17,10 @@ Implement `POST /api/auth/register` so a visitor can register with email, userna
 
 ## Environment facts
 
-- `net10.0`; API `backend/src/Playtrought.Api`, tests `backend/tests/Playtrought.Tests` (xUnit + Moq, no test source yet).
+- `net10.0`; API `backend/src/Playtrough.Api`, tests `backend/tests/Playtrough.Tests` (xUnit + Moq, no test source yet).
 - Identity already wired: `AddIdentity<ApplicationUser, IdentityRole<int>>(RequireUniqueEmail=true)` + EF stores; role seed `User`(1) / `Admin`(2); unique indexes on `NormalizedEmail` and `NormalizedUserName`.
 - CORS `AngularDev` already allows `http://localhost:4200`; `RequireUniqueEmail` stays on.
-- Convention: namespace per folder (`Playtrought.Api.Models`, `Playtrought.Api.Data`). New folders: `Controllers`, `Dtos/Auth`, `Repositories`, `Services`.
+- Convention: namespace per folder (`Playtrough.Api.Models`, `Playtrough.Api.Data`). New folders: `Controllers`, `Dtos/Auth`, `Repositories`, `Services`.
 - MySQL Docker on 3307 (`playtrought_dev`); user-secrets `ConnectionStrings:DefaultConnection` set.
 - EF tools default to Development; `dotnet ef` works without env var here.
 
@@ -30,7 +30,7 @@ Implement `POST /api/auth/register` so a visitor can register with email, userna
 2. **Transaction via `IDbContextTransaction` exposed by the repository (`BeginTransactionAsync`)**: simplest testable atomicity for create-user + add-role on the same DbContext; service commits or rolls back.
 3. **Password policy without required symbol**: length dominates strength (NIST SP 800-63B discourages forced composition); 8 + upper + lower + digit is reasonable and UX-friendly.
 4. **`CreatedAt` as C# initializer `= DateTime.UtcNow`**: EF always writes the value on insert; column `datetime(6) NOT NULL` with no SQL default keeps the migration simple and deterministic.
-5. **`Dtos/Auth` folder, namespace `Playtrought.Api.Dtos.Auth`**: follows the folder-per-namespace convention (like `Models`).
+5. **`Dtos/Auth` folder, namespace `Playtrough.Api.Dtos.Auth`**: follows the folder-per-namespace convention (like `Models`).
 6. **Duplicate checks use `UserManager.NormalizeEmail`/`NormalizeName` against `Normalized*` columns**: case-insensitive by construction; DB unique indexes remain the second line of defense against races.
 7. **`CreateAsync` `IdentityError`s `DuplicateEmail`/`DuplicateUserName` map to 409 too**: race-defense; the check is not the only guard.
 8. **Mapper as simple static extension methods**: no AutoMapper (not present; user approval required before adding).
@@ -81,8 +81,8 @@ Implement `POST /api/auth/register` so a visitor can register with email, userna
 
 ## Verification evidence (2026-10-11)
 
-- `dotnet build backend/Playtrought.sln` → Build succeeded, **0 warnings / 0 errors**.
-- `dotnet test backend/Playtrought.sln` → **Passed: 7, Failed: 0, Skipped: 0** (duration ~552 ms). Tests: success+commit, trim, duplicate email, duplicate username, weak password (ValidationError + rollback), create race DuplicateEmail (→ EmailAlreadyExists + rollback), role-assign failure (Unexpected + rollback).
+- `dotnet build backend/Playtrough.sln` → Build succeeded, **0 warnings / 0 errors**.
+- `dotnet test backend/Playtrough.sln` → **Passed: 7, Failed: 0, Skipped: 0** (duration ~552 ms). Tests: success+commit, trim, duplicate email, duplicate username, weak password (ValidationError + rollback), create race DuplicateEmail (→ EmailAlreadyExists + rollback), role-assign failure (Unexpected + rollback).
 - Migration `20261011194139_RenameIdentityTablesAndAddUserCreatedAt` **APPLIED with user approval**: 7× `RenameTable` (AspNet* → Users/Roles/UserRoles/RoleClaims/UserClaims/UserLogins/UserTokens) + index/FK/PK renames + `AddColumn CreatedAt` (`datetime(6)` NOT NULL). No `DropTable`; roles User(1)/Admin(2) preserved; verified via `SHOW TABLES` + `information_schema`. DB default `0001-01-01 00:00:00` on CreatedAt is a one-time safety default for pre-existing rows (app always writes the value via C# initializer).
 - Container `playtrought-mysql` healthy again after environment restart (docker compose up -d); DB reachable for the apply step.
 - RDD native review of this slice: **pending** — `gentle-ai review assess` to run against a work-unit boundary after the user-facing delivery steps.

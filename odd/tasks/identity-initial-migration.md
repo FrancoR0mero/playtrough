@@ -17,7 +17,7 @@ Prepare the MySQL database with the ASP.NET Identity schema through an initial m
 
 ## Environment facts (verified 2026-10-09)
 
-- `net10.0`; projects: `backend/src/Playtrought.Api` (web, startup) + `backend/tests/Playtrought.Tests`
+- `net10.0`; projects: `backend/src/Playtrough.Api` (web, startup) + `backend/tests/Playtrough.Tests`
 - Provider: Oracle `MySql.EntityFrameworkCore` 10.0.9. Pomelo's latest stable is `9.0.0` / TFM `net8.0` / EF Core Relational `[9.0.0, 9.0.999]` → incompatible with EF Core 10.
 - The Oracle provider exposes **no** `ServerVersion` / `AutoDetect` API (only `EnableRetryOnFailure`): nothing to pin, and migration generation does not depend on a live server. Recorded as a comment in `Program.cs`.
 - `dotnet-ef` updated 8.0.6 → 10.0.12 (matches the EF runtime 10.0.12).
@@ -49,7 +49,7 @@ Prepare the MySQL database with the ASP.NET Identity schema through an initial m
 
 ### T4 — Migration
 
-- [x] T4.1 `dotnet ef migrations add InitialIdentity --project backend/src/Playtrought.Api --startup-project backend/src/Playtrought.Api` (Development environment)
+- [x] T4.1 `dotnet ef migrations add InitialIdentity --project backend/src/Playtrough.Api --startup-project backend/src/Playtrough.Api` (Development environment)
 - [x] T4.2 Inspect the generated migration: `int` keys with `AutoIncrement`, unique indexes on `NormalizedEmail`/`NormalizedUserName`, role seed rows, utf8mb4
 - Verification: migration files exist; inspection report included
 
@@ -76,8 +76,8 @@ Prepare the MySQL database with the ASP.NET Identity schema through an initial m
 
 - `git check-ignore -v backend/.env`: `.gitignore:45:.env	backend/.env` (matches; .env is untracked)
 - `docker compose -f backend/docker-compose.yml config`: exit 0; published port 3307:3306; healthcheck configured; utf8mb4/utf8mb4_unicode_ci
-- `dotnet user-secrets list --project backend/src/Playtrought.Api`: `ConnectionStrings:DefaultConnection = Server=127.0.0.1;Port=3307;Database=playtrought_dev;User=playtrought_dev;Password=playtrought_dev;`
-- `dotnet build backend/Playtrought.sln`: succeeded; 0 errors, 0 warnings
+- `dotnet user-secrets list --project backend/src/Playtrough.Api`: `ConnectionStrings:DefaultConnection = Server=127.0.0.1;Port=3307;Database=playtrought_dev;User=playtrought_dev;Password=playtrought_dev;`
+- `dotnet build backend/Playtrough.sln`: succeeded; 0 errors, 0 warnings
 - Migration `20261009230408_InitialIdentity`: all Identity key columns are `int` with `MySQLValueGenerationStrategy.IdentityColumn` (AutoIncrement); unique indexes on `NormalizedEmail` (EmailIndex) and `NormalizedUserName` (UserNameIndex); InsertData for roles {1, "User","USER","6f1e6b2a-0000-4000-8000-000000000001"}, {2, "Admin","ADMIN","6f1e6b2a-0000-4000-8000-000000000002"}; tables use `Annotation("MySQL:Charset", "utf8mb4")` (MySQL 8.4 uses utf8mb4 by default; charset annotations are emitted by Oracle provider)
 - Container: `playtrought-mysql` healthy
 - Database update: completed successfully

@@ -44,9 +44,9 @@ replacement fields. Existing Identity tables and role seed are preserved.
 
 ## Verification (2026-10-14)
 
-- `dotnet build backend/Playtrought.sln --no-restore --disable-build-servers -m:1 -v minimal`:
+- `dotnet build backend/Playtrough.sln --no-restore --disable-build-servers -m:1 -v minimal`:
   succeeded, zero warnings/errors.
-- `dotnet test backend/Playtrought.sln --no-build --no-restore --disable-build-servers -m:1 -v minimal`:
+- `dotnet test backend/Playtrough.sln --no-build --no-restore --disable-build-servers -m:1 -v minimal`:
   28 passed, zero failed/skipped, including all seven existing registration tests.
   VSTest requires execution outside the restricted sandbox for its testhost connection.
 - Live API on temporary port 15000, real Identity and MySQL: 24 checks passed.
@@ -55,7 +55,7 @@ replacement fields. Existing Identity tables and role seed are preserved.
   failure-counter increment/reset, required-field 400, fifth-attempt lockout, fifteen-minute
   lockout in MySQL, 423 with a correct password while locked, no token rows on failure,
   and successful login after expiration. Test user and its tokens were removed afterward.
-- `Playtrought.Api.http` contains manual examples, including separate registration for
+- `Playtrough.Api.http` contains manual examples, including separate registration for
   the lockout fixture. Run the bad-password request five times to reach 423.
 
 ## Local operation
@@ -63,8 +63,8 @@ replacement fields. Existing Identity tables and role seed are preserved.
 Development signing key lives in the API project's existing user-secrets store.
 Configure a fresh environment with a cryptographically generated key of at least 32 bytes,
 the existing ConnectionStrings:DefaultConnection secret, and Docker's backend/.env.
-Run `dotnet run --project backend/src/Playtrought.Api` (default URL localhost:5000).
-Use Swagger or `backend/src/Playtrought.Api/Playtrought.Api.http` to exercise the endpoint.
+Run `dotnet run --project backend/src/Playtrough.Api` (default URL localhost:5000).
+Use Swagger or `backend/src/Playtrough.Api/Playtrough.Api.http` to exercise the endpoint.
 
 Existing uncommitted Swagger filter and frontend task-document changes were preserved
 and excluded from the login commits. No push was performed.
