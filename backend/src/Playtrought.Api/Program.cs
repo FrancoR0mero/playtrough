@@ -104,6 +104,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.OperationFilter<RegisterEndpointExamplesFilter>();
+    options.OperationFilter<JsonOnlyContentFilter>();
 });
 
 // CORS — Angular dev server
