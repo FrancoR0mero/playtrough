@@ -33,7 +33,8 @@ No new packages or folder reorganization.
   failures: generic retryable message. Editing a field clears its previous server error.
 - Successful login redirects using a local returnUrl, otherwise /library. External URLs,
   auth-loop destinations and auxiliary outlets fall back to /library. Unknown routes use
-  the default route. Signed-in users visiting either auth mode are redirected out.
+  the default route. GuestGuard redirects signed-in users before loading either auth mode,
+  including direct navigation, restored sessions and query-parameter changes.
 - Existing AuthGuard protects /library and preserves returnUrl for guests. Library is a
   minimal landing view with username and a local logout action; no game functionality
   was introduced. The root and unknown routes redirect to /library.
@@ -53,7 +54,7 @@ No new packages or folder reorganization.
 
 - npm run build: successful production build, within configured budgets.
 - npm run lint: all files pass.
-- npm test -- --watch=false: 43 tests passed across six files, including the original
+- npm test -- --watch=false: 49 tests passed across six files, including the original
   seven tests. HTTP is mocked through Angular HttpTestingController; routing uses
   RouterTestingHarness. Tests ran outside the sandbox because its temporary-file access
   can interfere with Angular/Vitest.
