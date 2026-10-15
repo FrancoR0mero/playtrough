@@ -13,6 +13,26 @@ dotnet run --project backend/src/Playtrough.Api
 Swagger is available at http://localhost:5000/swagger. Manual requests are in
 `src/Playtrough.Api/Playtrough.Api.http`.
 
+## Automated integration tests
+
+The test project includes WebApplicationFactory tests using the real API startup,
+Identity, repositories, token service and JWT bearer middleware. Each test owns an
+isolated SQLite database in memory and a random JWT signing key. No Docker instance,
+MySQL database or development credentials are needed.
+
+```powershell
+dotnet test backend/Playtrough.sln -c Release --disable-build-servers -m:1
+```
+
+Release allows these tests to run while the development API is open in Debug.
+The `__tests/protected` controller is registered only by LoginApiFactory and is not
+part of the production API. Tests cover actual lockout/counter updates and tokens
+obtained through HTTP login. The expired-token case uses a valid test signature and
+past timestamps, so it specifically verifies lifetime validation without waiting.
+
+SQLite exercises persistence and the HTTP pipeline, but does not verify MySQL-specific
+behavior or migrations. The full suite currently contains 34 passing cases.
+
 ## Configuration
 
 The API keeps its existing UserSecretsId, so local database credentials and the JWT

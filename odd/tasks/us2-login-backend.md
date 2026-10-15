@@ -68,3 +68,30 @@ Use Swagger or `backend/src/Playtrough.Api/Playtrough.Api.http` to exercise the 
 
 Existing uncommitted Swagger filter and frontend task-document changes were preserved
 and excluded from the login commits. No push was performed.
+
+## Automated integration coverage (2026-10-15)
+
+- Added Microsoft.AspNetCore.Mvc.Testing 10.0.13 and Microsoft.EntityFrameworkCore.Sqlite
+  10.0.13 to the test project. Program exposes its entry point as public partial solely
+  to support WebApplicationFactory; no production authentication logic changed.
+- LoginApiFactory runs the real API pipeline, replacing only the database provider and
+  supplying test-only JwtSettings. Each factory owns a private SQLite in-memory connection
+  and an independently generated signing key. Identity, repositories, AuthService,
+  TokenService and bearer authentication remain real.
+- TestProtectedController is registered as an MVC application part only by the factory.
+  Its endpoint requires authorization and the User role; it is absent from production.
+- Six new integration cases verify: fifth-attempt lockout for fifteen minutes and rejection
+  of a correct password while locked; successful login resets a persisted counter from
+  three to zero and the next failure increments to one; real persisted refresh hashes
+  with seven-day lifetime; login JWT authenticates sub/name/email/role on the protected
+  endpoint; payload tampering returns 401; a correctly signed but expired token returns
+  401; empty fields produce 400 ValidationProblemDetails through HTTP. Some assertions
+  are grouped into the same case, with two separate cases in the invalid-token theory.
+- `dotnet build backend/Playtrough.sln -c Release --no-restore --disable-build-servers -m:1`:
+  successful, zero warnings/errors.
+- `dotnet test backend/Playtrough.sln -c Release --no-build --no-restore --disable-build-servers -m:1`:
+  34 passed, zero failed/skipped (28 prior cases plus six new integration cases).
+- Release was used because the running development API locks its Debug executable.
+  The development API remained running; no existing database or user data was modified.
+- These tests verify HTTP/Identity/JWT integration with SQLite; MySQL-specific behavior
+  and migration application remain separate verification concerns.

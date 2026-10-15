@@ -137,3 +137,6 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 app.Run();
+
+// Exposes the entry point to WebApplicationFactory without changing the API pipeline.
+public partial class Program { }
