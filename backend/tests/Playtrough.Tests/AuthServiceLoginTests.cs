@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Playtrough.Tests;
 
-public class LoginServiceTests
+public class AuthServiceLoginTests
 {
     private readonly Mock<IUserRepository> _repo = new();
     private readonly Mock<SignInManager<ApplicationUser>> _signIn = IdentityTestFactory.SignInManager();

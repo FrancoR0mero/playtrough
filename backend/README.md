@@ -31,7 +31,17 @@ obtained through HTTP login. The expired-token case uses a valid test signature 
 past timestamps, so it specifically verifies lifetime validation without waiting.
 
 SQLite exercises persistence and the HTTP pipeline, but does not verify MySQL-specific
-behavior or migrations. The full suite currently contains 35 passing cases.
+behavior or migrations. The full suite currently contains 52 passing cases.
+
+`AuthServiceLoginTests` and `TokenServiceTests` retain the existing service coverage.
+`AuthServiceLogoutTests` uses isolated SQLite databases and the real token service and
+refresh-token repository to verify persisted revocation, idempotency, unknown tokens,
+ownership and expiry. SQLite supports the repository's `ExecuteUpdateAsync`, unlike
+EF InMemory. Identity dependencies that logout does not use are mocked with Moq.
+
+`AuthEndpointsTests` verifies login by email/username, generic credential errors,
+validation, lockout and counter reset; signed, tampered, unsigned and expired JWTs;
+and logout responses (204/400/401), persisted revocation and repeated logout.
 
 ## Swagger login examples
 
