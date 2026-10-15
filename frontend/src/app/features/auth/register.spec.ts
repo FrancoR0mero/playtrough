@@ -60,11 +60,6 @@ describe('Authentication form', () => {
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     fixture.detectChanges();
   }
-  function credentials(): void {
-    input('identifier', 'ana');
-    input('password', 'x');
-  }
-
   beforeEach(() => {
     storage = new TokenStorageService();
     storage.clear();
@@ -74,157 +69,6 @@ describe('Authentication form', () => {
     fixture?.destroy();
     storage.clear();
     vi.restoreAllMocks();
-  });
-
-  it('shows errors only after touch and accepts a short password in login', async () => {
-    await render();
-    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
-    const identifier = fixture.nativeElement.querySelector('#identifier') as HTMLInputElement;
-    identifier.dispatchEvent(new Event('blur'));
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('#identifier-error')?.textContent).toContain(
-      'obligatorio',
-    );
-    expect(fixture.nativeElement.querySelector('#login-password-error')).toBeNull();
-    expect(identifier.getAttribute('aria-describedby')).toBe('identifier-error');
-    credentials();
-    expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(false);
-    expect(identifier.autocomplete).toBe('username');
-    expect(fixture.nativeElement.querySelector('#login-password').autocomplete).toBe(
-      'current-password',
-    );
-  });
-
-  it('disables login submission when either required field is empty', async () => {
-    await render();
-    const button = fixture.nativeElement.querySelector(
-      'button[type="submit"]',
-    ) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    input('identifier', 'ana');
-    expect(button.disabled).toBe(true);
-    input('password', 'x');
-    expect(button.disabled).toBe(false);
-    input('identifier', '');
-    expect(button.disabled).toBe(true);
-    input('identifier', 'ana');
-    expect(button.disabled).toBe(false);
-    input('password', '');
-    expect(button.disabled).toBe(true);
-    http.expectNone(`${environment.apiUrl}/auth/login`);
-  });
-
-  it('shows/hides the password without submitting or changing its value', async () => {
-    await render();
-    const password = input('password', 'secret');
-    const toggle = fixture.nativeElement.querySelector(
-      'button[aria-controls="login-password"]',
-    ) as HTMLButtonElement;
-    expect(toggle.type).toBe('button');
-    toggle.click();
-    fixture.detectChanges();
-    expect(password.type).toBe('text');
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
-    toggle.click();
-    fixture.detectChanges();
-    expect(password.type).toBe('password');
-    expect(password.value).toBe('secret');
-    http.expectNone(`${environment.apiUrl}/auth/login`);
-  });
-
-  it('submits the form, blocks duplicate requests, shows loading and redirects on success', async () => {
-    await render('login', '/library?tab=playing');
-    credentials();
-    submit();
-    submit();
-    expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(true);
-    expect(fixture.nativeElement.querySelector('form').getAttribute('aria-busy')).toBe('true');
-    expect(fixture.nativeElement.textContent).toContain('Ingresando');
-    const req = http.expectOne(`${environment.apiUrl}/auth/login`);
-    expect(req.request.body).toEqual({ identifier: 'ana', password: 'x' });
-    req.flush(session());
-    await fixture.whenStable();
-    expect(navigate).toHaveBeenCalledWith('/library?tab=playing', { replaceUrl: true });
-  });
-
-  it.each([401, 423, 500, 0])(
-    'shows an accessible error and allows retry after status %s',
-    async (status) => {
-      await render();
-      credentials();
-      submit();
-      const req = http.expectOne(`${environment.apiUrl}/auth/login`);
-      if (status === 0) req.error(new ProgressEvent('error'));
-      else req.flush({ detail: 'Internal server information' }, { status, statusText: 'Error' });
-      await fixture.whenStable();
-      fixture.detectChanges();
-      const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
-      expect(alert.textContent).toContain(
-        status === 401
-          ? 'Credenciales incorrectas'
-          : status === 423
-            ? 'bloqueada temporalmente'
-            : 'Inténtalo de nuevo',
-      );
-      expect(alert.textContent).not.toContain('Internal server information');
-      expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(false);
-      expect(
-        fixture.nativeElement.querySelector('#identifier').getAttribute('aria-invalid'),
-      ).toBeNull();
-      submit();
-      http.expectOne(`${environment.apiUrl}/auth/login`).flush(session());
-      await fixture.whenStable();
-      expect(navigate).toHaveBeenCalledWith('/library', { replaceUrl: true });
-    },
-  );
-
-  it('displays server field validation, focuses the first error and clears it on edit', async () => {
-    await render();
-    credentials();
-    submit();
-    http.expectOne(`${environment.apiUrl}/auth/login`).flush(
-      {
-        errors: {
-          Identifier: ['Email or username is required.'],
-          Password: ['Mensaje específico del servidor.'],
-        },
-      },
-      { status: 400, statusText: 'Bad Request' },
-    );
-    await fixture.whenStable();
-    fixture.detectChanges();
-    const identifier = fixture.nativeElement.querySelector('#identifier') as HTMLInputElement;
-    expect(document.activeElement).toBe(identifier);
-    expect(identifier.getAttribute('aria-invalid')).toBe('true');
-    expect(fixture.nativeElement.querySelector('#login-password-error').textContent).toContain(
-      'Mensaje específico',
-    );
-    input('identifier', 'ana2');
-    expect(fixture.nativeElement.querySelector('#identifier-error')).toBeNull();
-  });
-
-  it('does not discard validation errors without a recognized field', async () => {
-    await render();
-    credentials();
-    submit();
-    http
-      .expectOne(`${environment.apiUrl}/auth/login`)
-      .flush(
-        { errors: { '': ['Solicitud no válida.'] } },
-        { status: 400, statusText: 'Bad Request' },
-      );
-    await fixture.whenStable();
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
-      'Solicitud no válida.',
-    );
-  });
-
-  it('focuses the first invalid field on an invalid form submission', async () => {
-    await render();
-    submit();
-    expect(document.activeElement).toBe(fixture.nativeElement.querySelector('#identifier'));
-    http.expectNone(`${environment.apiUrl}/auth/login`);
   });
 
   it.each([null, '/library?tab=playing'])(
@@ -268,7 +112,7 @@ describe('Authentication form', () => {
     );
   });
 
-  it.each(['login', 'register'])('redirects an active session away from %s', async (mode) => {
+  it.each(['register'])('redirects an active session away from %s', async (mode) => {
     storage.save(session());
     await render(mode);
     expect(navigate).toHaveBeenCalledWith('/library', { replaceUrl: true });

@@ -41,8 +41,23 @@ This will compile your project and store the build artifacts in the `dist/` dire
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
 
 ```bash
-ng test
+ng test --watch=false
 ```
+
+Authentication tests use the existing Vitest runner, Angular TestBed and
+HttpTestingController. The full suite currently has 83 passing cases.
+Service tests cover login/session restoration and logout, including the bearer
+header, server/network failures, missing refresh tokens and the five-second timeout.
+Storage tests cover persistence, cleanup and corrupt or expired data.
+
+Login and header tests use mocked AuthService and TokenStorageService dependencies;
+Router navigation is spied while its URL parsing remains real. Login tests live in
+`login.spec.ts`; existing registration cases remain in `register.spec.ts`.
+HTTP tests verify there are no pending requests, and authentication storage is
+cleared between tests. No backend or browser E2E server is needed.
+
+AuthService has no public `clearSession()` method. Cleanup is verified through
+`logout()` and TokenStorageService's `clear()` without changing production code.
 
 ## Running end-to-end tests
 

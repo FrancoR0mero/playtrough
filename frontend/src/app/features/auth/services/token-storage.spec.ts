@@ -1,14 +1,9 @@
 import { TokenStorageService } from './token-storage';
-import type { LoginResponse } from '../models/login';
+import { createSession as session } from '../auth-test-helpers';
 
 describe('TokenStorageService', () => {
   const storage = new TokenStorageService();
-  const session = (): LoginResponse => ({
-    accessToken: 'access',
-    refreshToken: 'refresh',
-    expiresAt: new Date(Date.now() + 900_000).toISOString(),
-    user: { id: 1, username: 'ana', email: 'ana@example.com', role: 'User' },
-  });
+  beforeEach(() => storage.clear());
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -27,6 +22,8 @@ describe('TokenStorageService', () => {
     storage.save(session());
     storage.clear();
     expect(storage.read()).toBeNull();
+    expect(storage.readTokens()).toBeNull();
+    expect(localStorage.getItem('playtrough.session')).toBeNull();
     expect(localStorage.getItem('unrelated')).toBe('preserve');
   });
 
@@ -59,6 +56,44 @@ describe('TokenStorageService', () => {
     });
     expect(() => storage.save(session())).toThrow('denied');
     expect(storage.read()).toBeNull();
+    expect(storage.readTokens()).toBeNull();
     expect(() => storage.clear()).not.toThrow();
+  });
+
+  it('reads only access and refresh tokens for logout', () => {
+    // Arrange
+    storage.save(session());
+
+    // Act / Assert
+    expect(storage.readTokens()).toEqual({ accessToken: 'access', refreshToken: 'refresh' });
+  });
+
+  it('can read expired tokens for logout without restoring an expired session', () => {
+    // Arrange
+    localStorage.setItem(
+      'playtrough.session',
+      JSON.stringify({ ...session(), expiresAt: new Date(Date.now() - 1).toISOString() }),
+    );
+
+    // Act / Assert
+    expect(storage.readTokens()).toEqual({ accessToken: 'access', refreshToken: 'refresh' });
+    expect(storage.read()).toBeNull();
+    expect(storage.readTokens()).toBeNull();
+  });
+
+  it.each([
+    'invalid-json',
+    'null',
+    '{}',
+    '{"accessToken":"access"}',
+    '{"accessToken":42,"refreshToken":"refresh"}',
+    '{"accessToken":"access","refreshToken":"   "}',
+    '{"accessToken":"","refreshToken":"refresh"}',
+  ])('returns null instead of throwing when logout tokens are corrupt: %s', (raw) => {
+    // Arrange
+    localStorage.setItem('playtrough.session', raw);
+
+    // Act / Assert
+    expect(storage.readTokens()).toBeNull();
   });
 });
