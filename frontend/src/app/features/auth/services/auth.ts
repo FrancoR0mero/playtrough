@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, catchError, tap, throwError } from 'rxjs';
+import { Observable, catchError, defer, finalize, of, tap, throwError, timeout } from 'rxjs';
 import type { LoginRequest, LoginResponse } from '../models/login';
 import { TokenStorageService } from './token-storage';
 import { environment } from '../../../../environments/environment';
@@ -85,9 +85,31 @@ export class AuthService {
     this.setSession(this.storage.read());
   }
 
-  logout(): void {
-    this.storage.clear();
-    this.setSession(null);
+  logout(): Observable<void> {
+    return defer(() => {
+      const tokens = this.storage.readTokens();
+      if (!tokens) return of(undefined);
+
+      return this.http
+        .post<void>(
+          `${environment.apiUrl}/auth/logout`,
+          { refreshToken: tokens.refreshToken },
+          {
+            // TODO: quitar cuando exista el interceptor
+            headers: { Authorization: `Bearer ${tokens.accessToken}` },
+          },
+        )
+        .pipe(
+          // An unresponsive API must not prevent local logout.
+          timeout(5_000),
+        );
+    }).pipe(
+      catchError(() => of(undefined)),
+      finalize(() => {
+        this.storage.clear();
+        this.setSession(null);
+      }),
+    );
   }
 
   private setSession(session: LoginResponse | null): void {

@@ -26,6 +26,28 @@ export class TokenStorageService {
     return null;
   }
 
+  /** Logout may send an expired access token; this never restores an expired session. */
+  readTokens(): Pick<LoginResponse, 'accessToken' | 'refreshToken'> | null {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (raw === null) return null;
+      const session: unknown = JSON.parse(raw);
+      if (typeof session !== 'object' || session === null) return null;
+      const { accessToken, refreshToken } = session as Partial<LoginResponse>;
+      if (
+        typeof accessToken === 'string' &&
+        accessToken.trim().length > 0 &&
+        typeof refreshToken === 'string' &&
+        refreshToken.trim().length > 0
+      ) {
+        return { accessToken, refreshToken };
+      }
+    } catch {
+      // Missing or unavailable storage means there are no tokens to revoke remotely.
+    }
+    return null;
+  }
+
   clear(): void {
     try {
       localStorage.removeItem(SESSION_KEY);
