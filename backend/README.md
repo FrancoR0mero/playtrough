@@ -31,7 +31,15 @@ obtained through HTTP login. The expired-token case uses a valid test signature 
 past timestamps, so it specifically verifies lifetime validation without waiting.
 
 SQLite exercises persistence and the HTTP pipeline, but does not verify MySQL-specific
-behavior or migrations. The full suite currently contains 34 passing cases.
+behavior or migrations. The full suite currently contains 35 passing cases.
+
+## Swagger login examples
+
+POST /api/auth/login documents login by email and username as selectable examples,
+plus JSON response examples for 200, 400, 401, 423 and 500. It explains required fields,
+generic credential errors, lockout and default token lifetimes. Example token values
+are illustrative and cannot authenticate requests. Use an existing registered account
+when executing requests from Swagger UI.
 
 ## Configuration
 

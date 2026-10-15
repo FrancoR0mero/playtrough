@@ -95,3 +95,18 @@ and excluded from the login commits. No push was performed.
   The development API remained running; no existing database or user data was modified.
 - These tests verify HTTP/Identity/JWT integration with SQLite; MySQL-specific behavior
   and migration application remain separate verification concerns.
+
+## Swagger login documentation (2026-10-15, AP114067-32)
+
+- Added LoginEndpointExamplesFilter following the existing registration filter and
+  registered it before JsonOnlyContentFilter.
+- Login includes a Spanish summary and rules for identifier resolution, required fields,
+  generic credential failures, five-attempt/fifteen-minute lockout, successful counter
+  reset and default access/refresh lifetimes.
+- Selectable request examples cover email and username. Response examples cover 200,
+  400, 401, 423 and 500 with the actual DTO and ProblemDetails shapes. Sample tokens are
+  explicitly illustrative; they contain no real tokens, credentials or signing keys.
+- SwaggerDocumentationTests retrieves the generated OpenAPI document over HTTP and
+  checks published login examples, JSON media selection and preserved register examples.
+- Release build passed with zero warnings/errors. Full backend suite: 35 passed,
+  zero failures/skips. Restart the development API to display the updated Swagger UI.
