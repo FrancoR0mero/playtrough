@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../auth/services/auth';
 
 @Component({
@@ -10,10 +10,4 @@ import { AuthService } from '../auth/services/auth';
 })
 export class LibraryComponent {
   protected readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
-
-  protected logout(): void {
-    this.auth.logout();
-    void this.router.navigateByUrl('/auth/login', { replaceUrl: true });
-  }
 }

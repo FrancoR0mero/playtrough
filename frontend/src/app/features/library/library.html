@@ -4,13 +4,6 @@
     <p class="mt-4 text-slate-300">
       Bienvenido, {{ user.username }}. Este es tu espacio para organizar tus juegos.
     </p>
-    <button
-      type="button"
-      (click)="logout()"
-      class="mt-8 rounded-md border border-slate-600 px-4 py-2 text-white hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-accent"
-    >
-      Cerrar sesión
-    </button>
   } @else {
     <p role="alert" class="text-slate-200">Tu sesión venció. Volvé a iniciar sesión.</p>
     <a
