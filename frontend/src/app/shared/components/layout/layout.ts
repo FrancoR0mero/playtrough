@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../../features/auth/services/auth';
 
@@ -13,13 +13,20 @@ import { AuthService } from '../../../features/auth/services/auth';
 export class LayoutComponent {
   protected readonly auth = inject(AuthService);
   protected readonly loggingOut = signal(false);
+  private readonly router = inject(Router);
 
   protected logout(): void {
     if (this.loggingOut()) return;
     this.loggingOut.set(true);
     this.auth
       .logout()
-      .pipe(finalize(() => this.loggingOut.set(false)))
+      .pipe(
+        finalize(() => {
+          this.loggingOut.set(false);
+          // AuthService has already cleared the session. Start a fresh login without returnUrl.
+          void this.router.navigateByUrl('/auth/login', { replaceUrl: true });
+        }),
+      )
       .subscribe();
   }
 }
