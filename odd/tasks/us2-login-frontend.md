@@ -14,6 +14,8 @@ No new packages or folder reorganization.
 ## Delivered behavior
 
 - /auth/login and /auth/register load the same component with route mode data.
+- Successful registration redirects to /auth/login, preserving returnUrl without
+  creating a session. Registration failures keep the form and display its errors.
 - Separate login form requires identifier/password only. No registration password policy
   applies to login. Identifier is trimmed before sending; password is preserved exactly.
 - Touched-field errors, password visibility button, autocomplete, label associations,
@@ -54,7 +56,7 @@ No new packages or folder reorganization.
 
 - npm run build: successful production build, within configured budgets.
 - npm run lint: all files pass.
-- npm test -- --watch=false: 49 tests passed across six files, including the original
+- npm test -- --watch=false: 51 tests passed across six files, including the original
   seven tests. HTTP is mocked through Angular HttpTestingController; routing uses
   RouterTestingHarness. Tests ran outside the sandbox because its temporary-file access
   can interfere with Angular/Vitest.
@@ -69,7 +71,8 @@ No new packages or folder reorganization.
    `dotnet run --project backend/src/Playtrough.Api`. Start Angular in another terminal
    with `npm --prefix frontend start`. MySQL and the existing backend secrets must be ready.
 2. Open http://localhost:4200/auth/register. Create a test account, for example
-   ana_login@example.com / ana_login / Str0ngPass123, then use the Iniciar sesión link.
+   ana_login@example.com / ana_login / Str0ngPass123. Successful account creation should
+   automatically redirect to Iniciar sesión.
 3. Login with email, then logout and repeat with username. Expect /library and a welcome
    message. Test the password visibility button and submitting with Enter.
 4. Reload /library: the session should remain. Opening /auth/login or /auth/register with

@@ -208,24 +208,45 @@ describe('Authentication form', () => {
     http.expectNone(`${environment.apiUrl}/auth/login`);
   });
 
-  it('keeps registration validation and its existing endpoint', async () => {
+  it.each([null, '/library?tab=playing'])(
+    'redirects a successful registration to login, preserving returnUrl %s',
+    async (returnUrl) => {
+      await render('register', returnUrl);
+      input('email', 'ana@example.com');
+      input('username', 'ana');
+      input('password', 'x');
+      expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(true);
+      input('password', 'Str0ngPass123');
+      submit();
+      http
+        .expectOne(`${environment.apiUrl}/auth/register`)
+        .flush(
+          { id: 1, username: 'ana', email: 'ana@example.com', createdAt: new Date().toISOString() },
+          { status: 201, statusText: 'Created' },
+        );
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const target = returnUrl ? '/auth/login?returnUrl=%2Flibrary%3Ftab%3Dplaying' : '/auth/login';
+      expect(navigate).toHaveBeenCalledWith(target, { replaceUrl: true });
+      expect(storage.read()).toBeNull();
+    },
+  );
+
+  it('stays in registration when account creation fails', async () => {
     await render('register');
     input('email', 'ana@example.com');
     input('username', 'ana');
-    input('password', 'x');
-    expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(true);
     input('password', 'Str0ngPass123');
     submit();
     http
       .expectOne(`${environment.apiUrl}/auth/register`)
-      .flush(
-        { id: 1, username: 'ana', email: 'ana@example.com', createdAt: new Date().toISOString() },
-        { status: 201, statusText: 'Created' },
-      );
+      .flush({ title: 'Email already registered' }, { status: 409, statusText: 'Conflict' });
     await fixture.whenStable();
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Cuenta creada correctamente');
     expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+      'El email ya está registrado.',
+    );
   });
 
   it.each(['login', 'register'])('redirects an active session away from %s', async (mode) => {

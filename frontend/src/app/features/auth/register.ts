@@ -87,7 +87,6 @@ export class RegisterComponent implements OnInit {
   }
 
   protected readonly submitting = signal(false);
-  protected readonly success = signal(false);
   protected readonly submitAttempted = signal(false);
   protected readonly fieldErrors = signal<Record<string, string>>({});
   protected readonly formError = signal<string | null>(null);
@@ -153,7 +152,6 @@ export class RegisterComponent implements OnInit {
     this.form.markAllAsTouched();
     this.fieldErrors.set({});
     this.formError.set(null);
-    this.success.set(false);
 
     if (this.form.invalid || this.submitting()) {
       this.focusFirstError();
@@ -166,7 +164,10 @@ export class RegisterComponent implements OnInit {
     this.auth.register(payload).subscribe({
       next: () => {
         this.submitting.set(false);
-        this.success.set(true);
+        const login = this.router.createUrlTree(['/auth/login'], {
+          queryParams: this.returnUrl() ? { returnUrl: this.returnUrl() } : {},
+        });
+        void this.router.navigateByUrl(this.router.serializeUrl(login), { replaceUrl: true });
       },
       error: (error: unknown) => {
         this.submitting.set(false);

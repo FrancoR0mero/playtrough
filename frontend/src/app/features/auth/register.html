@@ -5,16 +5,6 @@
     {{ isLogin() ? 'Iniciar sesión' : 'Crear cuenta' }}
   </h1>
 
-  @if (success()) {
-    <div
-      class="mb-6 rounded-md border border-green-500 bg-green-50 p-4 text-green-700"
-      role="status"
-    >
-      <p class="font-medium">Cuenta creada correctamente.</p>
-      <p class="text-sm">Tu cuenta ya está lista.</p>
-    </div>
-  }
-
   @if (isLogin()) {
     <form
       [formGroup]="loginForm"
