@@ -5,4 +5,6 @@ namespace Playtrough.Api.Repositories.Interfaces;
 public interface IRefreshTokenRepository
 {
     Task AddAsync(RefreshToken token, CancellationToken ct = default);
+
+    Task RevokeActiveAsync(string tokenHash, int userId, DateTime utcNow, CancellationToken ct = default);
 }

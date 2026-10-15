@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -12,6 +14,20 @@ namespace Playtrough.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequestDto dto, CancellationToken ct)
+    {
+        if (!int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value,
+                NumberStyles.None, CultureInfo.InvariantCulture, out var userId) || userId <= 0)
+        {
+            return Challenge();
+        }
+
+        await authService.LogoutAsync(userId, dto, ct);
+        return NoContent();
+    }
+
     [HttpPost("login")]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]

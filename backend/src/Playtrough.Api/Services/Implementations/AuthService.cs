@@ -7,15 +7,24 @@ using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Api.Services.Implementations;
 
-/// <summary>Registration and login use cases. Identity handles passwords and lockout;
+/// <summary>Registration, login and logout use cases. Identity handles passwords and lockout;
 /// token generation is delegated to ITokenService.</summary>
 public class AuthService(
     IUserRepository userRepository,
     ILogger<AuthService> logger,
     SignInManager<ApplicationUser> signInManager,
-    ITokenService tokenService) : IAuthService
+    ITokenService tokenService,
+    IRefreshTokenRepository refreshTokens) : IAuthService
 {
     private const string UserRole = "User";
+
+    public Task LogoutAsync(int userId, LogoutRequestDto dto, CancellationToken ct = default)
+    {
+        // Design decision: logout revokes this refresh token only. Issued access JWTs
+        // remain valid until their configured expiry (15 minutes by default).
+        var tokenHash = tokenService.HashRefreshToken(dto.RefreshToken);
+        return refreshTokens.RevokeActiveAsync(tokenHash, userId, DateTime.UtcNow, ct);
+    }
 
     public async Task<ServiceResult<LoginResponseDto>> LoginAsync(LoginRequestDto dto, CancellationToken ct = default)
     {

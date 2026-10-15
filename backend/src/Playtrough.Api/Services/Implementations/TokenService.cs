@@ -16,6 +16,9 @@ public class TokenService(
     IOptions<JwtSettings> options,
     IRefreshTokenRepository refreshTokens) : ITokenService
 {
+    public string HashRefreshToken(string refreshToken)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
+
     public async Task<TokenPair> CreateAsync(ApplicationUser user, IList<string> roles, CancellationToken ct = default)
     {
         var settings = options.Value;
@@ -44,7 +47,7 @@ public class TokenService(
         await refreshTokens.AddAsync(new RefreshToken
         {
             UserId = user.Id,
-            TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken))),
+            TokenHash = HashRefreshToken(refreshToken),
             CreatedAt = now,
             ExpiresAt = now.AddDays(settings.RefreshTokenExpirationDays),
         }, ct);

@@ -21,7 +21,7 @@ public class AuthServiceTests
     private readonly Mock<IDbContextTransaction> _transaction = new();
 
     private AuthService CreateService() => new(_repo.Object, _logger.Object,
-        IdentityTestFactory.SignInManager().Object, Mock.Of<ITokenService>());
+        IdentityTestFactory.SignInManager().Object, Mock.Of<ITokenService>(), Mock.Of<IRefreshTokenRepository>());
 
     private static RegisterRequestDto ValidDto() => new()
     {

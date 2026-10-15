@@ -18,7 +18,8 @@ public class LoginServiceTests
     private readonly Mock<ITokenService> _tokens = new();
     private readonly ApplicationUser _user = new() { Id = 42, UserName = "ana", Email = "ana@example.com" };
 
-    private AuthService Service() => new(_repo.Object, Mock.Of<ILogger<AuthService>>(), _signIn.Object, _tokens.Object);
+    private AuthService Service() => new(_repo.Object, Mock.Of<ILogger<AuthService>>(), _signIn.Object, _tokens.Object,
+        Mock.Of<IRefreshTokenRepository>());
 
     private void SetupUser(bool success = true)
     {
