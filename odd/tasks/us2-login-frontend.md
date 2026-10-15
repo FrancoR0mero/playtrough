@@ -56,7 +56,7 @@ No new packages or folder reorganization.
 
 - npm run build: successful production build, within configured budgets.
 - npm run lint: all files pass.
-- npm test -- --watch=false: 51 tests passed across six files, including the original
+- npm test -- --watch=false: 55 tests passed across six files, including the original
   seven tests. HTTP is mocked through Angular HttpTestingController; routing uses
   RouterTestingHarness. Tests ran outside the sandbox because its temporary-file access
   can interfere with Angular/Vitest.
@@ -96,3 +96,16 @@ No new packages or folder reorganization.
 - feat(auth): handle login errors and authenticated navigation
 
 All commits are local; no push is part of this task.
+
+## Explicit test coverage completed (2026-10-15)
+
+- Service tests now assert that both 401 and 423 deliver a typed LoginError with the
+  expected message, never emit a successful response, never call storage.save and leave
+  the current user, authentication state and persisted session empty.
+- Startup tests explicitly cover absent storage and a session that expired before
+  AuthService was constructed, independently from the existing active-session timer test.
+- The login component test checks the disabled submit button initially and whenever
+  either required field is cleared, and its enabled state once both fields are populated.
+- No production code changed. Lint passed. The full suite passed with 55 tests; the retry
+  limited NG_BUILD_MAX_WORKERS and RAYON_NUM_THREADS to one after a runner memory-allocation
+  failure in the initial attempt. No permanent runner configuration was changed.

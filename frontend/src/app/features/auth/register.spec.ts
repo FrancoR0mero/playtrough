@@ -95,6 +95,25 @@ describe('Authentication form', () => {
     );
   });
 
+  it('disables login submission when either required field is empty', async () => {
+    await render();
+    const button = fixture.nativeElement.querySelector(
+      'button[type="submit"]',
+    ) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    input('identifier', 'ana');
+    expect(button.disabled).toBe(true);
+    input('password', 'x');
+    expect(button.disabled).toBe(false);
+    input('identifier', '');
+    expect(button.disabled).toBe(true);
+    input('identifier', 'ana');
+    expect(button.disabled).toBe(false);
+    input('password', '');
+    expect(button.disabled).toBe(true);
+    http.expectNone(`${environment.apiUrl}/auth/login`);
+  });
+
   it('shows/hides the password without submitting or changing its value', async () => {
     await render();
     const password = input('password', 'secret');

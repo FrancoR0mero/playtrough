@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
 import type { LoginResponse } from '../models/login';
-import { AuthService } from './auth';
+import { AuthService, LoginError } from './auth';
 import { TokenStorageService } from './token-storage';
 
 describe('AuthService login and session', () => {
@@ -28,6 +28,7 @@ describe('AuthService login and session', () => {
   afterEach(() => {
     http.verify();
     TestBed.inject(AuthService).logout();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -46,14 +47,54 @@ describe('AuthService login and session', () => {
     expect(storage.read()).toEqual(value);
   });
 
-  it('does not persist a failed login', () => {
+  it.each([
+    { status: 401, message: 'Credenciales incorrectas' },
+    {
+      status: 423,
+      message: 'Tu cuenta está bloqueada temporalmente. Intentá iniciar sesión más tarde.',
+    },
+  ])(
+    'propagates a typed $status error without persisting or authenticating',
+    ({ status, message }) => {
+      const auth = TestBed.inject(AuthService);
+      const save = vi.spyOn(storage, 'save');
+      const next = vi.fn();
+      const error = vi.fn();
+      auth.login('ana', 'wrong').subscribe({ next, error });
+      http
+        .expectOne(`${environment.apiUrl}/auth/login`)
+        .flush(
+          { title: 'Backend detail', detail: 'Internal information' },
+          { status, statusText: status === 401 ? 'Unauthorized' : 'Locked' },
+        );
+
+      expect(error).toHaveBeenCalledExactlyOnceWith(expect.any(LoginError));
+      const received = error.mock.calls[0][0] as LoginError;
+      expect(received.formError).toBe(message);
+      expect(received.fieldErrors).toEqual({});
+      expect(next).not.toHaveBeenCalled();
+      expect(save).not.toHaveBeenCalled();
+      expect(auth.isAuthenticated()).toBe(false);
+      expect(auth.currentUser()).toBeNull();
+      expect(localStorage.getItem('playtrough.session')).toBeNull();
+    },
+  );
+
+  it('starts unauthenticated when no session is stored', () => {
     const auth = TestBed.inject(AuthService);
-    auth.login('ana', 'wrong').subscribe({ error: () => undefined });
-    http
-      .expectOne(`${environment.apiUrl}/auth/login`)
-      .flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(auth.isAuthenticated()).toBe(false);
+    expect(auth.currentUser()).toBeNull();
     expect(storage.read()).toBeNull();
+  });
+
+  it('discards an already expired session before restoring authentication at startup', () => {
+    storage.save(session());
+    // Advance before constructing AuthService: this tests startup, not its expiry timer.
+    vi.advanceTimersByTime(900_000);
+    const auth = TestBed.inject(AuthService);
+    expect(auth.isAuthenticated()).toBe(false);
+    expect(auth.currentUser()).toBeNull();
+    expect(localStorage.getItem('playtrough.session')).toBeNull();
   });
 
   it('restores the stored session when the service is created', () => {
