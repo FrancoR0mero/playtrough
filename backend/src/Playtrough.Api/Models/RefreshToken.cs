@@ -11,4 +11,7 @@ public class RefreshToken
 
     /// <summary>Hash of the replacement token, when rotated. Never stores a raw token.</summary>
     public string? ReplacedByToken { get; set; }
+
+    /// <summary>Revoked or expired tokens must never be accepted for renewal.</summary>
+    public bool IsActive(DateTime utcNow) => RevokedAt is null && ExpiresAt > utcNow;
 }
