@@ -6,6 +6,14 @@
   </h1>
 
   @if (isLogin()) {
+    @if (sessionExpired()) {
+      <p
+        role="status"
+        class="mb-5 rounded-md border border-amber-500/50 bg-amber-950/40 p-4 text-sm text-amber-100"
+      >
+        Tu sesión expiró, iniciá sesión de nuevo.
+      </p>
+    }
     <form
       [formGroup]="loginForm"
       (ngSubmit)="onSubmit()"

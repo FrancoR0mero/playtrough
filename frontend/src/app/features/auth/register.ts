@@ -74,6 +74,13 @@ export class RegisterComponent implements OnInit {
     initialValue: this.route.snapshot.queryParamMap,
   });
   protected readonly returnUrl = computed(() => this.queryParams().get('returnUrl'));
+  private readonly expirationNoticeDismissed = signal(false);
+  protected readonly sessionExpired = computed(
+    () =>
+      this.isLogin() &&
+      this.queryParams().get('sessionExpired') === 'true' &&
+      !this.expirationNoticeDismissed(),
+  );
 
   ngOnInit(): void {
     this.auth.restoreSession();
@@ -144,6 +151,7 @@ export class RegisterComponent implements OnInit {
 
   protected onSubmit(): void {
     if (this.submitting()) return;
+    this.expirationNoticeDismissed.set(true);
     if (this.isLogin()) {
       this.submitLogin();
       return;
