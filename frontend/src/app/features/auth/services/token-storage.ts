@@ -9,16 +9,20 @@ const SESSION_KEY = 'playtrough.session';
 @Injectable({ providedIn: 'root' })
 export class TokenStorageService {
   save(session: LoginResponse): void {
-    if (!this.isValidSession(session)) throw new Error('Invalid or expired session');
+    if (!this.isWellFormedSession(session) || Date.parse(session.expiresAt) <= Date.now())
+      throw new Error('Invalid or expired session');
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   }
 
-  read(): LoginResponse | null {
+  read(allowExpired = false): LoginResponse | null {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
       if (raw === null) return null;
       const session: unknown = JSON.parse(raw);
-      if (this.isValidSession(session)) return session;
+      if (this.isWellFormedSession(session)) {
+        // Access expiry must not destroy a refresh token that can still renew the session.
+        return allowExpired || Date.parse(session.expiresAt) > Date.now() ? session : null;
+      }
     } catch {
       // Missing browser storage, malformed JSON or denied access means no restorable session.
     }
@@ -26,7 +30,7 @@ export class TokenStorageService {
     return null;
   }
 
-  /** Logout may send an expired access token; this never restores an expired session. */
+  /** Refresh/logout may need tokens after access expiry; this never authenticates a user. */
   readTokens(): Pick<LoginResponse, 'accessToken' | 'refreshToken'> | null {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
@@ -56,7 +60,7 @@ export class TokenStorageService {
     }
   }
 
-  private isValidSession(value: unknown): value is LoginResponse {
+  private isWellFormedSession(value: unknown): value is LoginResponse {
     if (typeof value !== 'object' || value === null) return false;
     const session = value as Partial<LoginResponse>;
     const user = session.user;
@@ -66,7 +70,7 @@ export class TokenStorageService {
       typeof session.refreshToken === 'string' &&
       session.refreshToken.length > 0 &&
       typeof session.expiresAt === 'string' &&
-      Date.parse(session.expiresAt) > Date.now() &&
+      Number.isFinite(Date.parse(session.expiresAt)) &&
       typeof user === 'object' &&
       user !== null &&
       Number.isInteger(user.id) &&

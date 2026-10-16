@@ -1,7 +1,20 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, catchError, defer, finalize, of, tap, throwError, timeout } from 'rxjs';
+import { Router } from '@angular/router';
+import {
+  Observable,
+  catchError,
+  defer,
+  finalize,
+  map,
+  of,
+  shareReplay,
+  tap,
+  throwError,
+  timeout,
+} from 'rxjs';
 import type { LoginRequest, LoginResponse } from '../models/login';
+import type { RefreshRequest, RefreshResponse } from '../models/refresh';
 import { TokenStorageService } from './token-storage';
 import { environment } from '../../../../environments/environment';
 import type {
@@ -59,8 +72,11 @@ const BACKEND_MESSAGE_TRANSLATIONS: Record<string, string> = {
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly storage = inject(TokenStorageService);
+  private readonly router = inject(Router);
   private readonly session = signal<LoginResponse | null>(null);
   private expiryTimer: ReturnType<typeof setTimeout> | undefined;
+  private sessionVersion = 0;
+  private refreshRequest: { version: number; stream: Observable<string> } | null = null;
 
   readonly currentUser = computed(() => this.session()?.user ?? null);
   readonly isAuthenticated = computed(() => this.session() !== null);
@@ -75,6 +91,7 @@ export class AuthService {
     return this.http.post<LoginResponse>(`${environment.apiUrl}/auth/login`, payload).pipe(
       tap((response) => {
         this.storage.save(response);
+        this.sessionVersion++;
         this.setSession(response);
       }),
       catchError((error: unknown) => throwError(() => this.toLoginError(error))),
@@ -85,8 +102,69 @@ export class AuthService {
     this.setSession(this.storage.read());
   }
 
+  refresh(): Observable<string> {
+    // Resolve the shared request on subscription. Completed requests are never reused,
+    // even when callers retain and subscribe again to an earlier returned Observable.
+    return defer(() => {
+      if (this.refreshRequest?.version === this.sessionVersion) return this.refreshRequest.stream;
+      const version = this.sessionVersion;
+      const request = { version, stream: undefined! as Observable<string> };
+      request.stream = defer(() => {
+        const tokens = this.storage.readTokens();
+        if (!tokens) return throwError(() => new Error('No refresh token is stored.'));
+        const payload: RefreshRequest = { refreshToken: tokens.refreshToken };
+        // Public endpoint: an expired access token must never be attached here.
+        return this.http.post<RefreshResponse>(`${environment.apiUrl}/auth/refresh`, payload).pipe(
+          map((response) => {
+            if (
+              version !== this.sessionVersion ||
+              this.storage.readTokens()?.refreshToken !== tokens.refreshToken
+            )
+              throw new Error('The session changed while refreshing.');
+            this.storage.save(response);
+            this.setSession(response);
+            return response.accessToken;
+          }),
+        );
+      }).pipe(
+        catchError((error: unknown) => {
+          // A network failure has no server response: keep the refresh token for a later
+          // explicit retry. Clearing it would force a new login after a transient outage.
+          const networkFailure = error instanceof HttpErrorResponse && error.status === 0;
+          if (version === this.sessionVersion && !networkFailure) {
+            this.clearSession();
+            const expired = error instanceof HttpErrorResponse && error.status === 401;
+            void this.router.navigateByUrl(
+              expired ? '/auth/login?sessionExpired=true' : '/auth/login',
+              {
+                replaceUrl: true,
+              },
+            );
+          }
+          return throwError(() => error);
+        }),
+        finalize(() => {
+          if (this.refreshRequest === request) this.refreshRequest = null;
+        }),
+        // Keep one request alive if an individual caller unsubscribes: the server may
+        // already have rotated the token, and other callers still need its response.
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+      this.refreshRequest = request;
+      return request.stream;
+    });
+  }
+
+  private clearSession(): void {
+    this.sessionVersion++;
+    this.storage.clear();
+    this.setSession(null);
+  }
+
   logout(): Observable<void> {
     return defer(() => {
+      // A refresh already in flight must not restore a session after logout.
+      this.sessionVersion++;
       const tokens = this.storage.readTokens();
       if (!tokens) return of(undefined);
 
@@ -106,8 +184,7 @@ export class AuthService {
     }).pipe(
       catchError(() => of(undefined)),
       finalize(() => {
-        this.storage.clear();
-        this.setSession(null);
+        this.clearSession();
       }),
     );
   }
