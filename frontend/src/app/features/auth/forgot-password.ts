@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -16,7 +23,9 @@ export class ForgotPasswordComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private timer: ReturnType<typeof setInterval> | undefined;
-  protected readonly form = inject(FormBuilder).nonNullable.group({ email: ['', [Validators.required, Validators.email]] });
+  protected readonly form = inject(FormBuilder).nonNullable.group({
+    email: ['', [Validators.required, Validators.email]],
+  });
   protected readonly submitting = signal(false);
   protected readonly sent = signal(false);
   protected readonly remaining = signal(0);
@@ -42,20 +51,23 @@ export class ForgotPasswordComponent {
     }
     this.error.set(null);
     this.submitting.set(true);
-    this.auth.forgotPassword(this.form.getRawValue().email).pipe(
-      takeUntilDestroyed(this.destroyRef),
-      finalize(() => this.submitting.set(false)),
-    ).subscribe({
-      next: () => {
-        this.sent.set(true);
-        this.remaining.set(30);
-        clearInterval(this.timer);
-        this.timer = setInterval(() => {
-          this.remaining.update(value => Math.max(0, value - 1));
-          if (this.remaining() === 0) clearInterval(this.timer);
-        }, 1000);
-      },
-      error: () => this.error.set('No pudimos procesar la solicitud. Intentá de nuevo.'),
-    });
+    this.auth
+      .forgotPassword(this.form.getRawValue().email)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.submitting.set(false)),
+      )
+      .subscribe({
+        next: () => {
+          this.sent.set(true);
+          this.remaining.set(30);
+          clearInterval(this.timer);
+          this.timer = setInterval(() => {
+            this.remaining.update((value) => Math.max(0, value - 1));
+            if (this.remaining() === 0) clearInterval(this.timer);
+          }, 1000);
+        },
+        error: () => this.error.set('No pudimos procesar la solicitud. Intentá de nuevo.'),
+      });
   }
 }

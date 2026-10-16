@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { vi } from 'vitest';
 import type { AuthUser, LoginResponse } from './models/login';
+import type { AuthMessage } from './models/password-recovery';
 
 export function createSession(): LoginResponse {
   return {
@@ -16,6 +17,17 @@ export function createAuthMock() {
   return {
     login: vi.fn<(identifier: string, password: string) => Observable<LoginResponse>>(),
     logout: vi.fn<() => Observable<void>>(),
+    forgotPassword: vi.fn<(email: string) => Observable<AuthMessage>>(),
+    resetPassword:
+      vi.fn<
+        (
+          email: string,
+          token: string,
+          newPassword: string,
+          confirmPassword: string,
+        ) => Observable<AuthMessage>
+      >(),
+    clearSession: vi.fn(),
     restoreSession: vi.fn(),
     currentUser: signal<AuthUser | null>(null),
     isAuthenticated: signal(false),

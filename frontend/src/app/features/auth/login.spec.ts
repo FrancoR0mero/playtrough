@@ -35,10 +35,12 @@ describe('Login form', () => {
   async function render(
     returnUrl: string | null = null,
     sessionExpired: string | null = null,
+    passwordUpdated: string | null = null,
   ): Promise<void> {
     const params = convertToParamMap({
       ...(returnUrl ? { returnUrl } : {}),
       ...(sessionExpired ? { sessionExpired } : {}),
+      ...(passwordUpdated ? { passwordUpdated } : {}),
     });
     TestBed.configureTestingModule({
       imports: [RegisterComponent],
@@ -84,6 +86,41 @@ describe('Login form', () => {
     input('identifier', 'ana');
     input('password', 'x');
   }
+
+  it('RecoveryLink_LeadsToForgotPasswordScreen', async () => {
+    await render();
+    const link = Array.from(
+      fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>,
+    ).find((element) => element.textContent?.includes('¿Olvidaste tu contraseña?'));
+    expect(link?.getAttribute('href')).toBe('/auth/forgot-password');
+  });
+
+  it('PasswordUpdated_ShowsAccessibleNoticeAndDismissesOnSubmit', async () => {
+    await render(null, null, 'true');
+    expect(fixture.nativeElement.querySelector('[role="status"]').textContent).toContain(
+      'Contraseña actualizada, iniciá sesión',
+    );
+    submit();
+    expect(fixture.nativeElement.textContent).not.toContain(
+      'Contraseña actualizada, iniciá sesión',
+    );
+  });
+
+  it('WithoutPasswordUpdated_DoesNotShowSuccessNotice', async () => {
+    await render();
+    expect(fixture.nativeElement.textContent).not.toContain(
+      'Contraseña actualizada, iniciá sesión',
+    );
+  });
+
+  it('PasswordUpdated_HidesNoticeInRegisterMode', async () => {
+    await render(null, null, 'true');
+    mode.next({ mode: 'register' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain(
+      'Contraseña actualizada, iniciá sesión',
+    );
+  });
 
   function expirationNotice(): HTMLElement | undefined {
     return Array.from<HTMLElement>(
