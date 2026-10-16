@@ -53,6 +53,19 @@ builder.Services.AddOptions<EmailSettings>()
         "Development email must use local MailHog on port 1025 without credentials or TLS.")
     .ValidateOnStart();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddSingleton<IPasswordResetQueue, PasswordResetQueue>();
+builder.Services.AddHostedService<PasswordResetWorker>();
+builder.Services.AddOptions<PasswordResetSettings>()
+    .Bind(builder.Configuration.GetSection(PasswordResetSettings.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(settings => Uri.TryCreate(settings.FrontendBaseUrl, UriKind.Absolute, out var uri) &&
+        (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+        string.IsNullOrEmpty(uri.Query) && string.IsNullOrEmpty(uri.Fragment) && string.IsNullOrEmpty(uri.UserInfo),
+        "PasswordReset:FrontendBaseUrl must be an absolute HTTP(S) URL without credentials, query or fragment.")
+    .ValidateOnStart();
+builder.Services.AddOptions<DataProtectionTokenProviderOptions>()
+    .Configure<IOptions<PasswordResetSettings>>((options, settings) =>
+        options.TokenLifespan = TimeSpan.FromMinutes(settings.Value.TokenLifespanMinutes));
 
 builder.Services.AddOptions<JwtSettings>()
     .Bind(builder.Configuration.GetSection(JwtSettings.SectionName))

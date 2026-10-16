@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Options;
+using System.Text;
 using Playtrough.Api.Dtos.Auth;
 using Playtrough.Api.Models;
 using Playtrough.Api.Repositories.Interfaces;
@@ -14,9 +17,83 @@ public class AuthService(
     ILogger<AuthService> logger,
     SignInManager<ApplicationUser> signInManager,
     ITokenService tokenService,
-    IRefreshTokenRepository refreshTokens) : IAuthService
+    IRefreshTokenRepository refreshTokens,
+    IEmailSender emailSender,
+    IPasswordResetQueue passwordResetQueue,
+    IOptions<PasswordResetSettings> passwordResetOptions) : IAuthService
 {
     private const string UserRole = "User";
+
+    public async Task<ServiceResult<AuthMessageDto>> ResetPasswordAsync(ResetPasswordRequestDto dto, CancellationToken ct = default)
+    {
+        string decoded;
+        try { decoded = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(dto.Token)); }
+        catch (FormatException) { return ServiceResult<AuthMessageDto>.Fail(AuthError.InvalidPasswordReset); }
+
+        try
+        {
+            await using var transaction = await userRepository.BeginTransactionAsync(ct);
+            var user = await userRepository.FindByEmailAsync(dto.Email.Trim(), ct);
+            if (user is null) return ServiceResult<AuthMessageDto>.Fail(AuthError.InvalidPasswordReset);
+            var users = signInManager.UserManager;
+            var reset = await users.ResetPasswordAsync(user, decoded, dto.NewPassword);
+            if (!reset.Succeeded)
+            {
+                var passwordErrors = reset.Errors.Where(error => error.Code.StartsWith("Password", StringComparison.Ordinal)).ToList();
+                return passwordErrors.Count > 0
+                    ? ServiceResult<AuthMessageDto>.Fail(AuthError.ValidationError, passwordErrors)
+                    : ServiceResult<AuthMessageDto>.Fail(AuthError.InvalidPasswordReset);
+            }
+            var clearAttempts = await users.ResetAccessFailedCountAsync(user);
+            if (!clearAttempts.Succeeded) return ServiceResult<AuthMessageDto>.Fail(AuthError.Unexpected);
+            if (user.LockoutEnd is not null)
+            {
+                var unlock = await users.SetLockoutEndDateAsync(user, null);
+                if (!unlock.Succeeded) return ServiceResult<AuthMessageDto>.Fail(AuthError.Unexpected);
+            }
+            await refreshTokens.RevokeAllActiveAsync(user.Id, DateTime.UtcNow, ct);
+            await transaction.CommitAsync(ct);
+            return ServiceResult<AuthMessageDto>.Ok(new AuthMessageDto("La contraseña se actualizó correctamente."));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError("Password reset failed ({ExceptionType}).", ex.GetType().Name);
+            return ServiceResult<AuthMessageDto>.Fail(AuthError.Unexpected);
+        }
+    }
+
+    public Task<AuthMessageDto> ForgotPasswordAsync(ForgotPasswordRequestDto dto, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        // Every valid request does the same work here, including unknown/locked accounts.
+        // Lookup, token generation and SMTP are deferred to the worker's own DI scope.
+        passwordResetQueue.Enqueue(dto.Email.Trim());
+        return Task.FromResult(new AuthMessageDto(
+            "Si el correo corresponde a una cuenta habilitada, vas a recibir instrucciones para restablecer tu contraseña."));
+    }
+
+    public async Task ProcessForgotPasswordAsync(string email, CancellationToken ct = default)
+    {
+        try
+        {
+            var user = await userRepository.FindByEmailAsync(email, ct);
+            var users = signInManager.UserManager;
+            if (user is null || await users.IsLockedOutAsync(user)) return;
+            var token = await users.GeneratePasswordResetTokenAsync(user);
+            var encoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+            var settings = passwordResetOptions.Value;
+            var url = $"{settings.FrontendBaseUrl.TrimEnd('/')}/reset-password?email={Uri.EscapeDataString(user.Email!)}&token={encoded}";
+            var content = PasswordResetEmailTemplate.Create(user.UserName ?? "gamer", url, settings.TokenLifespanMinutes);
+            await emailSender.SendAsync(user.Email!, content.Subject, content.HtmlBody, content.TextBody, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            // SMTP exception messages can contain recipient addresses, credentials or message data.
+            logger.LogError("Password recovery email processing failed ({ExceptionType}).", ex.GetType().Name);
+        }
+    }
 
     public async Task<ServiceResult<RefreshResponseDto>> RefreshAsync(RefreshRequestDto dto, CancellationToken ct = default)
     {

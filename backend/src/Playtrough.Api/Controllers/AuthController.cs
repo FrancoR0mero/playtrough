@@ -14,6 +14,47 @@ namespace Playtrough.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ResetPasswordRequestDto? dto, CancellationToken ct)
+    {
+        if (dto is null)
+        {
+            ModelState.AddModelError(string.Empty, "A request body is required.");
+            return ValidationProblem(ModelState);
+        }
+        var result = await authService.ResetPasswordAsync(dto, ct);
+        if (result.Success) return Ok(result.Value);
+        if (result.Error == AuthError.InvalidPasswordReset)
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Invalid password reset request",
+                detail: "The password reset link is invalid or has expired.");
+        if (result.Error == AuthError.ValidationError)
+        {
+            var errors = new ModelStateDictionary();
+            foreach (var error in result.IdentityErrors)
+                errors.AddModelError(nameof(ResetPasswordRequestDto.NewPassword), error.Description);
+            return ValidationProblem(errors);
+        }
+        return Problem(statusCode: StatusCodes.Status500InternalServerError,
+            title: "An unexpected error occurred while resetting the password.");
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ForgotPasswordRequestDto? dto, CancellationToken ct)
+    {
+        if (dto is null)
+        {
+            ModelState.AddModelError(nameof(ForgotPasswordRequestDto.Email), "Email is required.");
+            return ValidationProblem(ModelState);
+        }
+        return Ok(await authService.ForgotPasswordAsync(dto, ct));
+    }
+
     [HttpPost("refresh")]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
