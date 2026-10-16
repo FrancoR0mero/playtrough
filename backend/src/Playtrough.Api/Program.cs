@@ -106,6 +106,7 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.OperationFilter<RegisterEndpointExamplesFilter>();
     options.OperationFilter<LoginEndpointExamplesFilter>();
+    options.OperationFilter<RefreshEndpointExamplesFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
 });
 

@@ -30,7 +30,7 @@ obtained through HTTP login. The expired-token case uses a valid test signature 
 past timestamps, so it specifically verifies lifetime validation without waiting.
 
 SQLite exercises persistence and the HTTP pipeline, but does not verify MySQL-specific
-behavior or migrations. The full suite currently contains 77 passing cases.
+behavior or migrations. The full suite currently contains 78 passing cases.
 
 `AuthServiceLoginTests` and `TokenServiceTests` retain the existing service coverage.
 `AuthServiceLogoutTests` uses isolated SQLite databases and the real token service and
@@ -70,13 +70,24 @@ RevokedAt/ReplacedByToken persistence, generic errors and logout-session isolati
 The unique temporary account and its tokens were removed afterward. Existing
 RefreshTokens fields suffice; no migration is required.
 
-## Swagger login examples
+## Swagger authentication examples
 
 POST /api/auth/login documents login by email and username as selectable examples,
 plus JSON response examples for 200, 400, 401, 423 and 500. It explains required fields,
 generic credential errors, lockout and default token lifetimes. Example token values
 are illustrative and cannot authenticate requests. Use an existing registered account
 when executing requests from Swagger UI.
+
+POST /api/auth/refresh documents its public contract (no Authorization header),
+required refreshToken, rotation, default lifetimes, current user roles and replay
+detection, including the strict concurrent-request behavior. Selectable request
+examples cover renewal, missing token (400) and nonexistent token (401), with JSON
+response examples and typed schemas for 200/400/401/500. Replace the illustrative
+token with the current token from login or the last refresh. Save both new tokens;
+reusing an old rotated token revokes that user's active refresh tokens.
+
+SwaggerDocumentationTests checks the generated refresh contract and examples while
+preserving the login/register examples.
 
 ## Configuration
 

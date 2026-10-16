@@ -14,5 +14,14 @@
   other tests use SQLite in memory. No MySQL or developer credentials required for tests.
 - Manual MySQL verification: 28 checks passed, including three concurrent pairs;
   RevokedAt and ReplacedByToken confirmed. Temporary account/tokens cleaned up.
-- No frontend, Swagger customization, refresh job, rate limiting or new roles feature.
+- No frontend, refresh job, rate limiting or new roles feature.
 - Existing entity/migration already contains all fields; no schema change needed.
+
+## Swagger documentation
+
+- Refresh follows the existing login/register operation-filter conventions.
+- Spanish summary, public endpoint rules, required request body and renewal/missing/invalid examples.
+- Typed responses and JSON examples for 200, 400, 401 and unexpected 500.
+- Documents transaction, rotation, reuse detection, current roles and strict concurrency.
+- A generated-document integration test verifies schemas, examples and anonymous access.
+- Full backend suite: 78 passed, zero failed/skipped.
