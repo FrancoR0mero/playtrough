@@ -6,6 +6,8 @@ namespace Playtrough.Api.Services.Interfaces;
 /// <summary>Use cases for authentication-related operations.</summary>
 public interface IAuthService
 {
+    Task<ServiceResult<RefreshResponseDto>> RefreshAsync(RefreshRequestDto dto, CancellationToken ct = default);
+
     Task LogoutAsync(int userId, LogoutRequestDto dto, CancellationToken ct = default);
 
     Task<ServiceResult<LoginResponseDto>> LoginAsync(LoginRequestDto dto, CancellationToken ct = default);

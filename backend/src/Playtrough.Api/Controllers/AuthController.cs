@@ -14,6 +14,26 @@ namespace Playtrough.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Refresh(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] RefreshRequestDto? dto, CancellationToken ct)
+    {
+        if (dto is null)
+        {
+            ModelState.AddModelError(nameof(RefreshRequestDto.RefreshToken), "Refresh token is required.");
+            return ValidationProblem(ModelState);
+        }
+        var result = await authService.RefreshAsync(dto, ct);
+        if (result.Success) return Ok(result.Value);
+        return result.Error == AuthError.InvalidRefreshToken
+            ? Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Invalid refresh token",
+                detail: "The refresh token is invalid or cannot be used.")
+            : Problem(statusCode: StatusCodes.Status500InternalServerError,
+                title: "An unexpected error occurred while refreshing the session.");
+    }
+
     [HttpPost("logout")]
     [Authorize]
     public async Task<IActionResult> Logout([FromBody] LogoutRequestDto dto, CancellationToken ct)

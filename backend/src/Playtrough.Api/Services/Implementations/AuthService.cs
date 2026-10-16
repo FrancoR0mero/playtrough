@@ -7,7 +7,7 @@ using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Api.Services.Implementations;
 
-/// <summary>Registration, login and logout use cases. Identity handles passwords and lockout;
+/// <summary>Registration, login, logout and refresh use cases. Identity handles passwords and lockout;
 /// token generation is delegated to ITokenService.</summary>
 public class AuthService(
     IUserRepository userRepository,
@@ -17,6 +17,71 @@ public class AuthService(
     IRefreshTokenRepository refreshTokens) : IAuthService
 {
     private const string UserRole = "User";
+
+    public async Task<ServiceResult<RefreshResponseDto>> RefreshAsync(RefreshRequestDto dto, CancellationToken ct = default)
+    {
+        try
+        {
+            var hash = tokenService.HashRefreshToken(dto.RefreshToken);
+            var original = await refreshTokens.FindByHashAsync(hash, ct);
+            if (original is null)
+                return ServiceResult<RefreshResponseDto>.Fail(AuthError.InvalidRefreshToken);
+
+            await using var transaction = await userRepository.BeginTransactionAsync(ct);
+            var now = DateTime.UtcNow;
+
+            // The first SQL statement inside the transaction is a conditional write, not a read.
+            // Concurrent requests wait on the same row. A losing request then reads the winner's
+            // committed replacement, without a stale MySQL REPEATABLE READ snapshot.
+            var consumed = await refreshTokens.TryRevokeActiveAsync(hash, original.UserId, now, ct);
+            if (!consumed)
+            {
+                var current = await refreshTokens.FindByHashAsync(hash, ct);
+                if (current?.RevokedAt is not null && current.ReplacedByToken is not null)
+                {
+                    await refreshTokens.RevokeAllActiveAsync(current.UserId, DateTime.UtcNow, ct);
+                    logger.LogWarning("Refresh token reuse detected for user {UserId}; active refresh tokens revoked.", current.UserId);
+                }
+                await transaction.CommitAsync(ct);
+                return ServiceResult<RefreshResponseDto>.Fail(AuthError.InvalidRefreshToken);
+            }
+
+            // Check the original entity with the shared rule; the conditional UPDATE above
+            // also checks expiry/revocation in SQL so a stale pre-transaction read cannot win.
+            if (!original.IsActive(now))
+                return ServiceResult<RefreshResponseDto>.Fail(AuthError.InvalidRefreshToken);
+
+            var user = await userRepository.FindByIdAsync(original.UserId, ct);
+            if (user is null || !await signInManager.CanSignInAsync(user) ||
+                await signInManager.UserManager.IsLockedOutAsync(user))
+                return ServiceResult<RefreshResponseDto>.Fail(AuthError.InvalidRefreshToken);
+
+            var roles = await userRepository.GetRolesAsync(user, ct);
+            var tokens = await tokenService.CreateAsync(user, roles, ct);
+            await refreshTokens.SetReplacementAsync(hash, tokenService.HashRefreshToken(tokens.RefreshToken), ct);
+            var response = new RefreshResponseDto(tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresAt,
+                ToLoginUser(user, roles));
+            await transaction.CommitAsync(ct);
+            return ServiceResult<RefreshResponseDto>.Ok(response);
+            // Disposing an uncommitted transaction rolls back both consumption and token insertion.
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Never log tokens, hashes or exception text that could contain SQL parameters.
+            logger.LogError("Unexpected failure during refresh ({ExceptionType}).", ex.GetType().Name);
+            return ServiceResult<RefreshResponseDto>.Fail(AuthError.Unexpected);
+        }
+    }
+
+    private static LoginUserDto ToLoginUser(ApplicationUser user, IList<string> roles)
+    {
+        var role = roles.Contains("Admin") ? "Admin" : roles.OrderBy(r => r, StringComparer.Ordinal).FirstOrDefault() ?? string.Empty;
+        return new LoginUserDto(user.Id, user.UserName ?? string.Empty, user.Email ?? string.Empty, role);
+    }
 
     public Task LogoutAsync(int userId, LogoutRequestDto dto, CancellationToken ct = default)
     {
@@ -51,11 +116,9 @@ public class AuthService(
 
             var roles = await userRepository.GetRolesAsync(user, ct);
             var tokens = await tokenService.CreateAsync(user, roles, ct);
-            var role = roles.Contains("Admin") ? "Admin" : roles.OrderBy(r => r, StringComparer.Ordinal).FirstOrDefault() ?? string.Empty;
-
             return ServiceResult<LoginResponseDto>.Ok(new LoginResponseDto(
                 tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresAt,
-                new LoginUserDto(user.Id, user.UserName ?? string.Empty, user.Email ?? string.Empty, role)));
+                ToLoginUser(user, roles)));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

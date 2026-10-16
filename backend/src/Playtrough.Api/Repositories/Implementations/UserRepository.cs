@@ -13,6 +13,9 @@ public class UserRepository(
     UserManager<ApplicationUser> userManager,
     AppDbContext dbContext) : IUserRepository
 {
+    public Task<ApplicationUser?> FindByIdAsync(int userId, CancellationToken ct = default)
+        => dbContext.Users.SingleOrDefaultAsync(user => user.Id == userId, ct);
+
     public Task<ApplicationUser?> FindByEmailAsync(string email, CancellationToken ct = default)
     {
         var normalized = userManager.NormalizeEmail(email);

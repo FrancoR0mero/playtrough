@@ -10,4 +10,5 @@ public enum AuthError
     Unexpected,
     InvalidCredentials,
     AccountLocked,
+    InvalidRefreshToken,
 }
