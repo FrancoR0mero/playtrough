@@ -102,6 +102,18 @@ export class AuthService {
     this.setSession(this.storage.read());
   }
 
+  /** May return an expired token; callers should also check isAccessTokenExpired(). */
+  getAccessToken(): string | null {
+    return (this.session() ?? this.storage.read(true))?.accessToken ?? null;
+  }
+
+  /** Default warning window is 30 seconds; pass 0 to check exact expiry only. */
+  isAccessTokenExpired(leewaySeconds = 30): boolean {
+    const session = this.session() ?? this.storage.read(true);
+    if (!session) return true;
+    return Date.parse(session.expiresAt) <= Date.now() + Math.max(0, leewaySeconds) * 1_000;
+  }
+
   refresh(): Observable<string> {
     // Resolve the shared request on subscription. Completed requests are never reused,
     // even when callers retain and subscribe again to an earlier returned Observable.
