@@ -121,6 +121,9 @@ export class AuthService {
       if (this.refreshRequest?.version === this.sessionVersion) return this.refreshRequest.stream;
       const version = this.sessionVersion;
       const request = { version, stream: undefined! as Observable<string> };
+      const release = () => {
+        if (this.refreshRequest === request) this.refreshRequest = null;
+      };
       request.stream = defer(() => {
         const tokens = this.storage.readTokens();
         if (!tokens) return throwError(() => new Error('No refresh token is stored.'));
@@ -155,9 +158,10 @@ export class AuthService {
           }
           return throwError(() => error);
         }),
-        finalize(() => {
-          if (this.refreshRequest === request) this.refreshRequest = null;
-        }),
+        // Release before notifying completion/error, so a caller can immediately retry
+        // or request another refresh from its terminal callback without reusing this one.
+        tap({ complete: release, error: release }),
+        finalize(release),
         // Keep one request alive if an individual caller unsubscribes: the server may
         // already have rotated the token, and other callers still need its response.
         shareReplay({ bufferSize: 1, refCount: false }),
