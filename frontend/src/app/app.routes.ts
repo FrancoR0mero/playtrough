@@ -4,8 +4,14 @@ import { GuestGuard } from './core/guards/guest-guard';
 
 export const routes: Routes = [
   {
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./features/auth/reset-password').then((m) => m.ResetPasswordComponent),
+  },
+  {
     path: 'auth/forgot-password',
-    loadComponent: () => import('./features/auth/forgot-password').then(m => m.ForgotPasswordComponent),
+    loadComponent: () =>
+      import('./features/auth/forgot-password').then((m) => m.ForgotPasswordComponent),
   },
   { path: '', pathMatch: 'full', redirectTo: 'library' },
   {

@@ -15,7 +15,11 @@ import {
 } from 'rxjs';
 import type { LoginRequest, LoginResponse } from '../models/login';
 import type { RefreshRequest, RefreshResponse } from '../models/refresh';
-import type { AuthMessage, ForgotPasswordRequest, ResetPasswordRequest } from '../models/password-recovery';
+import type {
+  AuthMessage,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+} from '../models/password-recovery';
 import { TokenStorageService } from './token-storage';
 import { environment } from '../../../../environments/environment';
 import type {
@@ -211,7 +215,12 @@ export class AuthService {
     return this.http.post<AuthMessage>(`${environment.apiUrl}/auth/forgot-password`, payload);
   }
 
-  resetPassword(email: string, token: string, newPassword: string, confirmPassword: string): Observable<AuthMessage> {
+  resetPassword(
+    email: string,
+    token: string,
+    newPassword: string,
+    confirmPassword: string,
+  ): Observable<AuthMessage> {
     const payload: ResetPasswordRequest = { email, token, newPassword, confirmPassword };
     return this.http.post<AuthMessage>(`${environment.apiUrl}/auth/reset-password`, payload);
   }
