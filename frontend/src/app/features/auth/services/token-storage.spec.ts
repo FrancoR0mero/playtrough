@@ -36,12 +36,13 @@ describe('TokenStorageService', () => {
     },
   );
 
-  it('discards expired sessions even if a refresh token exists', () => {
+  it('rejects expired access authentication while preserving stored refresh credentials', () => {
     localStorage.setItem(
       'playtrough.session',
       JSON.stringify({ ...session(), expiresAt: new Date(Date.now() - 1).toISOString() }),
     );
     expect(storage.read()).toBeNull();
+    expect(storage.read(true)?.refreshToken).toBe('refresh');
   });
 
   it('surfaces save failures and tolerates unavailable storage on read/clear', () => {
@@ -78,7 +79,7 @@ describe('TokenStorageService', () => {
     // Act / Assert
     expect(storage.readTokens()).toEqual({ accessToken: 'access', refreshToken: 'refresh' });
     expect(storage.read()).toBeNull();
-    expect(storage.readTokens()).toBeNull();
+    expect(storage.readTokens()).toEqual({ accessToken: 'access', refreshToken: 'refresh' });
   });
 
   it.each([

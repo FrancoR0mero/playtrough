@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { Subject, of } from 'rxjs';
+import { BehaviorSubject, Subject, of } from 'rxjs';
 import { createAuthMock, createSession, createTokenStorageMock } from './auth-test-helpers';
 import type { LoginResponse } from './models/login';
 import { RegisterComponent } from './register';
@@ -13,6 +13,7 @@ describe('Login form', () => {
   let storage: ReturnType<typeof createTokenStorageMock>;
   let loginResult: Subject<LoginResponse>;
   let navigate: ReturnType<typeof vi.spyOn>;
+  let mode: BehaviorSubject<{ mode: string }>;
 
   beforeEach(() => {
     localStorage.removeItem('playtrough.session');
@@ -20,17 +21,25 @@ describe('Login form', () => {
     storage = createTokenStorageMock();
     loginResult = new Subject<LoginResponse>();
     auth.login.mockImplementation(() => loginResult.asObservable());
+    mode = new BehaviorSubject({ mode: 'login' });
   });
 
   afterEach(() => {
     fixture?.destroy();
     loginResult.complete();
+    mode.complete();
     localStorage.removeItem('playtrough.session');
     vi.restoreAllMocks();
   });
 
-  async function render(returnUrl: string | null = null): Promise<void> {
-    const params = convertToParamMap(returnUrl ? { returnUrl } : {});
+  async function render(
+    returnUrl: string | null = null,
+    sessionExpired: string | null = null,
+  ): Promise<void> {
+    const params = convertToParamMap({
+      ...(returnUrl ? { returnUrl } : {}),
+      ...(sessionExpired ? { sessionExpired } : {}),
+    });
     TestBed.configureTestingModule({
       imports: [RegisterComponent],
       providers: [
@@ -40,7 +49,7 @@ describe('Login form', () => {
         {
           provide: ActivatedRoute,
           useValue: {
-            data: of({ mode: 'login' }),
+            data: mode.asObservable(),
             queryParamMap: of(params),
             snapshot: { data: { mode: 'login' }, queryParamMap: params },
           },
@@ -75,6 +84,76 @@ describe('Login form', () => {
     input('identifier', 'ana');
     input('password', 'x');
   }
+
+  function expirationNotice(): HTMLElement | undefined {
+    return Array.from<HTMLElement>(
+      fixture.nativeElement.querySelectorAll('[role="status"], [role="alert"]'),
+    ).find((element) => element.textContent?.includes('Tu sesión expiró'));
+  }
+
+  it('shows an accessible expired-session notice when the query indicator is true', async () => {
+    // Arrange / Act
+    await render(null, 'true');
+
+    // Assert
+    const notice = expirationNotice();
+    expect(notice?.getAttribute('role')).toBe('status');
+    expect(notice?.textContent).toContain('Tu sesión expiró, iniciá sesión de nuevo');
+    expect(auth.login).not.toHaveBeenCalled();
+  });
+
+  it.each([null, 'false', '1'])(
+    'does not show the expired-session notice for indicator %s',
+    async (indicator) => {
+      // Arrange / Act
+      await render(null, indicator);
+
+      // Assert
+      expect(expirationNotice()).toBeUndefined();
+    },
+  );
+
+  it.each([false, true])(
+    'dismisses the expired-session notice on submit (valid=$0)',
+    async (valid) => {
+      // Arrange
+      await render(null, 'true');
+      if (valid) credentials();
+      expect(expirationNotice()).toBeDefined();
+
+      // Act
+      submit();
+
+      // Assert
+      expect(expirationNotice()).toBeUndefined();
+      if (valid) {
+        loginResult.error(new LoginError({}, 'Credenciales incorrectas'));
+        await fixture.whenStable();
+        fixture.detectChanges();
+        expect(expirationNotice()).toBeUndefined();
+        expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+          'Credenciales incorrectas',
+        );
+      } else expect(auth.login).not.toHaveBeenCalled();
+    },
+  );
+
+  it('hides the expired-session notice on registration and omits the indicator from the mode link', async () => {
+    // Arrange
+    await render(null, 'true');
+    expect(expirationNotice()).toBeDefined();
+    const link = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).not.toContain('sessionExpired');
+
+    // Act
+    mode.next({ mode: 'register' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Assert
+    expect(expirationNotice()).toBeUndefined();
+    expect(fixture.nativeElement.querySelector('h1').textContent).toContain('Crear cuenta');
+  });
 
   it('shows required errors only after each field is touched and accepts a short login password', async () => {
     // Arrange

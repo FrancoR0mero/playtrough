@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import type { RegisterRequest, RegisterResponse } from '../models/register';
 import { AuthService, RegisterError } from './auth';
@@ -26,7 +27,11 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: Router, useValue: { navigateByUrl: vi.fn().mockResolvedValue(true) } },
+      ],
     });
 
     service = TestBed.inject(AuthService);
@@ -52,7 +57,9 @@ describe('AuthService', () => {
 
   it('maps a 400 validation problem to a Spanish field error', () => {
     let error: RegisterError | undefined;
-    service.register(payload).subscribe({ error: (value: unknown) => (error = value as RegisterError) });
+    service
+      .register(payload)
+      .subscribe({ error: (value: unknown) => (error = value as RegisterError) });
 
     const request = httpMock.expectOne(registerUrl);
     request.flush(
@@ -66,7 +73,9 @@ describe('AuthService', () => {
 
   it('maps a 409 email conflict to a Spanish message', () => {
     let error: RegisterError | undefined;
-    service.register(payload).subscribe({ error: (value: unknown) => (error = value as RegisterError) });
+    service
+      .register(payload)
+      .subscribe({ error: (value: unknown) => (error = value as RegisterError) });
 
     const request = httpMock.expectOne(registerUrl);
     request.flush({ title: 'Email already registered' }, { status: 409, statusText: 'Conflict' });
@@ -77,7 +86,9 @@ describe('AuthService', () => {
 
   it('maps a 409 username conflict to a Spanish message', () => {
     let error: RegisterError | undefined;
-    service.register(payload).subscribe({ error: (value: unknown) => (error = value as RegisterError) });
+    service
+      .register(payload)
+      .subscribe({ error: (value: unknown) => (error = value as RegisterError) });
 
     const request = httpMock.expectOne(registerUrl);
     request.flush({ title: 'Username already taken' }, { status: 409, statusText: 'Conflict' });
@@ -88,7 +99,9 @@ describe('AuthService', () => {
 
   it('maps a 500 error to a generic Spanish message', () => {
     let error: RegisterError | undefined;
-    service.register(payload).subscribe({ error: (value: unknown) => (error = value as RegisterError) });
+    service
+      .register(payload)
+      .subscribe({ error: (value: unknown) => (error = value as RegisterError) });
 
     const request = httpMock.expectOne(registerUrl);
     request.flush(
