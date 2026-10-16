@@ -15,6 +15,7 @@ import {
 } from 'rxjs';
 import type { LoginRequest, LoginResponse } from '../models/login';
 import type { RefreshRequest, RefreshResponse } from '../models/refresh';
+import type { AuthMessage, ForgotPasswordRequest, ResetPasswordRequest } from '../models/password-recovery';
 import { TokenStorageService } from './token-storage';
 import { environment } from '../../../../environments/environment';
 import type {
@@ -171,7 +172,7 @@ export class AuthService {
     });
   }
 
-  private clearSession(): void {
+  clearSession(): void {
     this.sessionVersion++;
     this.storage.clear();
     this.setSession(null);
@@ -203,6 +204,16 @@ export class AuthService {
         this.clearSession();
       }),
     );
+  }
+
+  forgotPassword(email: string): Observable<AuthMessage> {
+    const payload: ForgotPasswordRequest = { email: email.trim() };
+    return this.http.post<AuthMessage>(`${environment.apiUrl}/auth/forgot-password`, payload);
+  }
+
+  resetPassword(email: string, token: string, newPassword: string, confirmPassword: string): Observable<AuthMessage> {
+    const payload: ResetPasswordRequest = { email, token, newPassword, confirmPassword };
+    return this.http.post<AuthMessage>(`${environment.apiUrl}/auth/reset-password`, payload);
   }
 
   private setSession(session: LoginResponse | null): void {
