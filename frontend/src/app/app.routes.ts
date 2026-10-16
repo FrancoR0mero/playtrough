@@ -3,6 +3,10 @@ import { AuthGuard } from './core/guards/auth-guard';
 import { GuestGuard } from './core/guards/guest-guard';
 
 export const routes: Routes = [
+  {
+    path: 'auth/forgot-password',
+    loadComponent: () => import('./features/auth/forgot-password').then(m => m.ForgotPasswordComponent),
+  },
   { path: '', pathMatch: 'full', redirectTo: 'library' },
   {
     path: 'auth/login',

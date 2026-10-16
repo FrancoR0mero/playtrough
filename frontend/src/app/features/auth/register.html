@@ -93,6 +93,7 @@
         <span role="status">{{ submitting() ? 'Ingresando…' : 'Iniciar sesión' }}</span>
       </button>
     </form>
+    <a routerLink="/auth/forgot-password" class="mt-5 inline-block rounded text-sm text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-accent">¿Olvidaste tu contraseña?</a>
   } @else {
     <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
       <div>
