@@ -55,8 +55,6 @@ replacement fields. Existing Identity tables and role seed are preserved.
   failure-counter increment/reset, required-field 400, fifth-attempt lockout, fifteen-minute
   lockout in MySQL, 423 with a correct password while locked, no token rows on failure,
   and successful login after expiration. Test user and its tokens were removed afterward.
-- `Playtrough.Api.http` contains manual examples, including separate registration for
-  the lockout fixture. Run the bad-password request five times to reach 423.
 
 ## Local operation
 
@@ -64,7 +62,7 @@ Development signing key lives in the API project's existing user-secrets store.
 Configure a fresh environment with a cryptographically generated key of at least 32 bytes,
 the existing ConnectionStrings:DefaultConnection secret, and Docker's backend/.env.
 Run `dotnet run --project backend/src/Playtrough.Api` (default URL localhost:5000).
-Use Swagger or `backend/src/Playtrough.Api/Playtrough.Api.http` to exercise the endpoint.
+Use Swagger to exercise the endpoint.
 
 Existing uncommitted Swagger filter and frontend task-document changes were preserved
 and excluded from the login commits. No push was performed.

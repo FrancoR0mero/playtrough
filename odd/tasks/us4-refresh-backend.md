@@ -14,6 +14,5 @@
   other tests use SQLite in memory. No MySQL or developer credentials required for tests.
 - Manual MySQL verification: 28 checks passed, including three concurrent pairs;
   RevokedAt and ReplacedByToken confirmed. Temporary account/tokens cleaned up.
-- Manual examples: backend/src/Playtrough.Api/Refresh.http.
 - No frontend, Swagger customization, refresh job, rate limiting or new roles feature.
 - Existing entity/migration already contains all fields; no schema change needed.

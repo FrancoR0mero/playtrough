@@ -47,14 +47,11 @@ frontend work, new test cases or Swagger documentation.
 - New verification users/tokens were isolated and removed after verification; existing
   account data was not changed. MySQL was restarted after it stopped during the initial
   verification attempt, then all checks completed successfully.
-- Logout.http contains the requested repeatable manual requests and a SQL query to
-  inspect RevokedAt. Restart the normal API after building to use the new endpoint.
 
 ## Manual steps
 
 1. Start MySQL and the API with the existing local secrets and configuration.
-2. Open backend/src/Playtrough.Api/Logout.http. Create/login the example account, then
-   copy both returned tokens to the file's variables.
+2. Create/login a dedicated logout_demo account and keep both returned tokens for the test.
 3. Query RefreshTokens joined to Users for logout_demo: the latest token has RevokedAt NULL.
 4. Send the correct logout: expect 204 and a UTC RevokedAt in MySQL.
 5. Repeat the same request with the same access JWT: expect 204 and an unchanged timestamp.

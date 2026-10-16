@@ -10,8 +10,7 @@ dotnet test backend/Playtrough.sln --no-restore --disable-build-servers -m:1
 dotnet run --project backend/src/Playtrough.Api
 ```
 
-Swagger is available at http://localhost:5000/swagger. Manual requests are in
-`src/Playtrough.Api/Playtrough.Api.http`.
+Swagger is available at http://localhost:5000/swagger.
 
 ## Automated integration tests
 
@@ -66,7 +65,6 @@ reuse isolated in-memory SQLite; concurrency uses a temporary SQLite WAL databas
 with separate connections so requests do not share a transaction/connection.
 Existing login/logout/register test cases remain unchanged.
 
-Manual requests and SQL checks are in `src/Playtrough.Api/Refresh.http`.
 MySQL was checked with 28 assertions, including three concurrent request pairs,
 RevokedAt/ReplacedByToken persistence, generic errors and logout-session isolation.
 The unique temporary account and its tokens were removed afterward. Existing
