@@ -30,7 +30,7 @@ obtained through HTTP login. The expired-token case uses a valid test signature 
 past timestamps, so it specifically verifies lifetime validation without waiting.
 
 SQLite exercises persistence and the HTTP pipeline, but does not verify MySQL-specific
-behavior or migrations. The full suite currently contains 78 passing cases.
+behavior or migrations. The full suite currently contains 120 passing cases.
 
 `AuthServiceLoginTests` and `TokenServiceTests` retain the existing service coverage.
 `AuthServiceLogoutTests` uses isolated SQLite databases and the real token service and
@@ -89,6 +89,31 @@ reusing an old rotated token revokes that user's active refresh tokens.
 SwaggerDocumentationTests checks the generated refresh contract and examples while
 preserving the login/register examples.
 
+## Password recovery
+
+POST /api/auth/forgot-password accepts a valid email and always returns the same 200
+message for existing, unknown and locked accounts. Account lookup, Identity token
+generation and email delivery run in a scoped background worker. Its in-memory queue
+is not durable and does not retry failed messages. Delivery errors are logged without
+email addresses, tokens, message bodies or exception details.
+
+POST /api/auth/reset-password accepts email, token, newPassword and confirmPassword.
+Invalid, expired, reused and wrong-account links return the same 400 ProblemDetails;
+password-policy failures expose the applicable Identity validation rules. A successful
+reset changes the security stamp, revokes the user's active refresh tokens, clears
+failed attempts and removes lockout in one transaction. Existing access JWTs retain
+their normal lifetime. No schema changes or migrations are needed.
+
+Recovery links target the configured frontend /reset-password route. The frontend
+screen is outside this backend change. Identity's existing default token providers
+are reused, with a configurable 60-minute lifetime and URL-safe Base64 encoding.
+
+The recovery service and endpoint tests use real Identity, isolated SQLite databases,
+ephemeral data-protection keys and a mocked IEmailSender. They cover single use,
+expiry, password policy, account isolation, unlock, refresh revocation, background
+delivery failures and configuration. A local MailKit/MailHog/MySQL check also passed
+23 assertions; its temporary account, tokens and email were removed afterward.
+
 ## Configuration
 
 The API keeps its existing UserSecretsId, so local database credentials and the JWT
@@ -98,6 +123,25 @@ and `Jwt:Key` through user-secrets, or use `ConnectionStrings__DefaultConnection
 
 JWT issuer/audience are now `Playtrough` and `PlaytroughClient`. Previously issued
 tokens require a new login after restarting the API.
+
+SMTP uses MailKit and EmailSettings. Configure Email:Host, Port, SenderEmail,
+SenderName, Security (None, StartTls or SslOnConnect), TimeoutSeconds, and optional
+Username/Password. Store credentials in user-secrets or environment variables such
+as Email__Username and Email__Password. Set PasswordReset:FrontendBaseUrl to the
+frontend's absolute HTTP(S) URL; PasswordReset:TokenLifespanMinutes defaults to 60.
+Outside Development, SMTP host/sender and the frontend URL must be supplied through
+configuration. The same SMTP implementation supports real delivery in production.
+
+Development configuration only allows unauthenticated MailHog at localhost:1025
+with Security=None, preventing real SMTP delivery in that environment. Start the
+optional local mail server alongside MySQL with:
+
+```powershell
+docker compose -f backend/docker-compose.yml --profile development up -d --wait
+```
+
+MailHog's mailbox is available at http://localhost:8025. Both SMTP and mailbox ports
+are bound to the loopback interface. No SMTP credentials are committed.
 
 ## Existing local database
 

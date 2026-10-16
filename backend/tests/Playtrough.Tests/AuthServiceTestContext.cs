@@ -64,7 +64,8 @@ internal sealed class AuthServiceTestContext : IDisposable
 
     public AuthService CreateService(ITokenService? tokens = null, IRefreshTokenRepository? repository = null)
         => new(Users.Object, Logger.Object, SignIn.Object, tokens ?? Tokens,
-            repository ?? new RefreshTokenRepository(Db));
+            repository ?? new RefreshTokenRepository(Db), Mock.Of<IEmailSender>(), Mock.Of<IPasswordResetQueue>(),
+            IdentityTestFactory.PasswordResetOptions());
 
     public async Task<string> CreateRefreshTokenAsync(int userId = UserId)
     {

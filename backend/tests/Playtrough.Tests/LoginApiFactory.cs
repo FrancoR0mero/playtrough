@@ -1,4 +1,6 @@
 using System.Security.Cryptography;
+using System.Threading.Channels;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -8,8 +10,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Playtrough.Api.Data;
 using Playtrough.Api.Models;
+using Playtrough.Api.Services.Implementations;
+using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Tests;
 
@@ -24,10 +31,21 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _connection;
     private readonly string? _databasePath;
     private readonly string? _connectionString;
+    private readonly bool _runPasswordResetWorker;
+    private readonly Channel<RecoveryEmail> _emails = Channel.CreateUnbounded<RecoveryEmail>();
+    public Mock<IEmailSender> EmailSender { get; } = new();
+    public Mock<IPasswordResetQueue> ResetQueue { get; } = new();
+    public Mock<ILogger<AuthService>> AuthLogger { get; } = new();
     public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
-    public LoginApiFactory(bool useIndependentConnections = false)
+    public LoginApiFactory(bool useIndependentConnections = false, bool runPasswordResetWorker = true)
     {
+        _runPasswordResetWorker = runPasswordResetWorker;
+        EmailSender.Setup(sender => sender.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, string, string, CancellationToken>((recipient, subject, html, text, _) =>
+                _emails.Writer.TryWrite(new RecoveryEmail(recipient, subject, html, text)))
+            .Returns(Task.CompletedTask);
         if (useIndependentConnections)
         {
             // Concurrency needs separate connections. A temporary WAL database lets SQLite
@@ -54,6 +72,27 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.ConfigureTestServices(services =>
         {
+            services.AddDataProtection().UseEphemeralDataProtectionProvider();
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton(EmailSender.Object);
+            services.AddSingleton(AuthLogger.Object);
+            if (!_runPasswordResetWorker)
+            {
+                var worker = services.Single(service => service.ServiceType == typeof(IHostedService) &&
+                    service.ImplementationType == typeof(PasswordResetWorker));
+                services.Remove(worker);
+                services.RemoveAll<IPasswordResetQueue>();
+                services.AddSingleton(ResetQueue.Object);
+            }
+            services.PostConfigure<EmailSettings>(settings =>
+            {
+                settings.Host = "localhost";
+                settings.Port = 1025;
+                settings.SenderEmail = "no-reply@playtrough.local";
+                settings.Security = EmailSecurity.None;
+                settings.Username = settings.Password = string.Empty;
+            });
+            services.PostConfigure<PasswordResetSettings>(settings => settings.FrontendBaseUrl = "http://localhost:4200");
             services.RemoveAll<AppDbContext>();
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
@@ -102,6 +141,9 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
         return await scope.ServiceProvider.GetRequiredService<AppDbContext>().RefreshTokens
             .AsNoTracking().ToListAsync();
     }
+
+    public Task<RecoveryEmail> ReadEmailAsync()
+        => _emails.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10));
 
     protected override void Dispose(bool disposing)
     {

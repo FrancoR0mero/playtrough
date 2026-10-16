@@ -10,6 +10,9 @@ namespace Playtrough.Tests;
 
 internal static class IdentityTestFactory
 {
+    public static IOptions<PasswordResetSettings> PasswordResetOptions()
+        => Options.Create(new PasswordResetSettings { FrontendBaseUrl = "http://localhost:4200" });
+
     public static Mock<UserManager<ApplicationUser>> UserManager()
         => new(Mock.Of<IUserStore<ApplicationUser>>(), Options.Create(new IdentityOptions()),
             new PasswordHasher<ApplicationUser>(), Array.Empty<IUserValidator<ApplicationUser>>(),
