@@ -1,7 +1,8 @@
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Playtrough.Api.Data;
@@ -10,6 +11,7 @@ using Playtrough.Api.Models;
 using Playtrough.Api.Repositories.Implementations;
 using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Implementations;
+using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Tests;
 
@@ -24,6 +26,10 @@ internal sealed class AuthServiceTestContext : IDisposable
     public AppDbContext Db { get; }
     public TokenService Tokens { get; }
     public AuthService Service { get; }
+    public Mock<IUserRepository> Users { get; } = new();
+    public Mock<SignInManager<ApplicationUser>> SignIn { get; } = IdentityTestFactory.SignInManager();
+    public Mock<ILogger<AuthService>> Logger { get; } = new();
+    public IList<string> Roles { get; set; } = new List<string> { "User" };
 
     public AuthServiceTestContext()
     {
@@ -44,9 +50,21 @@ internal sealed class AuthServiceTestContext : IDisposable
             AccessTokenExpirationMinutes = 15,
             RefreshTokenExpirationDays = 7,
         }), repository);
-        Service = new AuthService(Mock.Of<IUserRepository>(), NullLogger<AuthService>.Instance,
-            IdentityTestFactory.SignInManager().Object, Tokens, repository);
+        Users.Setup(users => users.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => Db.Database.BeginTransactionAsync(ct));
+        Users.Setup(users => users.FindByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns((int id, CancellationToken ct) => Db.Users.SingleOrDefaultAsync(user => user.Id == id, ct));
+        Users.Setup(users => users.GetRolesAsync(It.IsAny<ApplicationUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => Roles);
+        SignIn.Setup(signIn => signIn.CanSignInAsync(It.IsAny<ApplicationUser>())).ReturnsAsync(true);
+        Mock.Get(SignIn.Object.UserManager).Setup(users => users.IsLockedOutAsync(It.IsAny<ApplicationUser>()))
+            .ReturnsAsync(false);
+        Service = CreateService();
     }
+
+    public AuthService CreateService(ITokenService? tokens = null, IRefreshTokenRepository? repository = null)
+        => new(Users.Object, Logger.Object, SignIn.Object, tokens ?? Tokens,
+            repository ?? new RefreshTokenRepository(Db));
 
     public async Task<string> CreateRefreshTokenAsync(int userId = UserId)
     {

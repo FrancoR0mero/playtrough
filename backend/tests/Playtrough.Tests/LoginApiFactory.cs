@@ -21,13 +21,32 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     public const string Email = "login_test@example.com";
     public const string Password = "Str0ngTest123!";
 
-    private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private readonly SqliteConnection _connection;
+    private readonly string? _databasePath;
+    private readonly string? _connectionString;
     public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
-    public LoginApiFactory()
+    public LoginApiFactory(bool useIndependentConnections = false)
     {
+        if (useIndependentConnections)
+        {
+            // Concurrency needs separate connections. A temporary WAL database lets SQLite
+            // wait for a writer instead of sharing one connection/transaction between requests.
+            _databasePath = Path.Combine(Path.GetTempPath(), $"playtrough-refresh-{Guid.NewGuid():N}.db");
+            _connectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = _databasePath, Pooling = false, DefaultTimeout = 10,
+            }.ToString();
+        }
+        _connection = new SqliteConnection(_connectionString ?? "Data Source=:memory:");
         // The database lives until this connection is disposed, across HTTP request scopes.
         _connection.Open();
+        if (_databasePath is not null)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = "PRAGMA journal_mode=WAL;";
+            command.ExecuteNonQuery();
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -38,7 +57,11 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<AppDbContext>();
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
-            services.AddDbContext<AppDbContext>(options => options.UseSqlite(_connection));
+            services.AddDbContext<AppDbContext>(options =>
+            {
+                if (_connectionString is null) options.UseSqlite(_connection);
+                else options.UseSqlite(_connectionString);
+            });
 
             // Keep the production JWT validation configuration, with a fresh test-only key.
             services.PostConfigure<JwtSettings>(settings =>
@@ -83,7 +106,16 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        if (disposing) _connection.Dispose();
+        if (disposing)
+        {
+            _connection.Dispose();
+            if (_databasePath is not null)
+            {
+                File.Delete(_databasePath);
+                File.Delete(_databasePath + "-wal");
+                File.Delete(_databasePath + "-shm");
+            }
+        }
     }
 
     private static void RequireSuccess(IdentityResult result)

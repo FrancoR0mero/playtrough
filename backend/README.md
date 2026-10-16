@@ -31,7 +31,7 @@ obtained through HTTP login. The expired-token case uses a valid test signature 
 past timestamps, so it specifically verifies lifetime validation without waiting.
 
 SQLite exercises persistence and the HTTP pipeline, but does not verify MySQL-specific
-behavior or migrations. The full suite currently contains 52 passing cases.
+behavior or migrations. The full suite currently contains 77 passing cases.
 
 `AuthServiceLoginTests` and `TokenServiceTests` retain the existing service coverage.
 `AuthServiceLogoutTests` uses isolated SQLite databases and the real token service and
@@ -42,6 +42,35 @@ EF InMemory. Identity dependencies that logout does not use are mocked with Moq.
 `AuthEndpointsTests` verifies login by email/username, generic credential errors,
 validation, lockout and counter reset; signed, tampered, unsigned and expired JWTs;
 and logout responses (204/400/401), persisted revocation and repeated logout.
+
+## Refresh rotation
+
+POST /api/auth/refresh is public and requires a nonempty `refreshToken`. Successful
+responses have the same token/user fields as login. Invalid, expired, revoked or
+unusable-user tokens return the same 401 ProblemDetails. Missing tokens return 400;
+unexpected persistence/generation failures return 500 without exposing token values.
+
+Refresh reuses TokenService hashing/generation, RefreshToken.IsActive and JwtSettings.
+Consumption, insertion and ReplacedByToken linkage commit in one transaction.
+The first SQL operation in that transaction conditionally consumes the active token,
+so concurrent refreshes cannot both succeed. Reusing a rotated token revokes the
+user's active refresh tokens; reusing a logout-revoked token does not affect others.
+The strict reuse policy also applies to concurrent requests: one gets 200 and one
+gets 401, and the replay invalidates the winner's new refresh token. Access JWTs
+remain valid until their configured expiry.
+
+`AuthServiceRefreshTests` verifies rotation, hashing/lifetimes, current roles,
+eligibility, reuse isolation, safe warning logs and transaction rollback.
+`RefreshEndpointsTests` exercises the real HTTP flow and concurrency. Ordinary tests
+reuse isolated in-memory SQLite; concurrency uses a temporary SQLite WAL database
+with separate connections so requests do not share a transaction/connection.
+Existing login/logout/register test cases remain unchanged.
+
+Manual requests and SQL checks are in `src/Playtrough.Api/Refresh.http`.
+MySQL was checked with 28 assertions, including three concurrent request pairs,
+RevokedAt/ReplacedByToken persistence, generic errors and logout-session isolation.
+The unique temporary account and its tokens were removed afterward. Existing
+RefreshTokens fields suffice; no migration is required.
 
 ## Swagger login examples
 
