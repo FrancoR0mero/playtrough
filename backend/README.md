@@ -124,24 +124,115 @@ and `Jwt:Key` through user-secrets, or use `ConnectionStrings__DefaultConnection
 JWT issuer/audience are now `Playtrough` and `PlaytroughClient`. Previously issued
 tokens require a new login after restarting the API.
 
-SMTP uses MailKit and EmailSettings. Configure Email:Host, Port, SenderEmail,
-SenderName, Security (None, StartTls or SslOnConnect), TimeoutSeconds, and optional
-Username/Password. Store credentials in user-secrets or environment variables such
-as Email__Username and Email__Password. Set PasswordReset:FrontendBaseUrl to the
-frontend's absolute HTTP(S) URL; PasswordReset:TokenLifespanMinutes defaults to 60.
-Outside Development, SMTP host/sender and the frontend URL must be supplied through
-configuration. The same SMTP implementation supports real delivery in production.
+Set PasswordReset:FrontendBaseUrl to the frontend's absolute HTTP(S) URL;
+PasswordReset:TokenLifespanMinutes defaults to 60.
 
-Development configuration only allows unauthenticated MailHog at localhost:1025
-with Security=None, preventing real SMTP delivery in that environment. Start the
-optional local mail server alongside MySQL with:
+## Configuración del correo
+
+La sección de configuración sigue siendo `Email` (no `EmailSettings`). MailKit usa
+`FromAddress`, `FromName` y `SecureSocketMode`; estos nombres reemplazan a
+`SenderEmail`, `SenderName` y `Security`. Actualizá cualquier configuración externa
+anterior. `IEmailSender`, sus consumidores y las plantillas conservan su contrato.
+
+`Enabled=true` activa SMTP. Al iniciar se validan Host, Port, FromAddress, el modo de
+seguridad y las credenciales necesarias. `Enabled=false` omite completamente SMTP y
+sus requisitos de configuración; solo deja un log informativo sin datos del mensaje.
+El timeout de conexión/intercambio completo es de 15 segundos por defecto,
+configurable mediante `Email:TimeoutSeconds` (1 a 120).
+
+### MailHog en desarrollo
+
+Es el modo predeterminado de `appsettings.Development.json`: localhost:1025, sin TLS
+ni credenciales. Desde la raíz del repositorio:
 
 ```powershell
 docker compose -f backend/docker-compose.yml --profile development up -d --wait
+dotnet run --project backend/src/Playtrough.Api
 ```
 
-MailHog's mailbox is available at http://localhost:8025. Both SMTP and mailbox ports
-are bound to the loopback interface. No SMTP credentials are committed.
+Bandeja: http://localhost:8025. Ambos puertos están ligados a la interfaz local.
+Development permite MailHog local o Gmail explícitamente configurado; otro SMTP remoto
+se rechaza. No se conectan servidores reales desde los tests.
+
+### Activar Gmail con user-secrets
+
+Usá una cuenta dedicada con verificación en dos pasos y generá una contraseña de
+aplicación; no uses la contraseña habitual de la cuenta. La disponibilidad depende
+de la política de la cuenta. Consultá la [ayuda oficial de Google](https://support.google.com/accounts/answer/185833?hl=es).
+
+Desde la raíz, reemplazá los placeholders y ejecutá estos comandos personalmente:
+
+```powershell
+dotnet user-secrets set "Email:Enabled" "true" --project backend/src/Playtrough.Api
+dotnet user-secrets set "Email:Host" "smtp.gmail.com" --project backend/src/Playtrough.Api
+dotnet user-secrets set "Email:Port" "587" --project backend/src/Playtrough.Api
+dotnet user-secrets set "Email:SecureSocketMode" "StartTls" --project backend/src/Playtrough.Api
+dotnet user-secrets set "Email:Username" "TU_CUENTA@gmail.com" --project backend/src/Playtrough.Api
+dotnet user-secrets set "Email:Password" "TU_CONTRASENA_DE_APLICACION" --project backend/src/Playtrough.Api
+dotnet user-secrets set "Email:FromAddress" "TU_CUENTA@gmail.com" --project backend/src/Playtrough.Api
+dotnet user-secrets set "Email:FromName" "Playtrough" --project backend/src/Playtrough.Api
+```
+
+Reiniciá la API en Development. User-secrets sobreescribe los valores de MailHog.
+El proyecto ya tiene UserSecretsId. Gmail exige aquí puerto 587 con STARTTLS,
+credenciales no vacías y FromAddress igual a Username. Verificá la configuración
+SMTP en la [documentación de Google](https://knowledge.workspace.google.com/admin/gmail/send-email-from-a-printer-scanner-or-app).
+
+### Volver a MailHog
+
+Quitá solo las claves de correo para conservar los secretos existentes de MySQL/JWT:
+
+```powershell
+$correoClaves = 'Enabled', 'Host', 'Port', 'SecureSocketMode', 'Username', 'Password', 'FromAddress', 'FromName', 'TimeoutSeconds'
+foreach ($correoClave in $correoClaves) {
+  dotnet user-secrets remove "Email:$correoClave" --project backend/src/Playtrough.Api
+}
+```
+
+Reiniciá la API. Si habías definido variables de entorno Email__*, retiralas también:
+las variables tienen prioridad sobre user-secrets y los archivos JSON. No uses
+`user-secrets clear`, porque eliminaría también los secretos ajenos al correo.
+
+### Servidor / producción
+
+User-secrets se carga por defecto solo en Development. En el servidor configurá las
+variables mediante su gestor de secretos; este ejemplo PowerShell usa placeholders:
+
+```powershell
+$env:Email__Enabled = 'true'
+$env:Email__Host = 'smtp.gmail.com'
+$env:Email__Port = '587'
+$env:Email__SecureSocketMode = 'StartTls'
+$env:Email__Username = 'TU_CUENTA@gmail.com'
+$env:Email__Password = 'TU_CONTRASENA_DE_APLICACION'
+$env:Email__FromAddress = 'TU_CUENTA@gmail.com'
+$env:Email__FromName = 'Playtrough'
+$env:Email__TimeoutSeconds = '15'
+$env:PasswordReset__FrontendBaseUrl = 'https://TU_FRONTEND'
+```
+
+Host y remitente quedan vacíos en el archivo base para exigir configuración explícita.
+Las credenciales reales no se guardan en JSON, README ni Git. El archivo .env local
+está ignorado; .env.example contiene únicamente placeholders.
+
+### Errores habituales de Gmail
+
+- `534-5.7.9` (también `534 5.7.90`): se requiere contraseña de aplicación;
+  habilitá verificación en dos pasos y comprobá que la cuenta permita generarla.
+- `535-5.7.8` (también `535 5.7.80`): autenticación rechazada; revisá usuario y
+  contraseña de aplicación, que puede haber sido revocada tras cambiar la contraseña.
+- `550-5.4.5`: cuota diaria superada. Gmail personal documenta límites de más de 500
+  mensajes por día o más de 500 destinatarios en un mensaje; Workspace y SMTP relay
+  tienen cuotas diferentes. El código no implica por sí solo una cuota universal de 500.
+
+Fuentes: [códigos SMTP de Google](https://support.google.com/mail/answer/3726730?hl=en)
+y [límites de Gmail personal](https://support.google.com/mail/answer/22839?hl=es).
+
+Los logs registran el tipo de excepción y un mensaje sanitizado (con código SMTP
+numérico cuando está disponible), nunca la respuesta completa del servidor, la
+contraseña, el destinatario ni el cuerpo/enlace. El servicio propaga el fallo según
+su contrato; el flujo existente de recuperación lo captura en segundo plano y
+conserva la respuesta neutra al cliente. No hay reintentos automáticos.
 
 ## Existing local database
 
