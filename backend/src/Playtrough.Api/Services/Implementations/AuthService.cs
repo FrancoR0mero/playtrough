@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
-using System.Text;
 using Playtrough.Api.Dtos.Auth;
 using Playtrough.Api.Models;
 using Playtrough.Api.Repositories.Interfaces;
@@ -20,14 +19,79 @@ public class AuthService(
     IRefreshTokenRepository refreshTokens,
     IEmailSender emailSender,
     IPasswordResetQueue passwordResetQueue,
-    IOptions<PasswordResetSettings> passwordResetOptions) : IAuthService
+    IOptions<PasswordResetSettings> passwordResetOptions,
+    IOptions<EmailConfirmationSettings> confirmationOptions,
+    IEmailConfirmationQueue confirmationQueue,
+    IMemoryCache cache) : IAuthService
 {
     private const string UserRole = "User";
+
+    public async Task<ServiceResult<AuthMessageDto>> ConfirmEmailAsync(ConfirmEmailRequestDto dto, CancellationToken ct = default)
+    {
+        var user = await userRepository.FindByEmailAsync(dto.Email.Trim(), ct);
+        if (user is null) return ServiceResult<AuthMessageDto>.Fail(AuthError.InvalidEmailConfirmation);
+        if (user.EmailConfirmed) return ConfirmationSuccess();
+        string decoded;
+        try { decoded = IdentityTokenEncoding.Decode(dto.Token); }
+        catch (FormatException) { return ServiceResult<AuthMessageDto>.Fail(AuthError.InvalidEmailConfirmation); }
+        var result = await signInManager.UserManager.ConfirmEmailAsync(user, decoded);
+        return result.Succeeded ? ConfirmationSuccess()
+            : ServiceResult<AuthMessageDto>.Fail(AuthError.InvalidEmailConfirmation);
+    }
+
+    private static ServiceResult<AuthMessageDto> ConfirmationSuccess() =>
+        ServiceResult<AuthMessageDto>.Ok(new AuthMessageDto("El correo se confirmó correctamente."));
+
+    public Task<AuthMessageDto> ResendConfirmationAsync(ResendConfirmationRequestDto dto, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        confirmationQueue.Enqueue(dto.Email.Trim());
+        return Task.FromResult(new AuthMessageDto(
+            "Si el correo corresponde a una cuenta pendiente de confirmación, vas a recibir un enlace para confirmarla."));
+    }
+
+    public async Task ProcessResendConfirmationAsync(string email, CancellationToken ct = default)
+    {
+        try
+        {
+            // The single-reader worker serializes cooldown checks, including simultaneous requests.
+            var user = await userRepository.FindByEmailAsync(email, ct);
+            if (user is null || user.EmailConfirmed) return;
+            var key = $"email-confirmation:{user.Id}";
+            if (cache.TryGetValue(key, out _)) return;
+            cache.Set(key, true, TimeSpan.FromSeconds(confirmationOptions.Value.ResendCooldownSeconds));
+            await SendConfirmationAsync(user, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError("Email confirmation processing failed ({ExceptionType}).", ex.GetType().Name);
+        }
+    }
+
+    private async Task SendConfirmationAsync(ApplicationUser user, CancellationToken ct)
+    {
+        try
+        {
+            var token = IdentityTokenEncoding.Encode(await signInManager.UserManager.GenerateEmailConfirmationTokenAsync(user));
+            var url = $"{passwordResetOptions.Value.FrontendBaseUrl.TrimEnd('/')}/confirm-email?email={Uri.EscapeDataString(user.Email!)}&token={token}";
+            var content = AccountEmailTemplate.Create(user.UserName ?? "gamer", url, "Confirmá tu correo",
+                "Confirmá tu correo para usar tu cuenta de Playtrough.", "Confirmar correo",
+                $"El enlace tiene una vigencia de {confirmationOptions.Value.TokenLifespanMinutes} minutos.",
+                "Si no creaste esta cuenta, ignorá este correo.");
+            await emailSender.SendAsync(user.Email!, content.Subject, content.HtmlBody, content.TextBody, ct);
+        }
+        catch (Exception ex)
+        {
+            // The account is already committed. Delivery must never turn registration into a failure.
+            logger.LogError("Email confirmation delivery failed ({ExceptionType}).", ex.GetType().Name);
+        }
+    }
 
     public async Task<ServiceResult<AuthMessageDto>> ResetPasswordAsync(ResetPasswordRequestDto dto, CancellationToken ct = default)
     {
         string decoded;
-        try { decoded = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(dto.Token)); }
+        try { decoded = IdentityTokenEncoding.Decode(dto.Token); }
         catch (FormatException) { return ServiceResult<AuthMessageDto>.Fail(AuthError.InvalidPasswordReset); }
 
         try
@@ -43,6 +107,12 @@ public class AuthService(
                 return passwordErrors.Count > 0
                     ? ServiceResult<AuthMessageDto>.Fail(AuthError.ValidationError, passwordErrors)
                     : ServiceResult<AuthMessageDto>.Fail(AuthError.InvalidPasswordReset);
+            }
+            if (!user.EmailConfirmed)
+            {
+                user.EmailConfirmed = true;
+                if (!(await users.UpdateAsync(user)).Succeeded)
+                    return ServiceResult<AuthMessageDto>.Fail(AuthError.Unexpected);
             }
             var clearAttempts = await users.ResetAccessFailedCountAsync(user);
             if (!clearAttempts.Succeeded) return ServiceResult<AuthMessageDto>.Fail(AuthError.Unexpected);
@@ -81,7 +151,7 @@ public class AuthService(
             var users = signInManager.UserManager;
             if (user is null || await users.IsLockedOutAsync(user)) return;
             var token = await users.GeneratePasswordResetTokenAsync(user);
-            var encoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+            var encoded = IdentityTokenEncoding.Encode(token);
             var settings = passwordResetOptions.Value;
             var url = $"{settings.FrontendBaseUrl.TrimEnd('/')}/reset-password?email={Uri.EscapeDataString(user.Email!)}&token={encoded}";
             var content = PasswordResetEmailTemplate.Create(user.UserName ?? "gamer", url, settings.TokenLifespanMinutes);
@@ -129,7 +199,7 @@ public class AuthService(
                 return ServiceResult<RefreshResponseDto>.Fail(AuthError.InvalidRefreshToken);
 
             var user = await userRepository.FindByIdAsync(original.UserId, ct);
-            if (user is null || !await signInManager.CanSignInAsync(user) ||
+            if (user is null || !user.EmailConfirmed || !await signInManager.CanSignInAsync(user) ||
                 await signInManager.UserManager.IsLockedOutAsync(user))
                 return ServiceResult<RefreshResponseDto>.Fail(AuthError.InvalidRefreshToken);
 
@@ -186,6 +256,9 @@ public class AuthService(
 
             if (!signIn.Succeeded)
                 return ServiceResult<LoginResponseDto>.Fail(AuthError.InvalidCredentials);
+
+            if (!user.EmailConfirmed)
+                return ServiceResult<LoginResponseDto>.Fail(AuthError.EmailNotConfirmed);
 
             var reset = await userRepository.ResetAccessFailedCountAsync(user, ct);
             if (!reset.Succeeded)
@@ -252,6 +325,7 @@ public class AuthService(
             }
 
             await transaction.CommitAsync(ct);
+            await SendConfirmationAsync(user, ct);
             return ServiceResult<RegisterResponseDto>.Ok(user.ToRegisterResponse());
         }
         catch (Exception ex)

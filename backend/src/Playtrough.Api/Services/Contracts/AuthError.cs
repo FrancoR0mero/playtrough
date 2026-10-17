@@ -12,4 +12,6 @@ public enum AuthError
     AccountLocked,
     InvalidRefreshToken,
     InvalidPasswordReset,
+    InvalidEmailConfirmation,
+    EmailNotConfirmed,
 }

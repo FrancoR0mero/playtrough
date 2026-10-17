@@ -30,6 +30,7 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 {
     options.User.RequireUniqueEmail = true;
+    options.Tokens.EmailConfirmationTokenProvider = EmailConfirmationTokenProvider.ProviderName;
     options.Lockout.AllowedForNewUsers = true;
     options.Lockout.MaxFailedAccessAttempts = 5;
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
@@ -40,7 +41,21 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
     options.Password.RequireNonAlphanumeric = false;
 })
 .AddEntityFrameworkStores<AppDbContext>()
-.AddDefaultTokenProviders();
+.AddDefaultTokenProviders()
+.AddTokenProvider<EmailConfirmationTokenProvider>(EmailConfirmationTokenProvider.ProviderName);
+
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IEmailConfirmationQueue, EmailConfirmationQueue>();
+builder.Services.AddHostedService<EmailConfirmationWorker>();
+builder.Services.AddOptions<EmailConfirmationSettings>()
+    .Bind(builder.Configuration.GetSection(EmailConfirmationSettings.SectionName))
+    .ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddOptions<EmailConfirmationTokenProviderOptions>()
+    .Configure<IOptions<EmailConfirmationSettings>>((options, settings) =>
+    {
+        options.Name = EmailConfirmationTokenProvider.ProviderName;
+        options.TokenLifespan = TimeSpan.FromMinutes(settings.Value.TokenLifespanMinutes);
+    });
 
 builder.Services.AddSingleton<IValidateOptions<EmailSettings>, EmailSettingsValidator>();
 builder.Services.AddOptions<EmailSettings>()

@@ -16,11 +16,14 @@ public class AuthServiceLoginTests
     private readonly Mock<IUserRepository> _repo = new();
     private readonly Mock<SignInManager<ApplicationUser>> _signIn = IdentityTestFactory.SignInManager();
     private readonly Mock<ITokenService> _tokens = new();
-    private readonly ApplicationUser _user = new() { Id = 42, UserName = "ana", Email = "ana@example.com" };
+    private readonly ApplicationUser _user = new() { Id = 42, UserName = "ana", Email = "ana@example.com", EmailConfirmed = true };
 
     private AuthService Service() => new(_repo.Object, Mock.Of<ILogger<AuthService>>(), _signIn.Object, _tokens.Object,
         Mock.Of<IRefreshTokenRepository>(), Mock.Of<IEmailSender>(), Mock.Of<IPasswordResetQueue>(),
-        IdentityTestFactory.PasswordResetOptions());
+        IdentityTestFactory.PasswordResetOptions(),
+            Microsoft.Extensions.Options.Options.Create(new EmailConfirmationSettings()),
+            Mock.Of<IEmailConfirmationQueue>(), new Microsoft.Extensions.Caching.Memory.MemoryCache(
+                Microsoft.Extensions.Options.Options.Create(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions())));
 
     private void SetupUser(bool success = true)
     {

@@ -22,7 +22,10 @@ public class AuthServiceTests
 
     private AuthService CreateService() => new(_repo.Object, _logger.Object,
         IdentityTestFactory.SignInManager().Object, Mock.Of<ITokenService>(), Mock.Of<IRefreshTokenRepository>(),
-        Mock.Of<IEmailSender>(), Mock.Of<IPasswordResetQueue>(), IdentityTestFactory.PasswordResetOptions());
+        Mock.Of<IEmailSender>(), Mock.Of<IPasswordResetQueue>(), IdentityTestFactory.PasswordResetOptions(),
+            Microsoft.Extensions.Options.Options.Create(new EmailConfirmationSettings()),
+            Mock.Of<IEmailConfirmationQueue>(), new Microsoft.Extensions.Caching.Memory.MemoryCache(
+                Microsoft.Extensions.Options.Options.Create(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions())));
 
     private static RegisterRequestDto ValidDto() => new()
     {

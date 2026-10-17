@@ -12,6 +12,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Internal;
 using Moq;
 using Playtrough.Api.Data;
 using Playtrough.Api.Models;
@@ -32,14 +34,18 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     private readonly string? _databasePath;
     private readonly string? _connectionString;
     private readonly bool _runPasswordResetWorker;
+    private readonly bool _runConfirmationWorker;
+    public Mock<IEmailConfirmationQueue> ConfirmationQueue { get; } = new();
+    internal TestCacheClock CacheClock { get; } = new();
     private readonly Channel<RecoveryEmail> _emails = Channel.CreateUnbounded<RecoveryEmail>();
     public Mock<IEmailSender> EmailSender { get; } = new();
     public Mock<IPasswordResetQueue> ResetQueue { get; } = new();
     public Mock<ILogger<AuthService>> AuthLogger { get; } = new();
     public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
-    public LoginApiFactory(bool useIndependentConnections = false, bool runPasswordResetWorker = true)
+    public LoginApiFactory(bool useIndependentConnections = false, bool runPasswordResetWorker = true, bool runConfirmationWorker = true)
     {
+        _runConfirmationWorker = runConfirmationWorker;
         _runPasswordResetWorker = runPasswordResetWorker;
         EmailSender.Setup(sender => sender.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -76,6 +82,14 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IEmailSender>();
             services.AddSingleton(EmailSender.Object);
             services.AddSingleton(AuthLogger.Object);
+            services.Configure<MemoryCacheOptions>(options => options.Clock = CacheClock);
+            if (!_runConfirmationWorker)
+            {
+                services.Remove(services.Single(service => service.ServiceType == typeof(IHostedService) &&
+                    service.ImplementationType == typeof(EmailConfirmationWorker)));
+                services.RemoveAll<IEmailConfirmationQueue>();
+                services.AddSingleton(ConfirmationQueue.Object);
+            }
             if (!_runPasswordResetWorker)
             {
                 var worker = services.Single(service => service.ServiceType == typeof(IHostedService) &&
@@ -123,7 +137,7 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.EnsureCreatedAsync();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var user = new ApplicationUser { UserName = Username, Email = Email };
+        var user = new ApplicationUser { UserName = Username, Email = Email, EmailConfirmed = true };
         RequireSuccess(await users.CreateAsync(user, Password));
         RequireSuccess(await users.AddToRoleAsync(user, "User"));
     }
@@ -165,4 +179,9 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
         if (!result.Succeeded)
             throw new InvalidOperationException(string.Join("; ", result.Errors.Select(error => error.Description)));
     }
+}
+
+internal sealed class TestCacheClock : ISystemClock
+{
+    public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UtcNow;
 }

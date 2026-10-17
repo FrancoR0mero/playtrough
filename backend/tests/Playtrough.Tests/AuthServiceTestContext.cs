@@ -37,8 +37,8 @@ internal sealed class AuthServiceTestContext : IDisposable
         Db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options);
         Db.Database.EnsureCreated();
         Db.Users.AddRange(
-            new ApplicationUser { Id = UserId, UserName = "logout_test", Email = "logout_test@example.com" },
-            new ApplicationUser { Id = OtherUserId, UserName = "other_user", Email = "other_user@example.com" });
+            new ApplicationUser { Id = UserId, UserName = "logout_test", EmailConfirmed = true, Email = "logout_test@example.com" },
+            new ApplicationUser { Id = OtherUserId, UserName = "other_user", EmailConfirmed = true, Email = "other_user@example.com" });
         Db.SaveChanges();
 
         var repository = new RefreshTokenRepository(Db);
@@ -65,7 +65,10 @@ internal sealed class AuthServiceTestContext : IDisposable
     public AuthService CreateService(ITokenService? tokens = null, IRefreshTokenRepository? repository = null)
         => new(Users.Object, Logger.Object, SignIn.Object, tokens ?? Tokens,
             repository ?? new RefreshTokenRepository(Db), Mock.Of<IEmailSender>(), Mock.Of<IPasswordResetQueue>(),
-            IdentityTestFactory.PasswordResetOptions());
+            IdentityTestFactory.PasswordResetOptions(),
+            Microsoft.Extensions.Options.Options.Create(new EmailConfirmationSettings()),
+            Mock.Of<IEmailConfirmationQueue>(), new Microsoft.Extensions.Caching.Memory.MemoryCache(
+                Microsoft.Extensions.Options.Options.Create(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions())));
 
     public async Task<string> CreateRefreshTokenAsync(int userId = UserId)
     {

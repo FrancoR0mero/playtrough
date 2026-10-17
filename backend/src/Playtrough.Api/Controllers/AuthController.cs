@@ -14,6 +14,23 @@ namespace Playtrough.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
+    [HttpPost("confirm-email")]
+    [AllowAnonymous]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequestDto dto, CancellationToken ct)
+    {
+        var result = await authService.ConfirmEmailAsync(dto, ct);
+        return result.Success ? Ok(result.Value)
+            : Problem(statusCode: StatusCodes.Status400BadRequest, title: "Invalid email confirmation request",
+                detail: "The email confirmation link is invalid or has expired.");
+    }
+
+    [HttpPost("resend-confirmation")]
+    [AllowAnonymous]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> ResendConfirmation([FromBody] ResendConfirmationRequestDto dto, CancellationToken ct)
+        => Ok(await authService.ResendConfirmationAsync(dto, ct));
+
     [HttpPost("reset-password")]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
@@ -109,6 +126,9 @@ public class AuthController(IAuthService authService) : ControllerBase
 
         return result.Error switch
         {
+            AuthError.EmailNotConfirmed => Problem(statusCode: StatusCodes.Status403Forbidden,
+                title: "Email not confirmed", detail: "Confirm your email before logging in.",
+                extensions: new Dictionary<string, object?> { ["code"] = "email_not_confirmed" }),
             AuthError.InvalidCredentials => Problem(
                 statusCode: StatusCodes.Status401Unauthorized,
                 title: "Invalid credentials",
