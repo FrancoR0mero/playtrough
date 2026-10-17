@@ -42,15 +42,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
+builder.Services.AddSingleton<IValidateOptions<EmailSettings>, EmailSettingsValidator>();
 builder.Services.AddOptions<EmailSettings>()
     .Bind(builder.Configuration.GetSection(EmailSettings.SectionName))
-    .ValidateDataAnnotations()
-    .Validate(settings => Enum.IsDefined(settings.Security), "Email:Security is invalid.")
-    .Validate(settings => !builder.Environment.IsDevelopment() ||
-        ((settings.Host is "localhost" or "127.0.0.1" or "::1") && settings.Port == 1025 &&
-         settings.Security == EmailSecurity.None && string.IsNullOrEmpty(settings.Username) &&
-         string.IsNullOrEmpty(settings.Password)),
-        "Development email must use local MailHog on port 1025 without credentials or TLS.")
     .ValidateOnStart();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<IPasswordResetQueue, PasswordResetQueue>();
