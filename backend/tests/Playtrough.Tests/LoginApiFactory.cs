@@ -88,8 +88,8 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
             {
                 settings.Host = "localhost";
                 settings.Port = 1025;
-                settings.SenderEmail = "no-reply@playtrough.local";
-                settings.Security = EmailSecurity.None;
+                settings.FromAddress = "no-reply@playtrough.local";
+                settings.SecureSocketMode = EmailSecurity.None;
                 settings.Username = settings.Password = string.Empty;
             });
             services.PostConfigure<PasswordResetSettings>(settings => settings.FrontendBaseUrl = "http://localhost:4200");
