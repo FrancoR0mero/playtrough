@@ -1,0 +1,56 @@
+<form
+  [formGroup]="form"
+  (ngSubmit)="submit()"
+  novalidate
+  class="space-y-4"
+  [attr.aria-busy]="submitting()"
+>
+  @if (editable()) {
+    <label class="block text-sm text-slate-200">
+      Email de tu cuenta
+      <input
+        type="email"
+        formControlName="email"
+        required
+        autocomplete="email"
+        [readOnly]="submitting() || remaining() > 0"
+        [attr.aria-invalid]="emailError() ? 'true' : null"
+        [attr.aria-describedby]="emailError() ? 'confirmation-email-error' : null"
+        class="mt-1 w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white focus:outline-accent"
+      />
+    </label>
+    @if (emailError(); as message) {
+      <p id="confirmation-email-error" role="alert" class="text-sm text-red-400">{{ message }}</p>
+    }
+  }
+  <button
+    type="submit"
+    [disabled]="form.invalid || submitting() || remaining() > 0"
+    class="w-full rounded-md bg-accent px-4 py-2 font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {{
+      submitting()
+        ? 'Enviando…'
+        : remaining() > 0
+          ? 'Reenviar en ' + remaining() + ' s'
+          : buttonLabel()
+    }}
+  </button>
+</form>
+@if (sent()) {
+  <p
+    role="status"
+    class="mt-4 rounded-md border border-emerald-600 bg-emerald-950/40 p-4 text-sm text-emerald-100"
+  >
+    Si el email corresponde a una cuenta pendiente de confirmación, vas a recibir un enlace para
+    confirmarla. Revisá también spam.
+  </p>
+}
+@if (error(); as message) {
+  <p
+    role="alert"
+    class="mt-4 rounded-md border border-red-500/60 bg-red-950/40 p-4 text-sm text-red-200"
+  >
+    {{ message }}
+  </p>
+}

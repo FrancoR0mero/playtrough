@@ -1,0 +1,62 @@
+<section
+  class="mx-4 my-8 max-w-md rounded-lg border border-slate-700 bg-slate-900/60 p-5 sm:mx-auto sm:my-16 sm:p-8"
+>
+  @switch (state()) {
+    @case ('loading') {
+      <h1 class="mb-4 text-2xl font-semibold text-white">Confirmando tu email</h1>
+      <p
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        class="flex items-center gap-3 text-slate-200"
+      >
+        <span
+          aria-hidden="true"
+          class="h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-white motion-reduce:animate-none"
+        ></span>
+        Estamos verificando tu enlace…
+      </p>
+    }
+    @case ('success') {
+      <h1 class="mb-4 text-2xl font-semibold text-white">Email confirmado</h1>
+      <p
+        role="status"
+        class="mb-6 rounded-md border border-emerald-600 bg-emerald-950/40 p-4 text-emerald-100"
+      >
+        Tu email quedó confirmado. Ya podés iniciar sesión.
+      </p>
+      <a
+        routerLink="/auth/login"
+        class="inline-block rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >Iniciar sesión</a
+      >
+    }
+    @case ('invalid') {
+      <h1 class="mb-4 text-2xl font-semibold text-white">Solicitá un nuevo enlace</h1>
+      <p
+        role="alert"
+        class="mb-6 rounded-md border border-red-500/60 bg-red-950/40 p-4 text-red-200"
+      >
+        El link de confirmación es inválido o venció. Podés pedir uno nuevo con el email de tu
+        cuenta.
+      </p>
+      <app-resend-confirmation [email]="email" />
+    }
+    @case ('retry') {
+      <h1 class="mb-4 text-2xl font-semibold text-white">Confirmar email</h1>
+      <p
+        role="alert"
+        class="mb-6 rounded-md border border-red-500/60 bg-red-950/40 p-4 text-red-200"
+      >
+        No pudimos confirmar tu email. Intentá de nuevo.
+      </p>
+      <button
+        type="button"
+        (click)="retry()"
+        class="w-full rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        Reintentar
+      </button>
+    }
+  }
+</section>

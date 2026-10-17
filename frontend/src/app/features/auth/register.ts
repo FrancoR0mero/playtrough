@@ -14,6 +14,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   AbstractControl,
   FormBuilder,
+  FormControl,
   ReactiveFormsModule,
   ValidationErrors,
   Validators,
@@ -22,6 +23,7 @@ import type { RegisterRequest } from './models/register';
 import { AuthService, LoginError, RegisterError } from './services/auth';
 import { authDestination } from './auth-navigation';
 import { passwordComplexityValidator } from './password-validation';
+import { ResendConfirmationComponent } from './resend-confirmation';
 
 type RegisterField = 'email' | 'username' | 'password';
 
@@ -30,7 +32,7 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9_.]+$/;
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, ResendConfirmationComponent],
   templateUrl: './register.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -47,6 +49,9 @@ export class RegisterComponent implements OnInit {
 
   protected readonly isLogin = computed(() => this.routeData()['mode'] === 'login');
   protected readonly showPassword = signal(false);
+  protected readonly registeredEmail = signal<string | null>(null);
+  protected readonly needsConfirmation = signal(false);
+  protected readonly confirmationEmail = signal('');
   private readonly queryParams = toSignal(this.route.queryParamMap, {
     initialValue: this.route.snapshot.queryParamMap,
   });
@@ -101,6 +106,7 @@ export class RegisterComponent implements OnInit {
   }
 
   protected clearFieldError(field: string): void {
+    if (field === 'identifier') this.needsConfirmation.set(false);
     this.fieldErrors.update((errors) => {
       const updated = { ...errors };
       delete updated[field];
@@ -135,6 +141,7 @@ export class RegisterComponent implements OnInit {
 
   protected onSubmit(): void {
     if (this.submitting()) return;
+    if (!this.isLogin() && this.registeredEmail()) return;
     this.expirationNoticeDismissed.set(true);
     if (this.isLogin()) {
       this.submitLogin();
@@ -153,27 +160,28 @@ export class RegisterComponent implements OnInit {
     this.submitting.set(true);
     const payload: RegisterRequest = this.form.getRawValue();
 
-    this.auth.register(payload).subscribe({
-      next: () => {
-        this.submitting.set(false);
-        const login = this.router.createUrlTree(['/auth/login'], {
-          queryParams: this.returnUrl() ? { returnUrl: this.returnUrl() } : {},
-        });
-        void this.router.navigateByUrl(this.router.serializeUrl(login), { replaceUrl: true });
-      },
-      error: (error: unknown) => {
-        this.submitting.set(false);
+    this.auth
+      .register(payload)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (response) => {
+          this.submitting.set(false);
+          this.registeredEmail.set(response.email);
+          this.form.controls.password.reset();
+        },
+        error: (error: unknown) => {
+          this.submitting.set(false);
 
-        if (error instanceof RegisterError) {
-          this.fieldErrors.set(error.fieldErrors);
-          this.formError.set(error.formError);
-          this.focusFirstError();
-          return;
-        }
+          if (error instanceof RegisterError) {
+            this.fieldErrors.set(error.fieldErrors);
+            this.formError.set(error.formError);
+            this.focusFirstError();
+            return;
+          }
 
-        this.formError.set('Ocurrió un error inesperado. Inténtalo de nuevo.');
-      },
-    });
+          this.formError.set('Ocurrió un error inesperado. Inténtalo de nuevo.');
+        },
+      });
   }
 
   private submitLogin(): void {
@@ -196,10 +204,16 @@ export class RegisterComponent implements OnInit {
         next: () => this.redirectAfterLogin(),
         error: (error: unknown) => {
           if (error instanceof LoginError) {
+            this.needsConfirmation.set(error.code === 'email_not_confirmed');
+            const email = identifier.trim();
+            this.confirmationEmail.set(
+              email && !Validators.email(new FormControl(email)) ? email : '',
+            );
             this.fieldErrors.set(error.fieldErrors);
             this.formError.set(error.formError);
             this.focusFirstError();
           } else {
+            this.needsConfirmation.set(false);
             this.formError.set('Ocurrió un error inesperado. Inténtalo de nuevo.');
           }
         },

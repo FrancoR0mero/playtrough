@@ -4,6 +4,11 @@ import { GuestGuard } from './core/guards/guest-guard';
 
 export const routes: Routes = [
   {
+    path: 'confirm-email',
+    loadComponent: () =>
+      import('./features/auth/confirm-email').then((m) => m.ConfirmEmailComponent),
+  },
+  {
     path: 'reset-password',
     loadComponent: () =>
       import('./features/auth/reset-password').then((m) => m.ResetPasswordComponent),

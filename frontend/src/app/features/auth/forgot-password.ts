@@ -11,6 +11,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from './services/auth';
+import { createResendCooldown } from './resend-cooldown';
 
 @Component({
   selector: 'app-forgot-password',
@@ -22,18 +23,14 @@ export class ForgotPasswordComponent {
   private readonly auth = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
-  private timer: ReturnType<typeof setInterval> | undefined;
+  private readonly cooldown = createResendCooldown(30);
   protected readonly form = inject(FormBuilder).nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
   });
   protected readonly submitting = signal(false);
   protected readonly sent = signal(false);
-  protected readonly remaining = signal(0);
+  protected readonly remaining = this.cooldown.remaining;
   protected readonly error = signal<string | null>(null);
-
-  constructor() {
-    this.destroyRef.onDestroy(() => clearInterval(this.timer));
-  }
 
   protected emailError(): string | null {
     const field = this.form.controls.email;
@@ -60,12 +57,7 @@ export class ForgotPasswordComponent {
       .subscribe({
         next: () => {
           this.sent.set(true);
-          this.remaining.set(30);
-          clearInterval(this.timer);
-          this.timer = setInterval(() => {
-            this.remaining.update((value) => Math.max(0, value - 1));
-            if (this.remaining() === 0) clearInterval(this.timer);
-          }, 1000);
+          this.cooldown.start();
         },
         error: () => this.error.set('No pudimos procesar la solicitud. Intentá de nuevo.'),
       });
