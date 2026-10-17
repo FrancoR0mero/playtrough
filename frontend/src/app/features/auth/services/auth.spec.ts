@@ -21,11 +21,13 @@ describe('AuthService', () => {
     username: 'ana_dev',
     email: 'ana@example.com',
     createdAt: '2026-10-11T12:00:00.000Z',
+    emailConfirmationRequired: true,
   };
 
   const registerUrl = `${environment.apiUrl}/auth/register`;
 
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
@@ -40,6 +42,7 @@ describe('AuthService', () => {
 
   afterEach(() => {
     httpMock.verify();
+    localStorage.clear();
   });
 
   it('posts the payload and returns the mapped 201 response', () => {

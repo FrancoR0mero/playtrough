@@ -14,6 +14,7 @@ import {
   timeout,
 } from 'rxjs';
 import type { LoginRequest, LoginResponse } from '../models/login';
+import type { ConfirmEmailRequest, ResendConfirmationRequest } from '../models/email-confirmation';
 import type { RefreshRequest, RefreshResponse } from '../models/refresh';
 import type {
   AuthMessage,
@@ -47,6 +48,7 @@ export class LoginError extends Error {
   constructor(
     readonly fieldErrors: Record<string, string>,
     readonly formError: string | null,
+    readonly code: string | null = null,
   ) {
     super(formError ?? 'Login failed');
     this.name = 'LoginError';
@@ -215,6 +217,16 @@ export class AuthService {
     return this.http.post<AuthMessage>(`${environment.apiUrl}/auth/forgot-password`, payload);
   }
 
+  confirmEmail(email: string, token: string): Observable<AuthMessage> {
+    const payload: ConfirmEmailRequest = { email: email.trim(), token };
+    return this.http.post<AuthMessage>(`${environment.apiUrl}/auth/confirm-email`, payload);
+  }
+
+  resendConfirmation(email: string): Observable<AuthMessage> {
+    const payload: ResendConfirmationRequest = { email: email.trim() };
+    return this.http.post<AuthMessage>(`${environment.apiUrl}/auth/resend-confirmation`, payload);
+  }
+
   resetPassword(
     email: string,
     token: string,
@@ -246,6 +258,10 @@ export class AuthService {
   private toLoginError(error: unknown): LoginError {
     if (!(error instanceof HttpErrorResponse)) return new LoginError({}, GENERIC_ERROR);
     if (error.status === 401) return new LoginError({}, 'Credenciales incorrectas');
+    const problemDetails = error.error as ProblemDetails | null;
+    const code = problemDetails?.code ?? problemDetails?.extensions?.code;
+    if (error.status === 403 && code === 'email_not_confirmed')
+      return new LoginError({}, 'Tenés que confirmar tu email antes de entrar', code);
     if (error.status === 423)
       return new LoginError(
         {},

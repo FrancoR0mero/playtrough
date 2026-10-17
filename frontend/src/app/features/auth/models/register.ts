@@ -11,6 +11,7 @@ export interface RegisterResponse {
   username: string;
   email: string;
   createdAt: string;
+  emailConfirmationRequired: boolean;
 }
 
 /** RFC 9457 validation problem returned with 400; errors are keyed by field name (Email, Username, Password). */
@@ -22,4 +23,6 @@ export interface ValidationProblemDetails {
 export interface ProblemDetails {
   title?: string;
   detail?: string;
+  code?: string;
+  extensions?: { code?: string };
 }
