@@ -30,7 +30,7 @@ obtained through HTTP login. The expired-token case uses a valid test signature 
 past timestamps, so it specifically verifies lifetime validation without waiting.
 
 SQLite exercises persistence and the HTTP pipeline, but does not verify MySQL-specific
-behavior or migrations. The full suite currently contains 120 passing cases.
+behavior or migrations. The full suite currently contains 149 passing cases.
 
 `AuthServiceLoginTests` and `TokenServiceTests` retain the existing service coverage.
 `AuthServiceLogoutTests` uses isolated SQLite databases and the real token service and
@@ -153,6 +153,11 @@ dotnet run --project backend/src/Playtrough.Api
 Bandeja: http://localhost:8025. Ambos puertos están ligados a la interfaz local.
 Development permite MailHog local o Gmail explícitamente configurado; otro SMTP remoto
 se rechaza. No se conectan servidores reales desde los tests.
+
+`EmailSettingsTests` verifica validación al iniciar, Gmail explícito en Development,
+campos obligatorios y modo desactivado. `SmtpEmailSenderTests` usa un transporte
+MailKit mockeado para probar mapeo TLS, cuerpos MIME, autenticación condicional,
+timeout configurado, liberación del cliente y logs sin datos sensibles.
 
 ### Activar Gmail con user-secrets
 
