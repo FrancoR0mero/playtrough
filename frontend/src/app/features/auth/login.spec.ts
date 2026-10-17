@@ -87,6 +87,56 @@ describe('Login form', () => {
     input('password', 'x');
   }
 
+  it.each(['ana@example.com', 'ana'])(
+    'Login_WithUnconfirmedEmail_ShowsAccessibleResendAndUsesEmailOrPromptsForIt: %s',
+    async (identifier) => {
+      // Arrange
+      await render();
+      input('identifier', identifier);
+      input('password', 'correct');
+      auth.resendConfirmation.mockReturnValue(of({ message: 'neutral' }));
+      submit();
+      // Act
+      loginResult.error(
+        new LoginError({}, 'Tenés que confirmar tu email antes de entrar', 'email_not_confirmed'),
+      );
+      fixture.detectChanges();
+      // Assert
+      expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+        'Tenés que confirmar tu email antes de entrar',
+      );
+      const resend = fixture.nativeElement.querySelector('app-resend-confirmation') as HTMLElement;
+      expect(resend).not.toBeNull();
+      if (identifier === 'ana') {
+        expect(resend.querySelector('input')).not.toBeNull();
+        expect((resend.querySelector('button') as HTMLButtonElement).disabled).toBe(true);
+        input('email', 'ana@example.com');
+      } else expect(resend.querySelector('input')).toBeNull();
+      (resend.querySelector('button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(auth.resendConfirmation).toHaveBeenCalledExactlyOnceWith('ana@example.com');
+      expect(resend.textContent).toContain('Si el email corresponde a una cuenta pendiente');
+      expect((resend.querySelector('button') as HTMLButtonElement).disabled).toBe(true);
+      expect(storage.save).not.toHaveBeenCalled();
+      expect(navigate).not.toHaveBeenCalled();
+    },
+  );
+
+  it('Login_WithInvalidCredentials_ShowsGenericErrorWithoutResend', async () => {
+    // Arrange
+    await render();
+    credentials();
+    submit();
+    // Act
+    loginResult.error(new LoginError({}, 'Credenciales incorrectas'));
+    fixture.detectChanges();
+    // Assert
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+      'Credenciales incorrectas',
+    );
+    expect(fixture.nativeElement.querySelector('app-resend-confirmation')).toBeNull();
+  });
+
   it('RecoveryLink_LeadsToForgotPasswordScreen', async () => {
     await render();
     const link = Array.from(

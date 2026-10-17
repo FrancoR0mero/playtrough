@@ -3,6 +3,7 @@ import type { Observable } from 'rxjs';
 import { vi } from 'vitest';
 import type { AuthUser, LoginResponse } from './models/login';
 import type { AuthMessage } from './models/password-recovery';
+import type { RegisterRequest, RegisterResponse } from './models/register';
 
 export function createSession(): LoginResponse {
   return {
@@ -15,6 +16,9 @@ export function createSession(): LoginResponse {
 
 export function createAuthMock() {
   return {
+    register: vi.fn<(payload: RegisterRequest) => Observable<RegisterResponse>>(),
+    confirmEmail: vi.fn<(email: string, token: string) => Observable<AuthMessage>>(),
+    resendConfirmation: vi.fn<(email: string) => Observable<AuthMessage>>(),
     login: vi.fn<(identifier: string, password: string) => Observable<LoginResponse>>(),
     logout: vi.fn<() => Observable<void>>(),
     forgotPassword: vi.fn<(email: string) => Observable<AuthMessage>>(),
