@@ -35,6 +35,7 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     private readonly string? _connectionString;
     private readonly bool _runPasswordResetWorker;
     private readonly bool _runConfirmationWorker;
+    private readonly string _environment;
     public Mock<IEmailConfirmationQueue> ConfirmationQueue { get; } = new();
     internal TestCacheClock CacheClock { get; } = new();
     private readonly Channel<RecoveryEmail> _emails = Channel.CreateUnbounded<RecoveryEmail>();
@@ -43,8 +44,10 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     public Mock<ILogger<AuthService>> AuthLogger { get; } = new();
     public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
-    public LoginApiFactory(bool useIndependentConnections = false, bool runPasswordResetWorker = true, bool runConfirmationWorker = true)
+    public LoginApiFactory(bool useIndependentConnections = false, bool runPasswordResetWorker = true, bool runConfirmationWorker = true,
+        string environment = "Testing")
     {
+        _environment = environment;
         _runConfirmationWorker = runConfirmationWorker;
         _runPasswordResetWorker = runPasswordResetWorker;
         EmailSender.Setup(sender => sender.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
@@ -75,7 +78,7 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(_environment);
         builder.ConfigureTestServices(services =>
         {
             services.AddDataProtection().UseEphemeralDataProtectionProvider();

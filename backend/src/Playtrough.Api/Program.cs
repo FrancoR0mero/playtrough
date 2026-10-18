@@ -186,6 +186,15 @@ app.UseCors("AngularDev");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/api/test/user", () => Results.Ok(new { message = "User access granted." }))
+        .RequireAuthorization(AppPolicies.RequireUser);
+    app.MapGet("/api/test/moderator", () => Results.Ok(new { message = "Moderator access granted." }))
+        .RequireAuthorization(AppPolicies.RequireModerator);
+    app.MapGet("/api/test/admin", () => Results.Ok(new { message = "Admin access granted." }))
+        .RequireAuthorization(AppPolicies.RequireAdmin);
+}
 app.MapHealthChecks("/health");
 app.Run();
 
