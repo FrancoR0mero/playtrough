@@ -7,6 +7,8 @@ namespace Playtrough.Api.Repositories.Interfaces;
 public interface IAdminUserRepository
 {
     Task<PagedResponse<AdminUserDto>> ListUsersAsync(UserListRequest request, CancellationToken ct = default);
+    Task<PagedResponse<RoleChangeDto>> ListRoleChangesAsync(RoleChangeListRequest request, CancellationToken ct = default);
     Task<IDbContextTransaction> BeginRoleChangeAsync(CancellationToken ct = default);
     Task<int> CountAdminsAsync(CancellationToken ct = default);
+    Task AddRoleChangeAsync(RoleChangeLog change, CancellationToken ct = default);
 }

@@ -10,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>(options)
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<RoleChangeLog> RoleChangeLogs => Set<RoleChangeLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -32,6 +33,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(t => t.ReplacedByToken).HasMaxLength(64);
             entity.HasIndex(t => t.TokenHash).IsUnique();
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(t => t.UserId);
+        });
+
+        builder.Entity<RoleChangeLog>(entity =>
+        {
+            entity.ToTable("RoleChangeLogs");
+            entity.Property(change => change.OldRole).HasMaxLength(20).IsRequired();
+            entity.Property(change => change.NewRole).HasMaxLength(20).IsRequired();
+            // MySQL datetime and SQLite do not preserve DateTime.Kind; values are stored in UTC.
+            entity.Property(change => change.ChangedAt).HasConversion(
+                value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(change => change.ChangedByUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(change => change.TargetUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(change => new { change.ChangedAt, change.Id });
+            entity.HasIndex(change => new { change.TargetUserId, change.ChangedAt });
         });
 
         // Identity makes NormalizedUserName unique but not NormalizedEmail.

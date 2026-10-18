@@ -20,6 +20,10 @@ public sealed class AdminUsersController(IAdminUserService service) : Controller
     public async Task<IActionResult> ListUsers([FromQuery] UserListRequest request, CancellationToken ct)
         => Ok(await service.ListUsersAsync(request, ct));
 
+    [HttpGet("role-changes")]
+    public async Task<IActionResult> ListRoleChanges([FromQuery] RoleChangeListRequest request, CancellationToken ct)
+        => Ok(await service.ListRoleChangesAsync(request, ct));
+
     [HttpPut("users/{id:int}/role")]
     public async Task<IActionResult> ChangeRole([Range(1, int.MaxValue)] int id, [FromBody] ChangeRoleRequest request, CancellationToken ct)
     {

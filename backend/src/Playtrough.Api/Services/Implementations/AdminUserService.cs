@@ -14,6 +14,9 @@ public sealed class AdminUserService(IAdminUserRepository repository, IUserRepos
     public Task<PagedResponse<AdminUserDto>> ListUsersAsync(UserListRequest request, CancellationToken ct = default)
         => repository.ListUsersAsync(request, ct);
 
+    public Task<PagedResponse<RoleChangeDto>> ListRoleChangesAsync(RoleChangeListRequest request, CancellationToken ct = default)
+        => repository.ListRoleChangesAsync(request, ct);
+
     public async Task<RoleChangeResult> ChangeRoleAsync(int actorId, int targetId, string role, CancellationToken ct = default)
     {
         if (!AppRoles.IsValid(role)) return new(null, RoleChangeError.InvalidRole);
@@ -35,6 +38,11 @@ public sealed class AdminUserService(IAdminUserRepository repository, IUserRepos
                 !(await users.AddToRoleAsync(user, role)).Succeeded)
                 return new(null, RoleChangeError.Unexpected);
 
+            var now = DateTime.UtcNow;
+            await repository.AddRoleChangeAsync(new RoleChangeLog
+            {
+                ChangedByUserId = actorId, TargetUserId = targetId, OldRole = oldRole, NewRole = role, ChangedAt = now,
+            }, ct);
             await transaction.CommitAsync(ct);
             return new(ToDto(user, role));
         }

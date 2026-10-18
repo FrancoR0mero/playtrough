@@ -35,6 +35,19 @@ public sealed class AdminUserRepository(AppDbContext db, UserManager<Application
         return new(items, total, request.Page, request.PageSize);
     }
 
+    public async Task<PagedResponse<RoleChangeDto>> ListRoleChangesAsync(RoleChangeListRequest request, CancellationToken ct = default)
+    {
+        var query = db.RoleChangeLogs.AsNoTracking();
+        if (request.TargetUserId is { } id) query = query.Where(change => change.TargetUserId == id);
+        var total = await query.CountAsync(ct);
+        var offset = ((long)request.Page - 1) * request.PageSize;
+        var items = offset > int.MaxValue ? [] : await query.OrderByDescending(change => change.ChangedAt)
+            .ThenByDescending(change => change.Id).Skip((int)offset).Take(request.PageSize)
+            .Select(change => new RoleChangeDto(change.Id, change.ChangedByUserId, change.TargetUserId,
+                change.OldRole, change.NewRole, change.ChangedAt)).ToListAsync(ct);
+        return new(items, total, request.Page, request.PageSize);
+    }
+
     public async Task<IDbContextTransaction> BeginRoleChangeAsync(CancellationToken ct = default)
     {
         var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -62,4 +75,9 @@ public sealed class AdminUserRepository(AppDbContext db, UserManager<Application
         (from link in db.UserRoles join role in db.Roles on link.RoleId equals role.Id
          where role.Name == AppRoles.Admin select link.UserId).Distinct().CountAsync(ct);
 
+    public async Task AddRoleChangeAsync(RoleChangeLog change, CancellationToken ct = default)
+    {
+        db.RoleChangeLogs.Add(change);
+        await db.SaveChangesAsync(ct);
+    }
 }
