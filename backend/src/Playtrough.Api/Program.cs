@@ -11,6 +11,7 @@ using Playtrough.Api.Repositories.Implementations;
 using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Implementations;
 using Playtrough.Api.Services.Interfaces;
+using Playtrough.Api.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -127,7 +128,15 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
                 .ExecuteAsync(context.HttpContext),
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AppPolicies.RequireUser, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(AppRoles.User, AppRoles.Moderator, AppRoles.Admin));
+    options.AddPolicy(AppPolicies.RequireModerator, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(AppRoles.Moderator, AppRoles.Admin));
+    options.AddPolicy(AppPolicies.RequireAdmin, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(AppRoles.Admin));
+});
 builder.Services.AddOptions<AdminSeedSettings>()
     .Bind(builder.Configuration.GetSection(AdminSeedSettings.SectionName));
 builder.Services.AddScoped<IdentitySeeder>();
