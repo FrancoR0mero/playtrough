@@ -8,4 +8,5 @@ public interface IAdminUserRepository
 {
     Task<PagedResponse<AdminUserDto>> ListUsersAsync(UserListRequest request, CancellationToken ct = default);
     Task<IDbContextTransaction> BeginRoleChangeAsync(CancellationToken ct = default);
+    Task<int> CountAdminsAsync(CancellationToken ct = default);
 }

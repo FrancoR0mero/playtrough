@@ -58,4 +58,8 @@ public sealed class AdminUserRepository(AppDbContext db, UserManager<Application
         }
     }
 
+    public Task<int> CountAdminsAsync(CancellationToken ct = default) =>
+        (from link in db.UserRoles join role in db.Roles on link.RoleId equals role.Id
+         where role.Name == AppRoles.Admin select link.UserId).Distinct().CountAsync(ct);
+
 }

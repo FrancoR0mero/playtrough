@@ -27,6 +27,9 @@ public sealed class AdminUserService(IAdminUserRepository repository, IUserRepos
                 return new(null, RoleChangeError.InvalidRoleState);
             var oldRole = currentRoles[0];
             if (oldRole == role) return new(ToDto(user, role));
+            if (actorId == targetId) return new(null, RoleChangeError.SelfRoleChange);
+            if (oldRole == AppRoles.Admin && await repository.CountAdminsAsync(ct) <= 1)
+                return new(null, RoleChangeError.LastAdmin);
 
             if (!(await users.RemoveFromRoleAsync(user, oldRole)).Succeeded ||
                 !(await users.AddToRoleAsync(user, role)).Succeeded)
