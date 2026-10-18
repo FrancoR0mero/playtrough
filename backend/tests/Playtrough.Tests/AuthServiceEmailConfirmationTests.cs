@@ -35,7 +35,7 @@ public class AuthServiceEmailConfirmationTests
         Assert.Equal(LoginApiFactory.Email, request.Email);
         Assert.Matches("^[A-Za-z0-9_-]+$", request.Token);
         Assert.Contains(LoginApiFactory.Username, email.TextBody);
-        Assert.Contains("1440", email.TextBody);
+        Assert.Contains("60 minutos", email.TextBody);
         Assert.Contains("Si no creaste esta cuenta", email.TextBody);
         Assert.Contains("Confirmar correo", email.HtmlBody);
     }
@@ -237,7 +237,7 @@ public class AuthServiceEmailConfirmationTests
         await context.RunAsync(service => service.RegisterAsync(EmailConfirmationTestContext.Registration()));
         var request = EmailConfirmationTestContext.Confirmation(await context.Factory.ReadEmailAsync());
         var options = context.Factory.Services.GetRequiredService<IOptions<EmailConfirmationTokenProviderOptions>>().Value;
-        Assert.Equal(TimeSpan.FromHours(24), options.TokenLifespan);
+        Assert.Equal(TimeSpan.FromMinutes(60), options.TokenLifespan);
         Assert.Equal(TimeSpan.FromHours(1), context.Factory.Services.GetRequiredService<IOptions<DataProtectionTokenProviderOptions>>().Value.TokenLifespan);
         Assert.Equal(60, context.Factory.Services.GetRequiredService<IOptions<EmailConfirmationSettings>>().Value.ResendCooldownSeconds);
         options.TokenLifespan = TimeSpan.FromSeconds(-1);
