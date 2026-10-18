@@ -32,7 +32,7 @@ public class AuthServiceLoginTests
         _signIn.Setup(s => s.CheckPasswordSignInAsync(_user, "password", true))
             .ReturnsAsync(success ? SignInResult.Success : SignInResult.Failed);
         _repo.Setup(r => r.ResetAccessFailedCountAsync(_user, It.IsAny<CancellationToken>())).ReturnsAsync(IdentityResult.Success);
-        _repo.Setup(r => r.GetRolesAsync(_user, It.IsAny<CancellationToken>())).ReturnsAsync(new List<string> { "User", "Admin" });
+        _repo.Setup(r => r.GetRolesAsync(_user, It.IsAny<CancellationToken>())).ReturnsAsync(new List<string> { "Admin" });
         _tokens.Setup(t => t.CreateAsync(_user, It.IsAny<IList<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenPair("access", "refresh", DateTime.UtcNow.AddMinutes(15)));
     }
@@ -52,7 +52,7 @@ public class AuthServiceLoginTests
         _repo.Verify(r => r.FindByUsernameAsync(_user.UserName!, It.IsAny<CancellationToken>()), email ? Times.Never() : Times.Once());
         _signIn.Verify(s => s.CheckPasswordSignInAsync(_user, "password", true), Times.Once);
         _repo.Verify(r => r.ResetAccessFailedCountAsync(_user, It.IsAny<CancellationToken>()), Times.Once);
-        _tokens.Verify(t => t.CreateAsync(_user, It.Is<IList<string>>(r => r.Contains("User") && r.Contains("Admin")), It.IsAny<CancellationToken>()), Times.Once);
+        _tokens.Verify(t => t.CreateAsync(_user, It.Is<IList<string>>(r => r.Count == 1 && r[0] == "Admin"), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Theory]

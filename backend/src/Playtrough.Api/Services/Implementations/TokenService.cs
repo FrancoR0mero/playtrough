@@ -9,6 +9,7 @@ using Playtrough.Api.Models;
 using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Services.Interfaces;
+using Playtrough.Api.Authorization;
 
 namespace Playtrough.Api.Services.Implementations;
 
@@ -21,6 +22,9 @@ public class TokenService(
 
     public async Task<TokenPair> CreateAsync(ApplicationUser user, IList<string> roles, CancellationToken ct = default)
     {
+        // Refuse inconsistent role data rather than silently selecting a more privileged role.
+        if (roles.Count != 1 || !AppRoles.IsValid(roles[0]))
+            throw new InvalidOperationException("Exactly one supported role is required to issue a session.");
         var settings = options.Value;
         var now = DateTime.UtcNow;
         var expiresAt = now.AddMinutes(settings.AccessTokenExpirationMinutes);
@@ -31,7 +35,7 @@ public class TokenService(
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
         };
-        claims.AddRange(roles.Select(role => new Claim("role", role)));
+        claims.Add(new Claim("role", roles[0]));
 
         var jwt = new JwtSecurityToken(
             issuer: settings.Issuer,

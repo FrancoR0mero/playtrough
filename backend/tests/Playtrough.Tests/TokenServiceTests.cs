@@ -13,6 +13,25 @@ namespace Playtrough.Tests;
 
 public class TokenServiceTests
 {
+    [Theory]
+    [InlineData("none")]
+    [InlineData("multiple")]
+    [InlineData("unknown")]
+    public async Task Create_WithInconsistentRoles_RejectsSessionWithoutPersistingTokens(string scenario)
+    {
+        // Arrange
+        var repo = new Mock<IRefreshTokenRepository>();
+        var service = new TokenService(Options.Create(_settings), repo.Object);
+        IList<string> roles = scenario switch
+        {
+            "none" => [], "multiple" => ["User", "Admin"], _ => ["Unknown"],
+        };
+
+        // Act / Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(new ApplicationUser { Id = 42 }, roles));
+        repo.Verify(repository => repository.AddAsync(It.IsAny<RefreshToken>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private readonly JwtSettings _settings = new()
     {
         Key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
@@ -32,15 +51,16 @@ public class TokenServiceTests
             .Returns(Task.CompletedTask);
         var before = DateTime.UtcNow;
         var tokens = await new TokenService(Options.Create(_settings), repo.Object).CreateAsync(
-            new ApplicationUser { Id = 42, UserName = "ana", Email = "ana@example.com" }, ["User", "Admin"]);
+            new ApplicationUser { Id = 42, UserName = "ana", Email = "ana@example.com" }, ["Admin"]);
 
         var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
         var principal = handler.ValidateToken(tokens.AccessToken, Validation(), out var validated);
         Assert.Equal("42", principal.FindFirst("sub")?.Value);
         Assert.Equal("ana", principal.FindFirst("unique_name")?.Value);
         Assert.Equal("ana@example.com", principal.FindFirst("email")?.Value);
-        Assert.True(principal.IsInRole("User"));
+        Assert.False(principal.IsInRole("User"));
         Assert.True(principal.IsInRole("Admin"));
+        Assert.Single(principal.FindAll("role"));
         Assert.Equal(SecurityAlgorithms.HmacSha256, ((JwtSecurityToken)validated).Header.Alg);
         Assert.InRange(tokens.ExpiresAt, before.AddMinutes(15), DateTime.UtcNow.AddMinutes(15));
         Assert.InRange((tokens.ExpiresAt - validated.ValidTo).TotalSeconds, 0, 1);

@@ -6,6 +6,7 @@ using Playtrough.Api.Models;
 using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Services.Interfaces;
+using Playtrough.Api.Authorization;
 
 namespace Playtrough.Api.Services.Implementations;
 
@@ -24,7 +25,6 @@ public class AuthService(
     IEmailConfirmationQueue confirmationQueue,
     IMemoryCache cache) : IAuthService
 {
-    private const string UserRole = "User";
 
     public async Task<ServiceResult<AuthMessageDto>> ConfirmEmailAsync(ConfirmEmailRequestDto dto, CancellationToken ct = default)
     {
@@ -226,7 +226,7 @@ public class AuthService(
 
     private static LoginUserDto ToLoginUser(ApplicationUser user, IList<string> roles)
     {
-        var role = roles.Contains("Admin") ? "Admin" : roles.OrderBy(r => r, StringComparer.Ordinal).FirstOrDefault() ?? string.Empty;
+        var role = roles.Single();
         return new LoginUserDto(user.Id, user.UserName ?? string.Empty, user.Email ?? string.Empty, role);
     }
 
@@ -317,7 +317,7 @@ public class AuthService(
                 return ServiceResult<RegisterResponseDto>.Fail(AuthError.ValidationError, createResult.Errors.ToList());
             }
 
-            var roleResult = await userRepository.AddToRoleAsync(user, UserRole, ct);
+            var roleResult = await userRepository.AddToRoleAsync(user, AppRoles.User, ct);
             if (!roleResult.Succeeded)
             {
                 await transaction.RollbackAsync(ct);
