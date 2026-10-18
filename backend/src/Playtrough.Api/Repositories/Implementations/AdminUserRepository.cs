@@ -35,4 +35,27 @@ public sealed class AdminUserRepository(AppDbContext db, UserManager<Application
         return new(items, total, request.Page, request.PageSize);
     }
 
+    public async Task<IDbContextTransaction> BeginRoleChangeAsync(CancellationToken ct = default)
+    {
+        var transaction = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            var adminName = users.NormalizeName(AppRoles.Admin);
+            // First SQL statement: lock the shared Admin role row with a no-op UPDATE.
+            // InnoDB serializes role changes across API instances; SQLite obtains its writer lock.
+            // No snapshot reads precede this lock, so the admin count sees the previous committed change.
+            // Keeping the value unchanged also leaves idempotent requests entirely unchanged.
+            await db.Roles.Where(role => role.NormalizedName == adminName)
+                .ExecuteUpdateAsync(update => update.SetProperty(role => role.ConcurrencyStamp, role => role.ConcurrencyStamp), ct);
+            if (!await db.Roles.AnyAsync(role => role.NormalizedName == adminName, ct))
+                throw new InvalidOperationException("The required admin role is unavailable.");
+            return transaction;
+        }
+        catch
+        {
+            await transaction.DisposeAsync();
+            throw;
+        }
+    }
+
 }
