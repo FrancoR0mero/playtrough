@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Playtrough.Api.Authorization;
 
 namespace Playtrough.Tests;
 
 /// <summary>Available only in LoginApiFactory; uses the real bearer authentication handler.</summary>
 [ApiController]
 [Route("__tests/protected")]
-[Authorize(Roles = "User")]
+[Authorize(Roles = AppRoles.User)]
 public class TestProtectedController : ControllerBase
 {
     [HttpGet]

@@ -128,6 +128,9 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddOptions<AdminSeedSettings>()
+    .Bind(builder.Configuration.GetSection(AdminSeedSettings.SectionName));
+builder.Services.AddScoped<IdentitySeeder>();
 
 // Application services
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -162,6 +165,9 @@ builder.Services.AddSignalR();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+await using (var scope = app.Services.CreateAsyncScope())
+    await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().InitializeAsync();
 
 // Pipeline
 app.UseExceptionHandler();

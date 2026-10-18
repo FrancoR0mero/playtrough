@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Playtrough.Api.Models;
+using Playtrough.Api.Authorization;
 
 namespace Playtrough.Api.Data;
 
@@ -45,14 +46,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             new IdentityRole<int>
             {
                 Id = 1,
-                Name = "User",
+                Name = AppRoles.User,
                 NormalizedName = "USER",
                 ConcurrencyStamp = "6f1e6b2a-0000-4000-8000-000000000001",
             },
             new IdentityRole<int>
             {
                 Id = 2,
-                Name = "Admin",
+                Name = AppRoles.Admin,
                 NormalizedName = "ADMIN",
                 ConcurrencyStamp = "6f1e6b2a-0000-4000-8000-000000000002",
             });

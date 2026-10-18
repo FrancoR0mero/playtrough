@@ -79,6 +79,10 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
+            // Startup now seeds Identity. Keep the schema ready before Program executes it,
+            // and never inherit real admin credentials from user-secrets or the environment.
+            services.PostConfigure<AdminSeedSettings>(settings =>
+                settings.Username = settings.Email = settings.Password = string.Empty);
             services.RemoveAll<IEmailSender>();
             services.AddSingleton(EmailSender.Object);
             services.AddSingleton(AuthLogger.Object);
@@ -115,6 +119,9 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
                 if (_connectionString is null) options.UseSqlite(_connection);
                 else options.UseSqlite(_connectionString);
             });
+            using (var schema = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+                .UseSqlite(_connection).Options))
+                schema.Database.EnsureCreated();
 
             // Keep the production JWT validation configuration, with a fresh test-only key.
             services.PostConfigure<JwtSettings>(settings =>
