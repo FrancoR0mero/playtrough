@@ -9,7 +9,7 @@ using Playtrough.Api.Services.Interfaces;
 namespace Playtrough.Api.Services.Implementations;
 
 public sealed class AdminUserService(IAdminUserRepository repository, IUserRepository userRepository,
-    UserManager<ApplicationUser> users, ILogger<AdminUserService> logger) : IAdminUserService
+    UserManager<ApplicationUser> users, IRefreshTokenRepository refreshTokens, ILogger<AdminUserService> logger) : IAdminUserService
 {
     public Task<PagedResponse<AdminUserDto>> ListUsersAsync(UserListRequest request, CancellationToken ct = default)
         => repository.ListUsersAsync(request, ct);
@@ -43,6 +43,9 @@ public sealed class AdminUserService(IAdminUserRepository repository, IUserRepos
             {
                 ChangedByUserId = actorId, TargetUserId = targetId, OldRole = oldRole, NewRole = role, ChangedAt = now,
             }, ct);
+            await refreshTokens.RevokeAllActiveAsync(targetId, now, ct);
+            // Existing access JWTs keep their old role until expiry (15 minutes by default).
+            // Revoking refresh tokens requires a fresh login before another session can be issued.
             await transaction.CommitAsync(ct);
             return new(ToDto(user, role));
         }
