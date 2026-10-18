@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -130,6 +131,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization(options =>
 {
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
     options.AddPolicy(AppPolicies.RequireUser, policy =>
         policy.RequireAuthenticatedUser().RequireRole(AppRoles.User, AppRoles.Moderator, AppRoles.Admin));
     options.AddPolicy(AppPolicies.RequireModerator, policy =>
@@ -195,7 +197,8 @@ if (app.Environment.IsDevelopment())
     app.MapGet("/api/test/admin", () => Results.Ok(new { message = "Admin access granted." }))
         .RequireAuthorization(AppPolicies.RequireAdmin);
 }
-app.MapHealthChecks("/health");
+// Public liveness check: no database, credentials or internal state in the response.
+app.MapHealthChecks("/health").AllowAnonymous();
 app.Run();
 
 // Exposes the entry point to WebApplicationFactory without changing the API pipeline.
