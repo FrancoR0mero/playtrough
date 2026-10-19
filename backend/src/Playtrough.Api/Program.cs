@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Playtrough.Api.Data;
 using Playtrough.Api.Models;
 using Playtrough.Api.OpenApi;
@@ -152,8 +153,22 @@ builder.Services.AddScoped<IAdminUserRepository, AdminUserRepository>();
 builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 
 // Swagger / OpenAPI
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Pegá el accessToken recibido en el login, sin agregar el prefijo Bearer. No uses el refreshToken.",
+    });
+    // Match the API's authenticated-by-default behavior; anonymous operations override this below.
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference(JwtBearerDefaults.AuthenticationScheme, document)] = [],
+    });
+    options.OperationFilter<AnonymousSecurityFilter>();
     options.OperationFilter<RegisterEndpointExamplesFilter>();
     options.OperationFilter<LoginEndpointExamplesFilter>();
     options.OperationFilter<RefreshEndpointExamplesFilter>();

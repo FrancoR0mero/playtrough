@@ -1,11 +1,67 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Hosting;
 using Xunit;
 
 namespace Playtrough.Tests;
 
 public class SwaggerDocumentationTests
 {
+    [Fact]
+    public async Task Swagger_EnablesHttpBearerForProtectedOperationsIncludingFallback()
+    {
+        // Arrange
+        using var factory = new LoginApiFactory(environment: Environments.Development);
+        using var client = factory.CreateClient();
+
+        // Act
+        using var document = (await client.GetFromJsonAsync<JsonDocument>("/swagger/v1/swagger.json"))!;
+
+        // Assert the scheme consumed by Swagger UI, including automatic Bearer prefix handling.
+        var root = document.RootElement;
+        var scheme = root.GetProperty("components").GetProperty("securitySchemes").GetProperty("Bearer");
+        Assert.Equal("http", scheme.GetProperty("type").GetString());
+        Assert.Equal("bearer", scheme.GetProperty("scheme").GetString());
+        Assert.Equal("JWT", scheme.GetProperty("bearerFormat").GetString());
+        var requirement = Assert.Single(root.GetProperty("security").EnumerateArray());
+        Assert.Empty(requirement.GetProperty("Bearer").EnumerateArray());
+        var paths = root.GetProperty("paths");
+        foreach (var (path, method) in new[]
+        {
+            ("/api/Auth/logout", "post"), ("/api/admin/users", "get"),
+            ("/api/admin/users/{id}/role", "put"), ("/api/admin/role-changes", "get"),
+            ("/api/test/user", "get"), ("/api/test/moderator", "get"), ("/api/test/admin", "get"),
+            ("/__tests/fallback", "get"),
+        })
+        {
+            var operation = paths.GetProperty(path).GetProperty(method);
+            var effective = operation.TryGetProperty("security", out var own) ? own : root.GetProperty("security");
+            Assert.True(Assert.Single(effective.EnumerateArray()).TryGetProperty("Bearer", out _));
+        }
+    }
+
+    [Theory]
+    [InlineData("register")]
+    [InlineData("login")]
+    [InlineData("refresh")]
+    [InlineData("forgot-password")]
+    [InlineData("reset-password")]
+    [InlineData("confirm-email")]
+    [InlineData("resend-confirmation")]
+    public async Task Swagger_PublicAuthOperations_ExplicitlyOverrideDefaultBearerRequirement(string endpoint)
+    {
+        // Arrange
+        using var factory = new LoginApiFactory();
+        using var client = factory.CreateClient();
+
+        // Act
+        using var document = (await client.GetFromJsonAsync<JsonDocument>("/swagger/v1/swagger.json"))!;
+
+        // Assert: omission would inherit the global requirement and attach the token to public requests.
+        var operation = document.RootElement.GetProperty("paths").GetProperty($"/api/Auth/{endpoint}").GetProperty("post");
+        Assert.Empty(operation.GetProperty("security").EnumerateArray());
+    }
+
     [Fact]
     public async Task Swagger_PublishesPublicRefreshContractExamplesAndRotationRules()
     {
