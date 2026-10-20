@@ -10,8 +10,7 @@ export interface NavigationItem {
 // Visibility improves UX; the backend is responsible for enforcing permissions.
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   { label: 'Biblioteca', path: '/library', minRole: 'User', enabled: true },
-  // Enable in phase 4 when /admin/roles is implemented with authGuard and roleGuard.
-  { label: 'Roles', path: '/admin/roles', minRole: 'Admin', enabled: false },
+  { label: 'Roles', path: '/admin/roles', minRole: 'Admin', enabled: true },
   // Enable only when a protected content moderation route and screen exist.
   { label: 'Moderación', path: '/moderation', minRole: 'Moderator', enabled: false },
 ];

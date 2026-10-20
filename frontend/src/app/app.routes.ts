@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth-guard';
 import { guestGuard } from './core/guards/guest-guard';
+import { roleGuard } from './core/guards/role-guard';
 
 export const routes: Routes = [
   {
@@ -38,6 +39,12 @@ export const routes: Routes = [
     path: 'library',
     canActivate: [authGuard],
     loadComponent: () => import('./features/library/library').then((m) => m.LibraryComponent),
+  },
+  {
+    path: 'admin/roles',
+    canActivate: [authGuard, roleGuard],
+    data: { minRole: 'Admin' },
+    loadComponent: () => import('./features/admin/roles').then((m) => m.AdminRolesComponent),
   },
   {
     path: 'access-denied',

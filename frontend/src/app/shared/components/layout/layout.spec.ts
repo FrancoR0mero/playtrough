@@ -79,16 +79,16 @@ describe('Layout navigation and logout', () => {
       expect(nav.querySelector('button[data-action="logout"]')).not.toBeNull();
       expect(nav.querySelector('a[href="/auth/login"]')).toBeNull();
       expect(nav.querySelector('a[href="/auth/register"]')).toBeNull();
-      expect(nav.querySelector('a[href="/admin/roles"]')).toBeNull();
+      expect(nav.querySelector('a[href="/admin/roles"]') !== null).toBe(role === 'Admin');
       expect(nav.querySelector('a[href="/moderation"]')).toBeNull();
     },
   );
 
-  it('defines Roles and Moderación with their minimum roles but leaves both disabled', () => {
+  it('enables Roles for Admin and leaves Moderación disabled', () => {
     expect(NAVIGATION_ITEMS.find((item) => item.label === 'Roles')).toMatchObject({
       path: '/admin/roles',
       minRole: 'Admin',
-      enabled: false,
+      enabled: true,
     });
     expect(NAVIGATION_ITEMS.find((item) => item.label === 'Moderación')).toMatchObject({
       minRole: 'Moderator',

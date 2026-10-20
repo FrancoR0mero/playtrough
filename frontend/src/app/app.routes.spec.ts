@@ -11,6 +11,7 @@ import { environment } from '../environments/environment';
 import { routes } from './app.routes';
 import { authGuard } from './core/guards/auth-guard';
 import { guestGuard } from './core/guards/guest-guard';
+import { roleGuard } from './core/guards/role-guard';
 import { createSession } from './features/auth/auth-test-helpers';
 import { TokenStorageService } from './features/auth/services/token-storage';
 
@@ -39,6 +40,48 @@ describe('Application route access', () => {
   it('protects the private library route and keeps the wildcard last', () => {
     expect(routes.find((route) => route.path === 'library')?.canActivate).toEqual([authGuard]);
     expect(routes.at(-1)?.path).toBe('**');
+  });
+
+  it('protects role administration with both guards and Admin as the minimum role', () => {
+    const route = routes.find((route) => route.path === 'admin/roles');
+    expect(route?.canActivate).toEqual([authGuard, roleGuard]);
+    expect(route?.data?.['minRole']).toBe('Admin');
+  });
+
+  it.each(['User', 'Moderator'])(
+    'denies direct role administration navigation for %s',
+    async (role) => {
+      storage.save({ ...createSession(), user: { ...createSession().user, role } });
+      const harness = await RouterTestingHarness.create('/admin/roles');
+      expect(TestBed.inject(Router).url).toBe('/access-denied');
+      expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain(
+        'Acceso denegado',
+      );
+      httpMock.expectNone((request) => request.url.includes('/admin/users'));
+    },
+  );
+
+  it('redirects an anonymous role administration visit to login with returnUrl', async () => {
+    await RouterTestingHarness.create('/admin/roles');
+    const router = TestBed.inject(Router);
+    const tree = router.parseUrl(router.url);
+    expect(router.url.split('?')[0]).toBe('/auth/login');
+    expect(tree.queryParams['returnUrl']).toBe('/admin/roles');
+  });
+
+  it('allows an Admin to open the role administration screen', async () => {
+    storage.save({ ...createSession(), user: { ...createSession().user, role: 'Admin' } });
+    const navigation = RouterTestingHarness.create('/admin/roles');
+    let request!: TestRequest;
+    await vi.waitFor(() => {
+      request = httpMock.expectOne((req) => req.url === `${environment.apiUrl}/admin/users`);
+    });
+    request.flush({ items: [], total: 0, page: 1, pageSize: 20 });
+    const harness = await navigation;
+    expect(TestBed.inject(Router).url).toBe('/admin/roles');
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain(
+      'Roles de usuarios',
+    );
   });
 
   it.each(['auth/login', 'auth/register', 'auth/forgot-password'])(
