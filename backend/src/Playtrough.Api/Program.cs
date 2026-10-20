@@ -200,7 +200,9 @@ builder.Services.AddCors(o =>
     {
         var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
             ?? new[] { "http://localhost:4200" };
-        p.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod();
+        p.WithOrigins(origins)
+            .WithMethods("GET", "POST", "PUT", "OPTIONS")
+            .WithHeaders("Authorization", "Content-Type");
     });
 });
 
