@@ -70,6 +70,52 @@ describe('JWT interceptor', () => {
     request.flush([]);
   });
 
+  it('attaches the logout bearer header through the interceptor and clears the local session', () => {
+    const complete = vi.fn();
+    auth.logout().subscribe({ complete });
+    const request = httpMock.expectOne(`${api}/auth/logout`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ refreshToken: 'refresh' });
+    expect(request.request.headers.get('Authorization')).toBe('Bearer access');
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    expect(complete).toHaveBeenCalledOnce();
+    expect(storage.readTokens()).toBeNull();
+    expect(auth.isAuthenticated()).toBe(false);
+  });
+
+  it.each([403, 500, 0])(
+    'clears the local session even when intercepted logout fails with %s',
+    (status) => {
+      const complete = vi.fn();
+      const error = vi.fn();
+      auth.logout().subscribe({ complete, error });
+      const request = httpMock.expectOne(`${api}/auth/logout`);
+      expect(request.request.headers.get('Authorization')).toBe('Bearer access');
+      if (status === 0) request.error(new ProgressEvent('error'));
+      else request.flush(null, { status, statusText: 'Error' });
+      expect(complete).toHaveBeenCalledOnce();
+      expect(error).not.toHaveBeenCalled();
+      expect(storage.readTokens()).toBeNull();
+      expect(auth.isAuthenticated()).toBe(false);
+      httpMock.expectNone(refreshUrl);
+    },
+  );
+
+  it('clears the local session when logout and its refresh are both rejected', () => {
+    const complete = vi.fn();
+    auth.logout().subscribe({ complete });
+    httpMock
+      .expectOne(`${api}/auth/logout`)
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
+    httpMock.expectOne(refreshUrl).flush(null, { status: 401, statusText: 'Unauthorized' });
+    expect(complete).toHaveBeenCalledOnce();
+    expect(storage.readTokens()).toBeNull();
+    expect(auth.isAuthenticated()).toBe(false);
+    expect(router.navigateByUrl).toHaveBeenCalledExactlyOnceWith(expiredLogin, {
+      replaceUrl: true,
+    });
+  });
+
   it.each([
     '/auth/login',
     '/auth/register',

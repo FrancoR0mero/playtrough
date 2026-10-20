@@ -206,7 +206,7 @@ describe('AuthService login and session', () => {
     expect(localStorage.getItem('playtrough.session')).toBeNull();
   }
 
-  it('posts logout with the refresh token and bearer header, then clears the session on 204', () => {
+  it('posts logout with the refresh token, delegates bearer headers to the interceptor and clears on 204', () => {
     // Arrange
     const auth = authenticatedService();
     const complete = vi.fn();
@@ -219,7 +219,7 @@ describe('AuthService login and session', () => {
     // Assert the outgoing contract and pending state before resolving the request.
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ refreshToken: 'refresh' });
-    expect(request.request.headers.get('Authorization')).toBe('Bearer access');
+    expect(request.request.headers.has('Authorization')).toBe(false);
     expect(complete).not.toHaveBeenCalled();
     request.flush(null, { status: 204, statusText: 'No Content' });
     expect(complete).toHaveBeenCalledOnce();

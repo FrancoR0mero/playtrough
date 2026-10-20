@@ -208,14 +208,7 @@ export class AuthService {
       if (!tokens) return of(undefined);
 
       return this.http
-        .post<void>(
-          `${environment.apiUrl}/auth/logout`,
-          { refreshToken: tokens.refreshToken },
-          {
-            // TODO: quitar cuando exista el interceptor
-            headers: { Authorization: `Bearer ${tokens.accessToken}` },
-          },
-        )
+        .post<void>(`${environment.apiUrl}/auth/logout`, { refreshToken: tokens.refreshToken })
         .pipe(
           // An unresponsive API must not prevent local logout.
           timeout(5_000),
