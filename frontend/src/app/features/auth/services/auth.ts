@@ -24,6 +24,7 @@ import type {
 import { TokenStorageService } from './token-storage';
 import { environment } from '../../../../environments/environment';
 import { authDestination } from '../auth-navigation';
+import { AppRole, hasMinRole as roleMeetsMinimum } from '../../../core/authorization/roles';
 import type {
   ProblemDetails,
   RegisterRequest,
@@ -93,6 +94,14 @@ export class AuthService {
 
   readonly currentUser = computed(() => this.session()?.user ?? null);
   readonly isAuthenticated = computed(() => this.session() !== null);
+
+  hasRole(role: AppRole): boolean {
+    return this.isAuthenticated() && this.currentUser()?.role === role;
+  }
+
+  hasMinRole(role: AppRole): boolean {
+    return this.isAuthenticated() && roleMeetsMinimum(this.currentUser()?.role, role);
+  }
 
   constructor() {
     this.restoreSession();

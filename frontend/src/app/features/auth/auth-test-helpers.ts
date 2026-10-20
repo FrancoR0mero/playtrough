@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { vi } from 'vitest';
+import { AppRole, hasMinRole } from '../../core/authorization/roles';
 import type { AuthUser, LoginResponse } from './models/login';
 import type { AuthMessage } from './models/password-recovery';
 import type { RegisterRequest, RegisterResponse } from './models/register';
@@ -15,6 +16,8 @@ export function createSession(): LoginResponse {
 }
 
 export function createAuthMock() {
+  const currentUser = signal<AuthUser | null>(null);
+  const isAuthenticated = signal(false);
   return {
     register: vi.fn<(payload: RegisterRequest) => Observable<RegisterResponse>>(),
     confirmEmail: vi.fn<(email: string, token: string) => Observable<AuthMessage>>(),
@@ -33,8 +36,10 @@ export function createAuthMock() {
       >(),
     clearSession: vi.fn(),
     restoreSession: vi.fn(),
-    currentUser: signal<AuthUser | null>(null),
-    isAuthenticated: signal(false),
+    currentUser,
+    isAuthenticated,
+    hasRole: (role: AppRole) => isAuthenticated() && currentUser()?.role === role,
+    hasMinRole: (role: AppRole) => isAuthenticated() && hasMinRole(currentUser()?.role, role),
   };
 }
 
