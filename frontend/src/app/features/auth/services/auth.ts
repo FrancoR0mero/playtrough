@@ -84,7 +84,11 @@ export class AuthService {
   private readonly session = signal<LoginResponse | null>(null);
   private expiryTimer: ReturnType<typeof setTimeout> | undefined;
   private sessionVersion = 0;
-  private refreshRequest: { version: number; stream: Observable<string> } | null = null;
+  private refreshRequest: {
+    version: number;
+    stream: Observable<string>;
+    failureVersion?: number;
+  } | null = null;
   private expiredRedirectPending = false;
 
   readonly currentUser = computed(() => this.session()?.user ?? null);
@@ -123,13 +127,25 @@ export class AuthService {
     return Date.parse(session.expiresAt) <= Date.now() + Math.max(0, leewaySeconds) * 1_000;
   }
 
-  refresh(): Observable<string> {
+  refresh({ redirectOnFailure = true }: { redirectOnFailure?: boolean } = {}): Observable<string> {
     // Resolve the shared request on subscription. Completed requests are never reused,
     // even when callers retain and subscribe again to an earlier returned Observable.
     return defer(() => {
-      if (this.refreshRequest?.version === this.sessionVersion) return this.refreshRequest.stream;
+      const observe = (request: NonNullable<typeof this.refreshRequest>) =>
+        request.stream.pipe(
+          catchError((error: unknown) => {
+            // Guards return their own UrlTree. Other callers retain the shared expiry redirect.
+            if (redirectOnFailure && request.failureVersion === this.sessionVersion)
+              this.expireSession();
+            return throwError(() => error);
+          }),
+        );
+      if (this.refreshRequest?.version === this.sessionVersion) return observe(this.refreshRequest);
       const version = this.sessionVersion;
-      const request = { version, stream: undefined! as Observable<string> };
+      const request: NonNullable<typeof this.refreshRequest> = {
+        version,
+        stream: undefined! as Observable<string>,
+      };
       const release = () => {
         if (this.refreshRequest === request) this.refreshRequest = null;
       };
@@ -155,7 +171,10 @@ export class AuthService {
           // Transient HTTP failures retain the session for a later explicit retry.
           const transientFailure =
             error instanceof HttpErrorResponse && (error.status === 0 || error.status >= 500);
-          if (version === this.sessionVersion && !transientFailure) this.expireSession();
+          if (version === this.sessionVersion && !transientFailure) {
+            this.clearSession();
+            request.failureVersion = this.sessionVersion;
+          }
           return throwError(() => error);
         }),
         // Release before notifying completion/error, so a caller can immediately retry
@@ -167,7 +186,7 @@ export class AuthService {
         shareReplay({ bufferSize: 1, refCount: false }),
       );
       this.refreshRequest = request;
-      return request.stream;
+      return observe(request);
     });
   }
 

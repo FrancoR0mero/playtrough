@@ -71,6 +71,9 @@ describe('Authentication navigation', () => {
 
   it.each([
     null,
+    '',
+    'http://evil.com',
+    'javascript:alert(1)',
     'https://example.com',
     '//example.com',
     '/\\example.com',

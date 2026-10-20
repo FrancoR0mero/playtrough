@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
-import { AuthGuard } from './core/guards/auth-guard';
-import { GuestGuard } from './core/guards/guest-guard';
+import { authGuard } from './core/guards/auth-guard';
+import { guestGuard } from './core/guards/guest-guard';
 
 export const routes: Routes = [
   {
@@ -15,28 +15,40 @@ export const routes: Routes = [
   },
   {
     path: 'auth/forgot-password',
+    canActivate: [guestGuard],
     loadComponent: () =>
       import('./features/auth/forgot-password').then((m) => m.ForgotPasswordComponent),
   },
   { path: '', pathMatch: 'full', redirectTo: 'library' },
   {
     path: 'auth/login',
-    canActivate: [GuestGuard],
+    canActivate: [guestGuard],
     runGuardsAndResolvers: 'always',
     data: { mode: 'login' },
     loadComponent: () => import('./features/auth/register').then((m) => m.RegisterComponent),
   },
   {
     path: 'auth/register',
-    canActivate: [GuestGuard],
+    canActivate: [guestGuard],
     runGuardsAndResolvers: 'always',
     data: { mode: 'register' },
     loadComponent: () => import('./features/auth/register').then((m) => m.RegisterComponent),
   },
   {
     path: 'library',
-    canActivate: [AuthGuard],
+    canActivate: [authGuard],
     loadComponent: () => import('./features/library/library').then((m) => m.LibraryComponent),
   },
-  { path: '**', redirectTo: 'library' },
+  {
+    path: 'access-denied',
+    loadComponent: () =>
+      import('./shared/components/access-denied/access-denied').then(
+        (m) => m.AccessDeniedComponent,
+      ),
+  },
+  {
+    path: '**',
+    loadComponent: () =>
+      import('./shared/components/not-found/not-found').then((m) => m.NotFoundComponent),
+  },
 ];
