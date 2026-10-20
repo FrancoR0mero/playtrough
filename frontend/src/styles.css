@@ -1,6 +1,7 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
+@import '@angular/cdk/overlay-prebuilt.css';
 
 /* Single source of truth for the provisional palette (AS2).
    Values are placeholders — change a game-state color by editing ONE line here. */
