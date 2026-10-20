@@ -1,7 +1,7 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { createSession } from '../auth-test-helpers';
 import type { LoginResponse } from '../models/login';
@@ -11,20 +11,19 @@ import { TokenStorageService } from './token-storage';
 describe('AuthService refresh', () => {
   let httpMock: HttpTestingController;
   let storage: TokenStorageService;
-  let router: { navigateByUrl: ReturnType<typeof vi.fn> };
+  let router: Router;
   const refreshUrl = `${environment.apiUrl}/auth/refresh`;
+  const expiredLogin = '/auth/login?returnUrl=%2Flibrary&sessionExpired=true';
 
   beforeEach(() => {
     vi.useFakeTimers();
-    router = { navigateByUrl: vi.fn().mockResolvedValue(true) };
     TestBed.configureTestingModule({
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        { provide: Router, useValue: router },
-      ],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     httpMock = TestBed.inject(HttpTestingController);
+    router = TestBed.inject(Router);
+    vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/library');
     storage = TestBed.inject(TokenStorageService);
     storage.clear();
   });
@@ -86,7 +85,7 @@ describe('AuthService refresh', () => {
     expect(router.navigateByUrl).not.toHaveBeenCalled();
   });
 
-  it.each([400, 401, 500])('clears the session and redirects on refresh status %s', (status) => {
+  it.each([400, 401])('clears the session and redirects on refresh status %s', (status) => {
     // Arrange
     const auth = authenticated();
     const error = vi.fn();
@@ -101,10 +100,9 @@ describe('AuthService refresh', () => {
     expect(error).toHaveBeenCalledExactlyOnceWith(expect.any(HttpErrorResponse));
     expect((error.mock.calls[0][0] as HttpErrorResponse).status).toBe(status);
     expectCleared(auth);
-    expect(router.navigateByUrl).toHaveBeenCalledExactlyOnceWith(
-      status === 401 ? '/auth/login?sessionExpired=true' : '/auth/login',
-      { replaceUrl: true },
-    );
+    expect(router.navigateByUrl).toHaveBeenCalledExactlyOnceWith(expiredLogin, {
+      replaceUrl: true,
+    });
   });
 
   it('propagates network errors while retaining stored tokens, user and authentication', () => {
@@ -148,7 +146,7 @@ describe('AuthService refresh', () => {
       httpMock.expectNone(refreshUrl);
       expect(error).toHaveBeenCalledExactlyOnceWith(expect.any(Error));
       expectCleared(auth);
-      expect(router.navigateByUrl).toHaveBeenCalledExactlyOnceWith('/auth/login', {
+      expect(router.navigateByUrl).toHaveBeenCalledExactlyOnceWith(expiredLogin, {
         replaceUrl: true,
       });
     },
@@ -344,7 +342,21 @@ describe('AuthService refresh', () => {
     // Assert
     expect(error).toHaveBeenCalledExactlyOnceWith(expect.any(Error));
     expectCleared(auth);
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/auth/login', { replaceUrl: true });
+    expect(router.navigateByUrl).toHaveBeenCalledWith(expiredLogin, { replaceUrl: true });
+  });
+
+  it.each([500, 503])('retains the session on refresh status %s', (status) => {
+    const auth = authenticated();
+    const original = storage.read();
+    const error = vi.fn();
+
+    auth.refresh().subscribe({ error });
+    httpMock.expectOne(refreshUrl).flush(null, { status, statusText: 'Unavailable' });
+
+    expect(error).toHaveBeenCalledExactlyOnceWith(expect.any(HttpErrorResponse));
+    expect(storage.read()).toEqual(original);
+    expect(auth.isAuthenticated()).toBe(true);
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
   });
 
   it('returns no access token and reports expiry when there is no stored session', () => {

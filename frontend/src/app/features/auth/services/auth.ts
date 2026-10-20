@@ -23,6 +23,7 @@ import type {
 } from '../models/password-recovery';
 import { TokenStorageService } from './token-storage';
 import { environment } from '../../../../environments/environment';
+import { authDestination } from '../auth-navigation';
 import type {
   ProblemDetails,
   RegisterRequest,
@@ -84,6 +85,7 @@ export class AuthService {
   private expiryTimer: ReturnType<typeof setTimeout> | undefined;
   private sessionVersion = 0;
   private refreshRequest: { version: number; stream: Observable<string> } | null = null;
+  private expiredRedirectPending = false;
 
   readonly currentUser = computed(() => this.session()?.user ?? null);
   readonly isAuthenticated = computed(() => this.session() !== null);
@@ -150,19 +152,10 @@ export class AuthService {
         );
       }).pipe(
         catchError((error: unknown) => {
-          // A network failure has no server response: keep the refresh token for a later
-          // explicit retry. Clearing it would force a new login after a transient outage.
-          const networkFailure = error instanceof HttpErrorResponse && error.status === 0;
-          if (version === this.sessionVersion && !networkFailure) {
-            this.clearSession();
-            const expired = error instanceof HttpErrorResponse && error.status === 401;
-            void this.router.navigateByUrl(
-              expired ? '/auth/login?sessionExpired=true' : '/auth/login',
-              {
-                replaceUrl: true,
-              },
-            );
-          }
+          // Transient HTTP failures retain the session for a later explicit retry.
+          const transientFailure =
+            error instanceof HttpErrorResponse && (error.status === 0 || error.status >= 500);
+          if (version === this.sessionVersion && !transientFailure) this.expireSession();
           return throwError(() => error);
         }),
         // Release before notifying completion/error, so a caller can immediately retry
@@ -182,6 +175,29 @@ export class AuthService {
     this.sessionVersion++;
     this.storage.clear();
     this.setSession(null);
+  }
+
+  /** Shared by refresh and the interceptor: clear locally and avoid auth redirect loops. */
+  expireSession(): void {
+    this.clearSession();
+    const currentUrl = this.router.url;
+    if (
+      /^\/(?:auth(?:\/|[?#]|$)|confirm-email(?:[/?#]|$)|reset-password(?:[/?#]|$))/i.test(
+        currentUrl,
+      ) ||
+      this.expiredRedirectPending
+    )
+      return;
+    const returnUrl = authDestination(this.router, currentUrl);
+    const destination = this.router.createUrlTree(['/auth/login'], {
+      queryParams: { returnUrl, sessionExpired: true },
+    });
+    this.expiredRedirectPending = true;
+    void this.router
+      .navigateByUrl(this.router.serializeUrl(destination), { replaceUrl: true })
+      .finally(() => {
+        this.expiredRedirectPending = false;
+      });
   }
 
   logout(): Observable<void> {
