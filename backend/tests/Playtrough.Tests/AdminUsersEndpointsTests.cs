@@ -35,6 +35,8 @@ public class AdminUsersEndpointsTests
         Assert.Empty(page1.Items.Select(user => user.Id).Intersect(page2.Items.Select(user => user.Id)));
         Assert.Contains(page1.Items.Concat(page2.Items), user => user.Id == context.OtherId && !user.EmailConfirmed);
         using var json = JsonDocument.Parse(await first.Content.ReadAsStringAsync());
+        Assert.Equal(new[] { "items", "page", "pageSize", "total" },
+            json.RootElement.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
         foreach (var item in json.RootElement.GetProperty("items").EnumerateArray())
             Assert.Equal(new[] { "email", "emailConfirmed", "id", "role", "username" }, item.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
     }
@@ -160,7 +162,7 @@ public class AdminUsersEndpointsTests
         using var response = await client.PutAsJsonAsync($"/api/admin/users/{context.ActorId}/role", new { role = AppRoles.User });
         // Assert
         var problem = await AssertProblemAsync(response, HttpStatusCode.BadRequest);
-        Assert.Equal("self_role_change", problem.Extensions["code"]!.ToString());
+        Assert.Equal("cannot_change_own_role", problem.Extensions["code"]!.ToString());
     }
 
     [Fact]
@@ -209,7 +211,27 @@ public class AdminUsersEndpointsTests
         // Act
         using var response = await client.PutAsJsonAsync($"/api/admin/users/{context.TargetId}/role", new { role });
         // Assert
-        await AssertProblemAsync(response, HttpStatusCode.BadRequest);
+        var problem = await AssertProblemAsync(response, HttpStatusCode.BadRequest);
+        Assert.Equal("invalid_role", problem.Extensions["code"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("null")]
+    [InlineData("")]
+    [InlineData("{")]
+    [InlineData("{\"role\":123}")]
+    [InlineData("[]")]
+    public async Task ChangeRole_WithInvalidBody_ReturnsInvalidRoleCode(string body)
+    {
+        using var context = new AdminTestContext(); await context.InitializeAsync();
+        using var client = await context.AdminClientAsync();
+        using var content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+
+        using var response = await client.PutAsync($"/api/admin/users/{context.TargetId}/role", content);
+
+        var problem = await AssertProblemAsync(response, HttpStatusCode.BadRequest);
+        Assert.Equal("invalid_role", problem.Extensions["code"]!.ToString());
     }
 
     [Fact]
@@ -221,7 +243,8 @@ public class AdminUsersEndpointsTests
         // Act
         using var response = await client.PutAsJsonAsync("/api/admin/users/2147483647/role", new { role = AppRoles.User });
         // Assert
-        await AssertProblemAsync(response, HttpStatusCode.NotFound);
+        var problem = await AssertProblemAsync(response, HttpStatusCode.NotFound);
+        Assert.Equal("user_not_found", problem.Extensions["code"]!.ToString());
     }
 
     [Theory]

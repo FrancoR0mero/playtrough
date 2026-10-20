@@ -2,6 +2,8 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -14,11 +16,27 @@ using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Implementations;
 using Playtrough.Api.Services.Interfaces;
 using Playtrough.Api.Authorization;
+using Playtrough.Api.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+{
+    var defaultResponse = options.InvalidModelStateResponseFactory;
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var response = defaultResponse(context);
+        if (context.ActionDescriptor is ControllerActionDescriptor action &&
+            action.ControllerTypeInfo.AsType() == typeof(AdminUsersController) &&
+            action.ActionName == nameof(AdminUsersController.ChangeRole) &&
+            context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
+                !string.Equals(entry.Key, "id", StringComparison.OrdinalIgnoreCase)) &&
+            response is ObjectResult { Value: ProblemDetails problem })
+            problem.Extensions["code"] = "invalid_role";
+        return response;
+    };
+});
 builder.Services.AddProblemDetails();
 
 // EF Core - MySQL (Oracle provider MySql.EntityFrameworkCore).

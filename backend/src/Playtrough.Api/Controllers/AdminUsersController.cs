@@ -36,7 +36,7 @@ public sealed class AdminUsersController(IAdminUserService service) : Controller
         {
             RoleChangeError.InvalidRole => (400, "invalid_role", "The requested role is invalid."),
             RoleChangeError.NotFound => (404, "user_not_found", "The user was not found."),
-            RoleChangeError.SelfRoleChange => (400, "self_role_change", "You cannot change your own role."),
+            RoleChangeError.SelfRoleChange => (400, "cannot_change_own_role", "You cannot change your own role."),
             RoleChangeError.LastAdmin => (400, "last_admin", "The last admin cannot be demoted."),
             RoleChangeError.InvalidRoleState => (400, "invalid_role_state", "The user must have exactly one supported role."),
             _ => (500, "role_change_failed", "The role could not be changed."),
