@@ -9,8 +9,9 @@ import {
 import { AuthService } from '../../../features/auth/services/auth';
 import { TokenStorageService } from '../../../features/auth/services/token-storage';
 import { LayoutComponent } from './layout';
+import { NAVIGATION_ITEMS } from './layout-navigation';
 
-describe('Layout logout action', () => {
+describe('Layout navigation and logout', () => {
   let fixture: ComponentFixture<LayoutComponent>;
   let auth: ReturnType<typeof createAuthMock>;
   let logoutResult: Subject<void>;
@@ -44,7 +45,7 @@ describe('Layout logout action', () => {
     auth.isAuthenticated.set(true);
     auth.currentUser.set(createSession().user);
     fixture.detectChanges();
-    return fixture.nativeElement.querySelector('header button') as HTMLButtonElement;
+    return fixture.nativeElement.querySelector('button[data-action="logout"]') as HTMLButtonElement;
   }
 
   it('hides the logout button without an active session', () => {
@@ -52,8 +53,115 @@ describe('Layout logout action', () => {
     fixture.detectChanges();
 
     // Assert
-    expect(fixture.nativeElement.querySelector('header button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('button[data-action="logout"]')).toBeNull();
     expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('shows login and registration links without a session', () => {
+    fixture.detectChanges();
+    const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
+    expect(nav.querySelector('a[href="/auth/login"]')?.textContent).toContain('Iniciar sesión');
+    expect(nav.querySelector('a[href="/auth/register"]')?.textContent).toContain('Registrarse');
+    expect(nav.querySelector('a[href="/library"]')).toBeNull();
+    expect(nav.querySelector('[aria-label="Rol de la cuenta"]')).toBeNull();
+  });
+
+  it.each(['User', 'Moderator', 'Admin'])(
+    'shows account details and only enabled navigation for %s',
+    (role) => {
+      auth.isAuthenticated.set(true);
+      auth.currentUser.set({ ...createSession().user, username: 'franco', role });
+      fixture.detectChanges();
+      const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
+      expect(nav.textContent).toContain('franco');
+      expect(nav.querySelector('[aria-label="Rol de la cuenta"]')?.textContent?.trim()).toBe(role);
+      expect(nav.querySelector('a[href="/library"]')?.textContent).toContain('Biblioteca');
+      expect(nav.querySelector('button[data-action="logout"]')).not.toBeNull();
+      expect(nav.querySelector('a[href="/auth/login"]')).toBeNull();
+      expect(nav.querySelector('a[href="/auth/register"]')).toBeNull();
+      expect(nav.querySelector('a[href="/admin/roles"]')).toBeNull();
+      expect(nav.querySelector('a[href="/moderation"]')).toBeNull();
+    },
+  );
+
+  it('defines Roles and Moderación with their minimum roles but leaves both disabled', () => {
+    expect(NAVIGATION_ITEMS.find((item) => item.label === 'Roles')).toMatchObject({
+      path: '/admin/roles',
+      minRole: 'Admin',
+      enabled: false,
+    });
+    expect(NAVIGATION_ITEMS.find((item) => item.label === 'Moderación')).toMatchObject({
+      minRole: 'Moderator',
+      enabled: false,
+    });
+  });
+
+  it('updates account details and guest links as the session changes', () => {
+    renderAuthenticated();
+    auth.currentUser.set({ ...createSession().user, username: 'new_username', role: 'Admin' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('nav')?.textContent).toContain('new_username');
+    expect(
+      fixture.nativeElement.querySelector('[aria-label="Rol de la cuenta"]')?.textContent?.trim(),
+    ).toBe('Admin');
+    auth.isAuthenticated.set(false);
+    auth.currentUser.set(null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('nav a[href="/auth/login"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('button[data-action="logout"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Rol de la cuenta"]')).toBeNull();
+  });
+
+  it('provides a native keyboard-accessible disclosure button with matching ARIA state', () => {
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector(
+      'button[aria-controls]',
+    ) as HTMLButtonElement;
+    const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
+    expect(button.type).toBe('button');
+    expect(button.tabIndex).toBe(0);
+    expect(button.getAttribute('aria-controls')).toBe(nav.id);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(button.textContent).toContain('Abrir menú');
+    expect(nav.classList.contains('hidden')).toBe(true);
+    expect(nav.classList.contains('md:flex')).toBe(true);
+    button.click();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(button.textContent).toContain('Cerrar menú');
+    expect(nav.classList.contains('hidden')).toBe(false);
+    button.click();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(nav.classList.contains('hidden')).toBe(true);
+  });
+
+  it('closes the mobile navigation with Escape and returns focus to its toggle', () => {
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector(
+      'button[aria-controls]',
+    ) as HTMLButtonElement;
+    const link = fixture.nativeElement.querySelector('nav a') as HTMLAnchorElement;
+    button.click();
+    fixture.detectChanges();
+    link.focus();
+    expect(document.activeElement).toBe(link);
+    link.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('closes the mobile navigation after choosing a link', () => {
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector(
+      'button[aria-controls]',
+    ) as HTMLButtonElement;
+    button.click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('nav a') as HTMLAnchorElement).click();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('shows a native button with clear text only while authenticated', () => {
@@ -68,7 +176,7 @@ describe('Layout logout action', () => {
     auth.isAuthenticated.set(false);
     auth.currentUser.set(null);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('header button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('button[data-action="logout"]')).toBeNull();
   });
 
   it('calls logout once, disables the button while pending and redirects to a fresh login', async () => {
