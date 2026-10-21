@@ -1,0 +1,15 @@
+<section class="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+  @if (auth.currentUser(); as user) {
+    <h1 class="text-3xl font-semibold text-white">Tu biblioteca</h1>
+    <p class="mt-4 text-slate-300">
+      Bienvenido, {{ user.username }}. Este es tu espacio para organizar tus juegos.
+    </p>
+  } @else {
+    <p role="alert" class="text-slate-200">Tu sesión venció. Volvé a iniciar sesión.</p>
+    <a
+      routerLink="/auth/login"
+      class="mt-4 inline-block rounded text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-accent"
+      >Iniciar sesión</a
+    >
+  }
+</section>

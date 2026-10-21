@@ -41,4 +41,9 @@ Thumbs.db
 *.temp
 *.bak
 
+# Local environment secrets
+.env
+.env.*
+!.env.example
+
 # NOTE: docker-compose.yml and appsettings*.json are intentionally NOT ignored.

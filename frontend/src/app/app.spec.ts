@@ -1,12 +1,19 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
+import { createAuthMock, createTokenStorageMock } from './features/auth/auth-test-helpers';
+import { AuthService } from './features/auth/services/auth';
+import { TokenStorageService } from './features/auth/services/token-storage';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: createAuthMock() },
+        { provide: TokenStorageService, useValue: createTokenStorageMock() },
+      ],
     }).compileComponents();
   });
 
