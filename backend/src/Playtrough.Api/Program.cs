@@ -42,9 +42,12 @@ builder.Services.AddProblemDetails();
 // EF Core - MySQL (Oracle provider MySql.EntityFrameworkCore).
 // This provider exposes no ServerVersion/AutoDetect API: migration generation never
 // needs a live server, and there is no server version to pin.
-builder.Services.AddDbContext<AppDbContext>(o =>
-    o.UseMySQL(builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("Connection string 'ConnectionStrings:DefaultConnection' is not configured.")));
+builder.Services.AddSingleton<IValidateOptions<ConnectionStringSettings>, ConnectionStringSettingsValidator>();
+builder.Services.AddOptions<ConnectionStringSettings>()
+    .BindSafely(builder.Configuration.GetSection(ConnectionStringSettings.SectionName))
+    .ValidateOnStart();
+builder.Services.AddDbContext<AppDbContext>((services, options) =>
+    options.UseMySQL(services.GetRequiredService<IOptions<ConnectionStringSettings>>().Value.DefaultConnection));
 
 // ASP.NET Core Identity (int keys).
 // NIST SP 800-63B: length dominates strength, so a required symbol is NOT enforced.
@@ -69,7 +72,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IEmailConfirmationQueue, EmailConfirmationQueue>();
 builder.Services.AddHostedService<EmailConfirmationWorker>();
 builder.Services.AddOptions<EmailConfirmationSettings>()
-    .Bind(builder.Configuration.GetSection(EmailConfirmationSettings.SectionName))
+    .BindSafely(builder.Configuration.GetSection(EmailConfirmationSettings.SectionName))
     .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddOptions<EmailConfirmationTokenProviderOptions>()
     .Configure<IOptions<EmailConfirmationSettings>>((options, settings) =>
@@ -80,13 +83,13 @@ builder.Services.AddOptions<EmailConfirmationTokenProviderOptions>()
 
 builder.Services.AddSingleton<IValidateOptions<EmailSettings>, EmailSettingsValidator>();
 builder.Services.AddOptions<EmailSettings>()
-    .Bind(builder.Configuration.GetSection(EmailSettings.SectionName))
+    .BindSafely(builder.Configuration.GetSection(EmailSettings.SectionName))
     .ValidateOnStart();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<IPasswordResetQueue, PasswordResetQueue>();
 builder.Services.AddHostedService<PasswordResetWorker>();
 builder.Services.AddOptions<PasswordResetSettings>()
-    .Bind(builder.Configuration.GetSection(PasswordResetSettings.SectionName))
+    .BindSafely(builder.Configuration.GetSection(PasswordResetSettings.SectionName))
     .ValidateDataAnnotations()
     .Validate(settings => Uri.TryCreate(settings.FrontendBaseUrl, UriKind.Absolute, out var uri) &&
         (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
@@ -97,12 +100,9 @@ builder.Services.AddOptions<DataProtectionTokenProviderOptions>()
     .Configure<IOptions<PasswordResetSettings>>((options, settings) =>
         options.TokenLifespan = TimeSpan.FromMinutes(settings.Value.TokenLifespanMinutes));
 
+builder.Services.AddSingleton<IValidateOptions<JwtSettings>, JwtSettingsValidator>();
 builder.Services.AddOptions<JwtSettings>()
-    .Bind(builder.Configuration.GetSection(JwtSettings.SectionName))
-    .ValidateDataAnnotations()
-    .Validate(settings => Encoding.UTF8.GetByteCount(settings.Key) >= 32 &&
-        !settings.Key.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase),
-        "Jwt:Key must be a secret of at least 32 bytes, supplied via user-secrets or environment variables.")
+    .BindSafely(builder.Configuration.GetSection(JwtSettings.SectionName))
     .ValidateOnStart();
 
 builder.Services.AddAuthentication(options =>
@@ -159,7 +159,7 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser().RequireRole(AppRoles.Admin));
 });
 builder.Services.AddOptions<AdminSeedSettings>()
-    .Bind(builder.Configuration.GetSection(AdminSeedSettings.SectionName));
+    .BindSafely(builder.Configuration.GetSection(AdminSeedSettings.SectionName));
 builder.Services.AddScoped<IdentitySeeder>();
 
 // Application services
@@ -213,6 +213,10 @@ builder.Services.AddSignalR();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+// Validate before the seeder can open a database connection. Host startup also
+// runs this validator, but that normally happens after this initialization block.
+app.Services.GetRequiredService<IStartupValidator>().Validate();
 
 await using (var scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().InitializeAsync();

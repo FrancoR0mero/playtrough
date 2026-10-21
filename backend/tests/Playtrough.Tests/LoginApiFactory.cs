@@ -82,6 +82,10 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
+            // Validate the production options without using a real connection or credentials.
+            // The actual database provider below remains isolated SQLite.
+            services.PostConfigure<ConnectionStringSettings>(settings =>
+                settings.DefaultConnection = "Server=localhost;Database=playtrough_tests;User ID=test_user;");
             // Startup now seeds Identity. Keep the schema ready before Program executes it,
             // and never inherit real admin credentials from user-secrets or the environment.
             services.PostConfigure<AdminSeedSettings>(settings =>
