@@ -45,5 +45,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+secrets.json
+appsettings.*.local.json
 
-# NOTE: docker-compose.yml and appsettings*.json are intentionally NOT ignored.
+# Shared docker-compose.yml and appsettings JSON stay tracked; local overrides do not.
