@@ -1,10 +1,4 @@
-import { Injectable } from '@angular/core';
-import { CanActivate, UrlTree } from '@angular/router';
+import { CanActivateFn } from '@angular/router';
+import { requireSession } from './session-access';
 
-@Injectable({ providedIn: 'root' })
-export class AuthGuard implements CanActivate {
-  // TODO: validate session/JWT here once the auth feature exists (Sprint auth).
-  canActivate(): boolean | UrlTree | Promise<boolean | UrlTree> {
-    return true;
-  }
-}
+export const authGuard: CanActivateFn = (_route, state) => requireSession(state.url);
