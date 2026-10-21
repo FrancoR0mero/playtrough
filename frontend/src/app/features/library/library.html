@@ -1,15 +1,52 @@
-<section class="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+<section class="page-container" aria-labelledby="library-title">
   @if (auth.currentUser(); as user) {
-    <h1 class="text-3xl font-semibold text-white">Tu biblioteca</h1>
-    <p class="mt-4 text-slate-300">
-      Bienvenido, {{ user.username }}. Este es tu espacio para organizar tus juegos.
-    </p>
+    <div class="library-welcome">
+      <div>
+        <p class="eyebrow mb-3">TU ESPACIO PERSONAL</p>
+        <h1 id="library-title" class="page-heading text-white">Tu biblioteca</h1>
+        <p class="mt-3 text-sm text-slate-400">
+          Bienvenido, <span class="text-slate-200">{{ user.username }}</span
+          >. Cada aventura tiene su lugar.
+        </p>
+      </div>
+      <span class="library-tag">Tu recorrido empieza acá</span>
+    </div>
+    <div class="library-empty">
+      <div class="library-icon" aria-hidden="true">
+        <svg
+          width="34"
+          height="34"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="4" width="5" height="16" rx="1.5" />
+          <rect x="10" y="4" width="5" height="16" rx="1.5" />
+          <path d="m18 4 3 15M5.5 8h0M12.5 8h0" />
+        </svg>
+      </div>
+      <p class="eyebrow mb-3">EL PRÓXIMO CAPÍTULO</p>
+      <h2 class="text-2xl font-semibold text-white">Un lugar para tus próximas aventuras</h2>
+      <p class="library-note">
+        Tu cuenta ya está lista. Estamos preparando la biblioteca para que puedas organizar tus
+        juegos y seguir tu progreso.
+      </p>
+      <p class="mt-6 text-xs text-slate-400">
+        La gestión de juegos estará disponible próximamente.
+      </p>
+    </div>
   } @else {
-    <p role="alert" class="text-slate-200">Tu sesión venció. Volvé a iniciar sesión.</p>
-    <a
-      routerLink="/auth/login"
-      class="mt-4 inline-block rounded text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-accent"
-      >Iniciar sesión</a
-    >
+    <div class="auth-card auth-card-standalone">
+      <h1 id="library-title" class="text-2xl font-semibold">Volvé a tu biblioteca</h1>
+      <p role="alert" class="mt-4 text-slate-300">Tu sesión venció. Volvé a iniciar sesión.</p>
+      <a
+        routerLink="/auth/login"
+        class="ui-button mt-6 inline-flex items-center rounded-md bg-accent px-5 py-3 font-semibold text-white"
+        >Iniciar sesión</a
+      >
+    </div>
   }
 </section>

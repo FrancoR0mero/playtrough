@@ -1,6 +1,4 @@
-<section
-  class="mx-4 my-8 max-w-md rounded-lg border border-slate-700 bg-slate-900/60 p-5 sm:mx-auto sm:my-16 sm:p-8"
->
+<section class="auth-card auth-card-standalone">
   @switch (state()) {
     @case ('loading') {
       <h1 class="mb-4 text-2xl font-semibold text-white">Confirmando tu email</h1>
@@ -53,7 +51,7 @@
       <button
         type="button"
         (click)="retry()"
-        class="w-full rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        class="ui-button w-full rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         Reintentar
       </button>

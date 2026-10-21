@@ -1,8 +1,6 @@
 <div class="rounded-xl border border-slate-700 bg-background p-6 text-slate-200 shadow-2xl sm:p-8">
   <p class="text-xs tracking-widest text-indigo-300 uppercase">Administración de roles</p>
-  <h2 id="role-change-title" class="mt-3 font-serif text-2xl text-white">
-    Confirmar cambio de rol
-  </h2>
+  <h2 id="role-change-title" class="mt-3 font-sans text-2xl text-white">Confirmar cambio de rol</h2>
   <p id="role-change-description" class="mt-4 break-words leading-relaxed">
     ¿Cambiar el rol de <strong class="text-white">{{ change.user.username }}</strong> de
     {{ change.user.role }} a {{ change.role }}?
@@ -15,7 +13,7 @@
       type="button"
       data-action="cancel"
       (click)="dialog.close(false)"
-      class="min-h-11 rounded-md border border-slate-600 px-5 py-3 text-sm text-white hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      class="ui-button min-h-11 rounded-md border border-slate-600 px-5 py-3 text-sm text-white hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       Cancelar
     </button>
@@ -23,7 +21,7 @@
       type="button"
       data-action="confirm"
       (click)="dialog.close(true)"
-      class="min-h-11 rounded-md bg-indigo-500 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      class="ui-button min-h-11 rounded-md bg-indigo-500 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       Confirmar cambio
     </button>
