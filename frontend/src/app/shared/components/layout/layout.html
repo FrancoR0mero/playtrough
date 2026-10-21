@@ -49,14 +49,13 @@
           class="flex flex-wrap items-center gap-3 border-t border-slate-800 pt-4 md:border-t-0 md:border-l md:pl-5 md:pt-0"
         >
           @if (auth.currentUser(); as user) {
-            <span class="min-w-0 break-all text-sm font-medium text-white">{{
-              user.username
-            }}</span>
+            <span class="account-avatar" aria-hidden="true">{{ user.username.slice(0, 2) }}</span>
             <span
-              class="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300"
-              aria-label="Rol de la cuenta"
-              >{{ user.role }}</span
+              class="account-name min-w-0 text-sm font-medium text-white"
+              [title]="user.username"
+              >{{ user.username }}</span
             >
+            <span class="role-badge" aria-label="Rol de la cuenta">{{ user.role }}</span>
           }
           <button
             data-action="logout"

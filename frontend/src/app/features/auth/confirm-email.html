@@ -1,4 +1,5 @@
 <section class="auth-card auth-card-standalone">
+  <p class="eyebrow mb-3">TU CUENTA, UN PASO MÁS CERCA</p>
   @switch (state()) {
     @case ('loading') {
       <h1 class="mb-4 text-2xl font-semibold text-white">Confirmando tu email</h1>
@@ -25,7 +26,7 @@
       </p>
       <a
         routerLink="/auth/login"
-        class="inline-block rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        class="ui-button inline-flex items-center rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >Iniciar sesión</a
       >
     }
