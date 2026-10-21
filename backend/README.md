@@ -30,7 +30,7 @@ obtained through HTTP login. The expired-token case uses a valid test signature 
 past timestamps, so it specifically verifies lifetime validation without waiting.
 
 SQLite exercises persistence and the HTTP pipeline, but does not verify MySQL-specific
-behavior or migrations. The full suite currently contains 149 passing cases.
+behavior or migrations. The test runner reports the current case count.
 
 `AuthServiceLoginTests` and `TokenServiceTests` retain the existing service coverage.
 `AuthServiceLogoutTests` uses isolated SQLite databases and the real token service and
@@ -114,7 +114,83 @@ expiry, password policy, account isolation, unlock, refresh revocation, backgrou
 delivery failures and configuration. A local MailKit/MailHog/MySQL check also passed
 23 assertions; its temporary account, tokens and email were removed afterward.
 
-## Configuration
+## Configuración y secretos
+
+El proyecto ya tiene `UserSecretsId`. En **Development**, guardá los secretos con
+`dotnet user-secrets`; en **producción**, inyectalos como variables de entorno
+desde la configuración privada del servicio. Las variables de entorno tienen
+precedencia sobre JSON y user-secrets. No se lee automáticamente un archivo `.env`
+ni `appsettings.*.local.json` desde la API. `.env` se usa por Docker Compose.
+
+Desde la raíz del repositorio, el formato para cualquier clave de la tabla es:
+
+```powershell
+dotnet user-secrets set 'CLAVE_DE_LA_TABLA' 'VALOR_LOCAL' --project backend/src/Playtrough.Api
+```
+
+Reemplazá los marcadores personalmente. Los comandos con valores sensibles pueden
+quedar en el historial del shell: también podés editar el almacén local de
+user-secrets desde tu IDE. No pegues su contenido ni la salida de `user-secrets list`
+en documentación, chats o logs. User-secrets queda fuera del repo, pero no está
+cifrado y se usa solamente para desarrollo.
+
+Para producción, usá el nombre de la tercera columna; `__` representa `:`.
+Los ejemplos son marcadores, nunca credenciales utilizables:
+
+```powershell
+$env:ConnectionStrings__DefaultConnection = 'Server=HOST_MYSQL;Database=BASE_MYSQL;User ID=USUARIO_MYSQL;Password=CONTRASENA_LOCAL;'
+$env:Jwt__Key = 'REEMPLAZAR_POR_CLAVE_ALEATORIA_PRIVADA'
+$env:PasswordReset__FrontendBaseUrl = 'https://frontend.example.com'
+```
+
+| Clave para `user-secrets set` | Uso y requisitos | Variable de entorno |
+|---|---|---|
+| `ConnectionStrings:DefaultConnection` | Conexión MySQL obligatoria, con servidor, base y usuario; puerto 1–65535. Contraseña según el servidor. | `ConnectionStrings__DefaultConnection` |
+| `Jwt:Key` | Clave privada aleatoria de al menos 32 bytes UTF-8; no usar placeholders ni frases previsibles. | `Jwt__Key` |
+| `Jwt:Issuer` | Emisor obligatorio; valor público predeterminado `Playtrough`. | `Jwt__Issuer` |
+| `Jwt:Audience` | Audiencia obligatoria; valor público predeterminado `PlaytroughClient`. | `Jwt__Audience` |
+| `Jwt:AccessTokenExpirationMinutes` | Vigencia de acceso, 1–60 minutos; predeterminado 15. | `Jwt__AccessTokenExpirationMinutes` |
+| `Jwt:RefreshTokenExpirationDays` | Vigencia del refresh, 1–30 días; predeterminado 7. | `Jwt__RefreshTokenExpirationDays` |
+| `PasswordReset:FrontendBaseUrl` | URL HTTP(S) absoluta, sin credenciales, query ni fragmento; usada por recuperación y confirmación. En desarrollo: `http://localhost:4200`. | `PasswordReset__FrontendBaseUrl` |
+| `PasswordReset:TokenLifespanMinutes` | Vigencia de recuperación, 1–1440 minutos; predeterminado 60. | `PasswordReset__TokenLifespanMinutes` |
+| `EmailConfirmation:TokenLifespanMinutes` | Vigencia de confirmación, 1–10080 minutos; predeterminado 60. | `EmailConfirmation__TokenLifespanMinutes` |
+| `EmailConfirmation:ResendCooldownSeconds` | Espera entre reenvíos, 1–86400 segundos; predeterminado 60. | `EmailConfirmation__ResendCooldownSeconds` |
+| `Email:Enabled` | Habilita SMTP; predeterminado `true`. `false` conserva el modo existente sin envío. | `Email__Enabled` |
+| `Email:Host` | Servidor obligatorio con correo habilitado; MailHog local en desarrollo o Gmail explícito. | `Email__Host` |
+| `Email:Port` | Puerto SMTP obligatorio, 1–65535; MailHog 1025, Gmail 587. | `Email__Port` |
+| `Email:Username` | Usuario SMTP; vacío para MailHog, requerido para Gmail. | `Email__Username` |
+| `Email:Password` | Credencial SMTP, obligatoria si hay usuario; contraseña de aplicación para Gmail. | `Email__Password` |
+| `Email:FromAddress` | Remitente válido obligatorio con correo habilitado; para Gmail debe coincidir con el usuario. | `Email__FromAddress` |
+| `Email:FromName` | Nombre visible del remitente, opcional. | `Email__FromName` |
+| `Email:SecureSocketMode` | `None`, `StartTls` o `SslOnConnect`; Gmail exige `StartTls`, MailHog local `None`. | `Email__SecureSocketMode` |
+| `Email:TimeoutSeconds` | Timeout SMTP, 1–120 segundos; predeterminado 15. | `Email__TimeoutSeconds` |
+| `AdminSeed:Username` | Usuario del admin inicial; configuración opcional. | `AdminSeed__Username` |
+| `AdminSeed:Email` | Correo del admin inicial; requiere los otros dos campos del seed. | `AdminSeed__Email` |
+| `AdminSeed:Password` | Contraseña del admin inicial; privada, nunca versionada. El seed existente no modifica cuentas existentes. | `AdminSeed__Password` |
+| `Cors:AllowedOrigins:0` | Primer origen autorizado; los siguientes usan índices `:1`, `:2`, etc. | `Cors__AllowedOrigins__0` |
+| `Logging:LogLevel:Default` | Nivel general de logs; predeterminado `Information`. | `Logging__LogLevel__Default` |
+| `Logging:LogLevel:Microsoft.AspNetCore` | Nivel de ASP.NET Core; predeterminado `Warning`. | `Logging__LogLevel__Microsoft.AspNetCore` |
+| `AllowedHosts` | Filtro de hosts de ASP.NET Core; configurar los hosts del servicio según el despliegue. | `AllowedHosts` |
+
+`appsettings.Example.json` enumera todas estas opciones con secretos vacíos y datos
+ilustrativos. No se carga automáticamente en Development ni Production. Conservamos
+los nombres actuales (`Jwt`, `Email`, `DefaultConnection`), sin crear aliases como
+`JwtSettings`, `EmailSettings` o `Default`.
+
+Al iniciar se validan las opciones **antes de acceder a la base para el seed**.
+Un error identifica la clave y el requisito, sin exponer su valor. La clave JWT
+corta, vacía o reconocida como placeholder se rechaza también en Development.
+La validación de conexión comprueba sintaxis y campos, no disponibilidad del servidor
+ni vigencia de sus credenciales. Las duraciones mantienen sus valores predeterminados.
+El correo desactivado y el admin inicial opcional conservan su comportamiento previo.
+
+Las contraseñas y claves JWT deben permanecer vacías en los `appsettings` versionados.
+`CommittedConfigurationTests` controla todos esos archivos mediante Git al ejecutar
+la suite, sin mostrar valores en los errores. `StartupConfigurationTests` verifica
+errores de arranque y ausencia de filtraciones; `AuthLoggingTests` verifica los logs
+de login y registro. Ver [auditoría y credenciales a rotar](SECURITY_AUDIT.md).
+
+### Configuración existente
 
 The API keeps its existing UserSecretsId, so local database credentials and the JWT
 signing key remain available after the project rename. Set `ConnectionStrings:DefaultConnection`
