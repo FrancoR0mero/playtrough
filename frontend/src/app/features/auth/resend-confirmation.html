@@ -16,7 +16,7 @@
         [readOnly]="submitting() || remaining() > 0"
         [attr.aria-invalid]="emailError() ? 'true' : null"
         [attr.aria-describedby]="emailError() ? 'confirmation-email-error' : null"
-        class="mt-1 w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white focus:outline-accent"
+        class="ui-input mt-1 w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white focus:outline-accent"
       />
     </label>
     @if (emailError(); as message) {
@@ -26,7 +26,7 @@
   <button
     type="submit"
     [disabled]="form.invalid || submitting() || remaining() > 0"
-    class="w-full rounded-md bg-accent px-4 py-2 font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+    class="ui-button w-full rounded-md bg-accent px-4 py-2 font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
   >
     {{
       submitting()

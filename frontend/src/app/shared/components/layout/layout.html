@@ -1,12 +1,15 @@
-<div class="flex min-h-screen flex-col">
-  <header
-    class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 bg-background px-4 py-4 sm:px-6"
-  >
+<a class="skip-link" href="#main-content">Saltar al contenido</a>
+<div class="app-shell flex min-h-screen flex-col">
+  <header class="site-header flex flex-wrap items-center justify-between gap-4">
     <a
       routerLink="/"
       (click)="closeMenu()"
-      class="rounded font-serif text-2xl font-semibold tracking-tight text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-      >Playtrough<span aria-hidden="true" class="text-indigo-400">.</span></a
+      class="brand rounded font-sans text-2xl font-semibold tracking-tight text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      ><span class="brand-symbol" aria-hidden="true">P</span>Playtrough<span
+        aria-hidden="true"
+        class="text-indigo-400"
+        >.</span
+      ></a
     >
     <button
       #menuToggle
@@ -14,7 +17,7 @@
       aria-controls="primary-navigation"
       [attr.aria-expanded]="menuOpen()"
       (click)="menuOpen.set(!menuOpen())"
-      class="min-h-11 rounded-md border border-slate-600 px-4 py-2 text-sm text-white hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-accent md:hidden"
+      class="ui-button min-h-11 rounded-md border border-slate-600 px-4 py-2 text-sm text-white hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-accent md:hidden"
     >
       {{ menuOpen() ? 'Cerrar menú' : 'Abrir menú' }}
     </button>
@@ -32,10 +35,10 @@
               <li *appHasRole="item.minRole">
                 <a
                   [routerLink]="item.path"
-                  routerLinkActive="text-white"
+                  routerLinkActive="nav-active"
                   ariaCurrentWhenActive="page"
                   (click)="closeMenu()"
-                  class="flex min-h-11 items-center rounded px-2 py-2 text-sm text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-accent"
+                  class="nav-link flex min-h-11 items-center rounded px-2 py-2 text-sm text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-accent"
                   >{{ item.label }}</a
                 >
               </li>
@@ -61,7 +64,7 @@
             (click)="logout()"
             [disabled]="loggingOut()"
             [attr.aria-busy]="loggingOut()"
-            class="min-h-11 rounded-md border border-slate-600 px-4 py-2 text-sm text-white hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-wait disabled:opacity-60"
+            class="ui-button min-h-11 rounded-md border border-slate-600 px-4 py-2 text-sm text-white hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-wait disabled:opacity-60"
           >
             {{ loggingOut() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
           </button>
@@ -83,14 +86,14 @@
     </nav>
   </header>
 
-  <main class="flex-1">
+  <main id="main-content" tabindex="-1" class="flex-1">
     <router-outlet />
   </main>
 
-  <footer class="border-t border-slate-800 px-6 py-4">
-    <span class="mr-2 rounded bg-playing px-2 py-1 text-xs text-background">Playing</span>
-    <span class="mr-2 rounded bg-backlog px-2 py-1 text-xs text-background">Backlog</span>
-    <span class="mr-2 rounded bg-finished px-2 py-1 text-xs text-background">Finished</span>
-    <span class="rounded bg-platinum px-2 py-1 text-xs text-background">Platinum</span>
+  <footer class="site-footer">
+    <a routerLink="/" class="font-semibold text-slate-300"
+      >Playtrough<span class="text-indigo-400">.</span></a
+    >
+    <p>Cada juego, una historia. Cada partida, tu recorrido.</p>
   </footer>
 </div>

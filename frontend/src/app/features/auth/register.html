@@ -1,215 +1,264 @@
-<section
-  class="mx-4 my-8 max-w-md rounded-lg border border-slate-700 bg-slate-900/60 p-5 shadow-sm sm:mx-auto sm:my-16 sm:p-8"
->
-  <h1 class="mb-6 text-2xl font-semibold text-white">
-    {{ isLogin() ? 'Iniciar sesión' : registeredEmail() ? 'Revisá tu correo' : 'Crear cuenta' }}
-  </h1>
-
-  @if (isLogin()) {
-    @if (passwordUpdated()) {
-      <p
-        role="status"
-        class="mb-5 rounded-md border border-emerald-600 bg-emerald-950/40 p-4 text-emerald-100"
-      >
-        Contraseña actualizada, iniciá sesión.
-      </p>
-    }
-    @if (sessionExpired()) {
-      <p
-        role="status"
-        class="mb-5 rounded-md border border-amber-500/50 bg-amber-950/40 p-4 text-sm text-amber-100"
-      >
-        Tu sesión expiró, iniciá sesión de nuevo.
-      </p>
-    }
-    <form
-      [formGroup]="loginForm"
-      (ngSubmit)="onSubmit()"
-      novalidate
-      class="space-y-5"
-      [attr.aria-busy]="submitting()"
-    >
-      <div>
-        <label for="identifier" class="mb-1 block text-sm font-medium text-slate-200"
-          >Email o nombre de usuario</label
-        >
-        <input
-          id="identifier"
-          type="text"
-          formControlName="identifier"
-          required
-          autocomplete="username"
-          autocapitalize="none"
-          spellcheck="false"
-          [readOnly]="submitting()"
-          (input)="clearFieldError('identifier')"
-          [attr.aria-invalid]="loginFieldError('identifier') ? 'true' : null"
-          [attr.aria-describedby]="loginFieldError('identifier') ? 'identifier-error' : null"
-          class="w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/50"
-        />
-        @if (loginFieldError('identifier'); as error) {
-          <p id="identifier-error" class="mt-1 text-sm text-red-400" role="alert">{{ error }}</p>
-        }
-      </div>
-      <div>
-        <label for="login-password" class="mb-1 block text-sm font-medium text-slate-200"
-          >Contraseña</label
-        >
-        <div
-          class="flex rounded-md border border-slate-600 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/50"
-        >
-          <input
-            id="login-password"
-            [type]="showPassword() ? 'text' : 'password'"
-            formControlName="password"
-            autocomplete="current-password"
-            required
-            [readOnly]="submitting()"
-            (input)="clearFieldError('password')"
-            [attr.aria-invalid]="loginFieldError('password') ? 'true' : null"
-            [attr.aria-describedby]="loginFieldError('password') ? 'login-password-error' : null"
-            class="min-w-0 flex-1 rounded-md bg-transparent px-3 py-2 text-white outline-none"
-          />
-          <button
-            type="button"
-            (click)="showPassword.set(!showPassword())"
-            [attr.aria-pressed]="showPassword()"
-            aria-controls="login-password"
-            [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-            class="rounded-md px-3 text-sm text-slate-200 hover:text-white focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            {{ showPassword() ? 'Ocultar' : 'Mostrar' }}
-          </button>
-        </div>
-        @if (loginFieldError('password'); as error) {
-          <p id="login-password-error" class="mt-1 text-sm text-red-400" role="alert">
-            {{ error }}
-          </p>
-        }
-      </div>
-      <button
-        type="submit"
-        [disabled]="loginForm.invalid || submitting()"
-        class="flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        @if (submitting()) {
-          <span
-            aria-hidden="true"
-            class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none"
-          ></span>
-        }
-        <span role="status">{{ submitting() ? 'Ingresando…' : 'Iniciar sesión' }}</span>
-      </button>
-    </form>
-    <a
-      routerLink="/auth/forgot-password"
-      class="mt-5 inline-block rounded text-sm text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-accent"
-      >¿Olvidaste tu contraseña?</a
-    >
-  } @else if (registeredEmail(); as email) {
-    <p role="status" class="mb-6 text-slate-200">
-      Te enviamos un link de confirmación a <strong class="break-all text-white">{{ email }}</strong
-      >. Abrilo para activar tu cuenta. Revisá también la carpeta de spam.
+<div class="auth-layout">
+  <aside class="auth-story" aria-label="Acerca de Playtrough">
+    <p class="eyebrow">TU PRÓXIMA PARTIDA EMPIEZA ACÁ</p>
+    <h2>Grandes historias.<br /><span>Tu propio recorrido.</span></h2>
+    <p class="auth-story-copy">
+      Un espacio para tu pasión por los videojuegos. Cada aventura, cada desafío y cada logro, en un
+      mismo lugar.
     </p>
-    <app-resend-confirmation [email]="email" [editable]="false" buttonLabel="Reenviar correo" />
-    <a
-      routerLink="/auth/login"
-      [queryParams]="returnUrl() ? { returnUrl: returnUrl() } : {}"
-      class="mt-6 inline-block rounded text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-accent"
-    >
-      Ir a iniciar sesión
-    </a>
-  } @else {
-    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
-      <div>
-        <label for="email" class="mb-1 block text-sm font-medium text-slate-200">Email</label>
-        <input
-          id="email"
-          type="email"
-          formControlName="email"
-          autocomplete="email"
-          placeholder="tu@email.com"
-          class="w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent"
-        />
-        @if (fieldError('email'); as emailError) {
-          <p role="alert" class="mt-1 text-sm text-red-600">{{ emailError }}</p>
-        }
+    <div class="journey-art" aria-hidden="true">
+      <div class="journey-orbit"></div>
+      <div class="journey-card journey-card-back">
+        <span>01 / EXPLORAR</span>
+        <div class="art-mountain"></div>
       </div>
-
-      <div>
-        <label for="username" class="mb-1 block text-sm font-medium text-slate-200">
-          Nombre de usuario
-        </label>
-        <input
-          id="username"
-          type="text"
-          formControlName="username"
-          autocomplete="username"
-          placeholder="ana_dev"
-          class="w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent"
-        />
-        @if (fieldError('username'); as usernameError) {
-          <p role="alert" class="mt-1 text-sm text-red-600">{{ usernameError }}</p>
-        }
+      <div class="journey-card journey-card-front">
+        <span>02 / DESCUBRIR</span>
+        <div class="art-portal"></div>
+        <strong>Una nueva aventura</strong>
       </div>
-
-      <div>
-        <label for="password" class="mb-1 block text-sm font-medium text-slate-200">
-          Contraseña
-        </label>
-        <input
-          id="password"
-          type="password"
-          formControlName="password"
-          autocomplete="new-password"
-          placeholder="••••••••"
-          class="w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent"
-        />
-        @if (fieldError('password'); as passwordError) {
-          <p role="alert" class="mt-1 text-sm text-red-600">{{ passwordError }}</p>
-        }
-        <p class="mt-1 text-xs text-slate-400">
-          Mínimo 8 caracteres, con mayúscula, minúscula y número.
-        </p>
-      </div>
-
-      <button
-        type="submit"
-        [disabled]="form.invalid || submitting()"
-        class="w-full rounded-md bg-accent px-4 py-2 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {{ submitting() ? 'Creando cuenta…' : 'Crear cuenta' }}
-      </button>
-    </form>
-  }
-  @if (formError(); as errorMessage) {
-    <div
-      class="mt-5 rounded-md border border-red-500/60 bg-red-950/40 p-4 text-red-200"
-      role="alert"
-    >
-      {{ errorMessage }}
+      <div class="journey-caption"><span class="status-dot"></span> A tu ritmo. A tu manera.</div>
     </div>
-  }
-  @if (isLogin() && needsConfirmation()) {
-    <div class="mt-5">
-      @if (!confirmationEmail()) {
-        <p class="mb-3 text-sm text-slate-300">
-          Ingresá el email de tu cuenta para reenviar el enlace.
+    <p class="auth-story-note">El siguiente capítulo es tuyo.</p>
+  </aside>
+  <section class="auth-card">
+    <p class="eyebrow mb-3">BIENVENIDO A PLAYTROUGH</p>
+    <h1 class="mb-3 text-3xl font-semibold tracking-tight text-white">
+      {{ isLogin() ? 'Iniciar sesión' : registeredEmail() ? 'Revisá tu correo' : 'Crear cuenta' }}
+    </h1>
+
+    <p class="mb-7 text-sm leading-relaxed text-slate-400">
+      {{
+        isLogin()
+          ? 'Volvé a tu espacio y continuá tu recorrido.'
+          : registeredEmail()
+            ? 'Estás a un paso de comenzar.'
+            : 'Creá tu cuenta y empezá tu recorrido.'
+      }}
+    </p>
+    @if (isLogin()) {
+      @if (passwordUpdated()) {
+        <p
+          role="status"
+          class="mb-5 rounded-md border border-emerald-600 bg-emerald-950/40 p-4 text-emerald-100"
+        >
+          Contraseña actualizada, iniciá sesión.
         </p>
       }
-      <app-resend-confirmation [email]="confirmationEmail()" [editable]="!confirmationEmail()" />
-    </div>
-  }
-  @if (isLogin() || !registeredEmail()) {
-    <p class="mt-6 text-center text-sm text-slate-300">
-      {{ isLogin() ? '¿No tenés cuenta?' : '¿Ya tenés cuenta?' }}
-      <a
-        [routerLink]="isLogin() ? '/auth/register' : '/auth/login'"
-        [queryParams]="returnUrl() ? { returnUrl: returnUrl() } : {}"
-        class="ml-1 rounded text-indigo-300 underline underline-offset-4 hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-accent"
+      @if (sessionExpired()) {
+        <p
+          role="status"
+          class="mb-5 rounded-md border border-amber-500/50 bg-amber-950/40 p-4 text-sm text-amber-100"
+        >
+          Tu sesión expiró, iniciá sesión de nuevo.
+        </p>
+      }
+      <form
+        [formGroup]="loginForm"
+        (ngSubmit)="onSubmit()"
+        novalidate
+        class="space-y-5"
+        [attr.aria-busy]="submitting()"
       >
-        {{ isLogin() ? 'Crear cuenta' : 'Iniciar sesión' }}
+        <div>
+          <label for="identifier" class="mb-1 block text-sm font-medium text-slate-200"
+            >Email o nombre de usuario</label
+          >
+          <input
+            id="identifier"
+            type="text"
+            formControlName="identifier"
+            required
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+            [readOnly]="submitting()"
+            (input)="clearFieldError('identifier')"
+            [attr.aria-invalid]="loginFieldError('identifier') ? 'true' : null"
+            [attr.aria-describedby]="loginFieldError('identifier') ? 'identifier-error' : null"
+            class="ui-input w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/50"
+          />
+          @if (loginFieldError('identifier'); as error) {
+            <p id="identifier-error" class="mt-1 text-sm text-red-400" role="alert">{{ error }}</p>
+          }
+        </div>
+        <div>
+          <label for="login-password" class="mb-1 block text-sm font-medium text-slate-200"
+            >Contraseña</label
+          >
+          <div
+            class="flex rounded-md border border-slate-600 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/50"
+          >
+            <input
+              id="login-password"
+              [type]="showPassword() ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="current-password"
+              required
+              [readOnly]="submitting()"
+              (input)="clearFieldError('password')"
+              [attr.aria-invalid]="loginFieldError('password') ? 'true' : null"
+              [attr.aria-describedby]="loginFieldError('password') ? 'login-password-error' : null"
+              class="ui-input min-w-0 flex-1 rounded-md bg-transparent px-3 py-2 text-white outline-none"
+            />
+            <button
+              type="button"
+              (click)="showPassword.set(!showPassword())"
+              [attr.aria-pressed]="showPassword()"
+              aria-controls="login-password"
+              [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              class="ui-button rounded-md px-3 text-sm text-slate-200 hover:text-white focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              {{ showPassword() ? 'Ocultar' : 'Mostrar' }}
+            </button>
+          </div>
+          @if (loginFieldError('password'); as error) {
+            <p id="login-password-error" class="mt-1 text-sm text-red-400" role="alert">
+              {{ error }}
+            </p>
+          }
+        </div>
+        <button
+          type="submit"
+          [disabled]="loginForm.invalid || submitting()"
+          class="ui-button flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          @if (submitting()) {
+            <span
+              aria-hidden="true"
+              class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none"
+            ></span>
+          }
+          <span role="status">{{ submitting() ? 'Ingresando…' : 'Iniciar sesión' }}</span>
+        </button>
+      </form>
+      <a
+        routerLink="/auth/forgot-password"
+        class="mt-5 inline-block rounded text-sm text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-accent"
+        >¿Olvidaste tu contraseña?</a
+      >
+    } @else if (registeredEmail(); as email) {
+      <p role="status" class="mb-6 text-slate-200">
+        Te enviamos un link de confirmación a
+        <strong class="break-all text-white">{{ email }}</strong
+        >. Abrilo para activar tu cuenta. Revisá también la carpeta de spam.
+      </p>
+      <app-resend-confirmation [email]="email" [editable]="false" buttonLabel="Reenviar correo" />
+      <a
+        routerLink="/auth/login"
+        [queryParams]="returnUrl() ? { returnUrl: returnUrl() } : {}"
+        class="mt-6 inline-block rounded text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        Ir a iniciar sesión
       </a>
-    </p>
-  }
-</section>
+    } @else {
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
+        <div>
+          <label for="email" class="mb-1 block text-sm font-medium text-slate-200">Email</label>
+          <input
+            id="email"
+            type="email"
+            formControlName="email"
+            [attr.aria-invalid]="fieldError('email') ? 'true' : null"
+            [attr.aria-describedby]="fieldError('email') ? 'register-email-error' : null"
+            autocomplete="email"
+            placeholder="tu@email.com"
+            class="ui-input w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent"
+          />
+          @if (fieldError('email'); as emailError) {
+            <p id="register-email-error" role="alert" class="mt-1 text-sm text-red-400">
+              {{ emailError }}
+            </p>
+          }
+        </div>
+
+        <div>
+          <label for="username" class="mb-1 block text-sm font-medium text-slate-200">
+            Nombre de usuario
+          </label>
+          <input
+            id="username"
+            type="text"
+            formControlName="username"
+            [attr.aria-invalid]="fieldError('username') ? 'true' : null"
+            [attr.aria-describedby]="fieldError('username') ? 'register-username-error' : null"
+            autocomplete="username"
+            placeholder="ana_dev"
+            class="ui-input w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent"
+          />
+          @if (fieldError('username'); as usernameError) {
+            <p id="register-username-error" role="alert" class="mt-1 text-sm text-red-400">
+              {{ usernameError }}
+            </p>
+          }
+        </div>
+
+        <div>
+          <label for="password" class="mb-1 block text-sm font-medium text-slate-200">
+            Contraseña
+          </label>
+          <input
+            id="password"
+            [attr.aria-invalid]="fieldError('password') ? 'true' : null"
+            [attr.aria-describedby]="
+              fieldError('password')
+                ? 'register-password-rules register-password-error'
+                : 'register-password-rules'
+            "
+            type="password"
+            formControlName="password"
+            autocomplete="new-password"
+            placeholder="••••••••"
+            class="ui-input w-full rounded-md border border-slate-600 bg-transparent px-3 py-2 text-white outline-none transition focus:border-accent"
+          />
+          @if (fieldError('password'); as passwordError) {
+            <p id="register-password-error" role="alert" class="mt-1 text-sm text-red-400">
+              {{ passwordError }}
+            </p>
+          }
+          <p id="register-password-rules" class="mt-2 text-xs leading-relaxed text-slate-400">
+            Mínimo 8 caracteres, con mayúscula, minúscula y número.
+          </p>
+        </div>
+
+        <button
+          type="submit"
+          [disabled]="form.invalid || submitting()"
+          class="ui-button w-full rounded-md bg-accent px-4 py-2 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {{ submitting() ? 'Creando cuenta…' : 'Crear cuenta' }}
+        </button>
+      </form>
+    }
+    @if (formError(); as errorMessage) {
+      <div
+        class="mt-5 rounded-md border border-red-500/60 bg-red-950/40 p-4 text-red-200"
+        role="alert"
+      >
+        {{ errorMessage }}
+      </div>
+    }
+    @if (isLogin() && needsConfirmation()) {
+      <div class="mt-5">
+        @if (!confirmationEmail()) {
+          <p class="mb-3 text-sm text-slate-300">
+            Ingresá el email de tu cuenta para reenviar el enlace.
+          </p>
+        }
+        <app-resend-confirmation [email]="confirmationEmail()" [editable]="!confirmationEmail()" />
+      </div>
+    }
+    @if (isLogin() || !registeredEmail()) {
+      <p class="mt-6 text-center text-sm text-slate-300">
+        {{ isLogin() ? '¿No tenés cuenta?' : '¿Ya tenés cuenta?' }}
+        <a
+          [routerLink]="isLogin() ? '/auth/register' : '/auth/login'"
+          [queryParams]="returnUrl() ? { returnUrl: returnUrl() } : {}"
+          class="ml-1 rounded text-indigo-300 underline underline-offset-4 hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          {{ isLogin() ? 'Crear cuenta' : 'Iniciar sesión' }}
+        </a>
+      </p>
+    }
+  </section>
+</div>
