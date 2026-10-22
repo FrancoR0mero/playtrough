@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -193,15 +194,19 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<JsonOnlyContentFilter>();
 });
 
-// CORS — Angular dev server
-builder.Services.AddCors(o =>
+// Explicit origins only; an empty production configuration grants no CORS access.
+builder.Services.AddOptions<CorsSettings>()
+    .BindSafely(builder.Configuration.GetSection(CorsSettings.SectionName))
+    .Validate(settings => settings.AllowedOrigins.All(CorsSettings.IsOrigin),
+        "Cors:AllowedOrigins must contain absolute HTTP(S) origins without wildcards, credentials, paths, query or fragment.")
+    .ValidateOnStart();
+builder.Services.AddCors();
+builder.Services.AddOptions<CorsOptions>().Configure<IOptions<CorsSettings>>((options, settings) =>
 {
-    o.AddPolicy("AngularDev", p =>
+    options.AddPolicy("AngularDev", policy =>
     {
-        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-            ?? new[] { "http://localhost:4200" };
-        p.WithOrigins(origins)
-            .WithMethods("GET", "POST", "PUT", "OPTIONS")
+        policy.WithOrigins(settings.Value.AllowedOrigins.Select(origin => origin.TrimEnd('/')).ToArray())
+            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .WithHeaders("Authorization", "Content-Type");
     });
 });
