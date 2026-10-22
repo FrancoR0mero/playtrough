@@ -86,6 +86,21 @@
   </header>
 
   <main id="main-content" tabindex="-1" class="flex-1">
+    @if (rateLimitNotice.message(); as message) {
+      <div
+        role="alert"
+        class="page-container my-5 rounded-md border border-red-500/60 bg-red-950/40 p-4 text-red-200"
+      >
+        <p>{{ message }}</p>
+        <button
+          type="button"
+          (click)="rateLimitNotice.dismiss()"
+          class="ui-button mt-3 rounded border border-red-300/60 px-3 py-2"
+        >
+          Cerrar aviso
+        </button>
+      </div>
+    }
     <router-outlet />
   </main>
 

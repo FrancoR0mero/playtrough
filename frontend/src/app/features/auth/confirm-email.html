@@ -47,14 +47,17 @@
         role="alert"
         class="mb-6 rounded-md border border-red-500/60 bg-red-950/40 p-4 text-red-200"
       >
-        No pudimos confirmar tu email. Intentá de nuevo.
+        {{ rateLimit.message() ?? 'No pudimos confirmar tu email. Intentá de nuevo.' }}
       </p>
       <button
         type="button"
         (click)="retry()"
-        class="ui-button w-full rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        [disabled]="rateLimit.remaining() > 0"
+        class="ui-button w-full rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Reintentar
+        {{
+          rateLimit.remaining() > 0 ? 'Reintentar en ' + rateLimit.remaining() + ' s' : 'Reintentar'
+        }}
       </button>
     }
   }

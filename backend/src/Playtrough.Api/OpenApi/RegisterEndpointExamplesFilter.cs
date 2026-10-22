@@ -18,7 +18,7 @@ public sealed class RegisterEndpointExamplesFilter : IOperationFilter
         """;
 
     private const string CreatedExample = """
-        { "id": 1, "username": "ana_dev", "email": "ana@example.com", "createdAt": "2026-10-11T12:00:00.000Z" }
+        { "id": 1, "username": "ana_dev", "email": "ana@example.com", "createdAt": "2026-10-11T12:00:00.000Z", "emailConfirmationRequired": true }
         """;
 
     private const string ValidationProblemExample = """

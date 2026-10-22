@@ -1,9 +1,15 @@
 using System.Text;
+using System.Net;
+using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -17,6 +23,8 @@ using Playtrough.Api.Services.Implementations;
 using Playtrough.Api.Services.Interfaces;
 using Playtrough.Api.Authorization;
 using Playtrough.Api.Controllers;
+using Playtrough.Api.Middleware;
+using Playtrough.Api.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,13 +46,52 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     };
 });
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+
+builder.Services.AddSingleton<IValidateOptions<RateLimitSettings>, RateLimitSettingsValidator>();
+builder.Services.AddOptions<RateLimitSettings>()
+    .BindSafely(builder.Configuration.GetSection(RateLimitSettings.SectionName))
+    .ValidateOnStart();
+builder.Services.AddRateLimiter(_ => { });
+builder.Services.AddSingleton<IConfigureOptions<RateLimiterOptions>, ConfigureRateLimiting>();
+
+builder.Services.AddOptions<TransportSettings>()
+    .BindSafely(builder.Configuration.GetSection(TransportSettings.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(settings => settings.KnownProxies.All(value => IPAddress.TryParse(value, out _)),
+        "Transport:KnownProxies must contain valid IP addresses.")
+    .Validate(settings => settings.KnownNetworks.All(value => System.Net.IPNetwork.TryParse(value, out _)),
+        "Transport:KnownNetworks must contain valid CIDR networks.")
+    .ValidateOnStart();
+builder.Services.AddOptions<KestrelServerOptions>().Configure<IOptions<TransportSettings>>((options, settings) =>
+{
+    options.AddServerHeader = false;
+    options.Limits.MaxRequestBodySize = settings.Value.MaxRequestBodySizeBytes;
+});
+builder.Services.AddOptions<HttpsRedirectionOptions>().Configure<IOptions<TransportSettings>>((options, settings) =>
+    options.HttpsPort = settings.Value.HttpsPort);
+builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(30));
+// PostConfigure overrides the framework's automatic forwarded-header defaults too.
+builder.Services.AddOptions<ForwardedHeadersOptions>().PostConfigure<IOptions<TransportSettings>>((options, settings) =>
+{
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+    foreach (var proxy in settings.Value.KnownProxies) options.KnownProxies.Add(IPAddress.Parse(proxy));
+    foreach (var network in settings.Value.KnownNetworks) options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+    options.ForwardLimit = settings.Value.ForwardLimit;
+    options.ForwardedHeaders = options.KnownProxies.Count + options.KnownIPNetworks.Count == 0
+        ? ForwardedHeaders.None : ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 
 // EF Core - MySQL (Oracle provider MySql.EntityFrameworkCore).
 // This provider exposes no ServerVersion/AutoDetect API: migration generation never
 // needs a live server, and there is no server version to pin.
-builder.Services.AddDbContext<AppDbContext>(o =>
-    o.UseMySQL(builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("Connection string 'ConnectionStrings:DefaultConnection' is not configured.")));
+builder.Services.AddSingleton<IValidateOptions<ConnectionStringSettings>, ConnectionStringSettingsValidator>();
+builder.Services.AddOptions<ConnectionStringSettings>()
+    .BindSafely(builder.Configuration.GetSection(ConnectionStringSettings.SectionName))
+    .ValidateOnStart();
+builder.Services.AddDbContext<AppDbContext>((services, options) =>
+    options.UseMySQL(services.GetRequiredService<IOptions<ConnectionStringSettings>>().Value.DefaultConnection));
 
 // ASP.NET Core Identity (int keys).
 // NIST SP 800-63B: length dominates strength, so a required symbol is NOT enforced.
@@ -69,7 +116,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IEmailConfirmationQueue, EmailConfirmationQueue>();
 builder.Services.AddHostedService<EmailConfirmationWorker>();
 builder.Services.AddOptions<EmailConfirmationSettings>()
-    .Bind(builder.Configuration.GetSection(EmailConfirmationSettings.SectionName))
+    .BindSafely(builder.Configuration.GetSection(EmailConfirmationSettings.SectionName))
     .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddOptions<EmailConfirmationTokenProviderOptions>()
     .Configure<IOptions<EmailConfirmationSettings>>((options, settings) =>
@@ -80,13 +127,13 @@ builder.Services.AddOptions<EmailConfirmationTokenProviderOptions>()
 
 builder.Services.AddSingleton<IValidateOptions<EmailSettings>, EmailSettingsValidator>();
 builder.Services.AddOptions<EmailSettings>()
-    .Bind(builder.Configuration.GetSection(EmailSettings.SectionName))
+    .BindSafely(builder.Configuration.GetSection(EmailSettings.SectionName))
     .ValidateOnStart();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<IPasswordResetQueue, PasswordResetQueue>();
 builder.Services.AddHostedService<PasswordResetWorker>();
 builder.Services.AddOptions<PasswordResetSettings>()
-    .Bind(builder.Configuration.GetSection(PasswordResetSettings.SectionName))
+    .BindSafely(builder.Configuration.GetSection(PasswordResetSettings.SectionName))
     .ValidateDataAnnotations()
     .Validate(settings => Uri.TryCreate(settings.FrontendBaseUrl, UriKind.Absolute, out var uri) &&
         (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
@@ -97,12 +144,9 @@ builder.Services.AddOptions<DataProtectionTokenProviderOptions>()
     .Configure<IOptions<PasswordResetSettings>>((options, settings) =>
         options.TokenLifespan = TimeSpan.FromMinutes(settings.Value.TokenLifespanMinutes));
 
+builder.Services.AddSingleton<IValidateOptions<JwtSettings>, JwtSettingsValidator>();
 builder.Services.AddOptions<JwtSettings>()
-    .Bind(builder.Configuration.GetSection(JwtSettings.SectionName))
-    .ValidateDataAnnotations()
-    .Validate(settings => Encoding.UTF8.GetByteCount(settings.Key) >= 32 &&
-        !settings.Key.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase),
-        "Jwt:Key must be a secret of at least 32 bytes, supplied via user-secrets or environment variables.")
+    .BindSafely(builder.Configuration.GetSection(JwtSettings.SectionName))
     .ValidateOnStart();
 
 builder.Services.AddAuthentication(options =>
@@ -159,7 +203,7 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser().RequireRole(AppRoles.Admin));
 });
 builder.Services.AddOptions<AdminSeedSettings>()
-    .Bind(builder.Configuration.GetSection(AdminSeedSettings.SectionName));
+    .BindSafely(builder.Configuration.GetSection(AdminSeedSettings.SectionName));
 builder.Services.AddScoped<IdentitySeeder>();
 
 // Application services
@@ -171,9 +215,25 @@ builder.Services.AddScoped<IAdminUserRepository, AdminUserRepository>();
 builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 
 // Swagger / OpenAPI
+builder.Services.AddOptions<SwaggerSettings>()
+    .BindSafely(builder.Configuration.GetSection(SwaggerSettings.SectionName))
+    .ValidateOnStart();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Playtrough API",
+        Version = "v1",
+        Description = "API de la plataforma social para gamers Playtrough. " +
+            "Autenticación con JWT, confirmación de email, recuperación y administración de usuarios. " +
+            "Los errores usan ProblemDetails; extensions.code se serializa como code en la raíz cuando está disponible.",
+    });
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, "Playtrough.Api.xml"));
+    options.DocInclusionPredicate((document, description) =>
+        (description.GroupName is null || description.GroupName == document) &&
+        !new PathString("/" + description.RelativePath).StartsWithSegments("/api/test", StringComparison.OrdinalIgnoreCase) &&
+        !new PathString("/" + description.RelativePath).StartsWithSegments("/__tests", StringComparison.OrdinalIgnoreCase));
     options.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.Http,
@@ -181,27 +241,30 @@ builder.Services.AddSwaggerGen(options =>
         BearerFormat = "JWT",
         Description = "Pegá el accessToken recibido en el login, sin agregar el prefijo Bearer. No uses el refreshToken.",
     });
-    // Match the API's authenticated-by-default behavior; anonymous operations override this below.
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
-    {
-        [new OpenApiSecuritySchemeReference(JwtBearerDefaults.AuthenticationScheme, document)] = [],
-    });
     options.OperationFilter<AnonymousSecurityFilter>();
+    options.SchemaFilter<DtoExamplesSchemaFilter>();
     options.OperationFilter<RegisterEndpointExamplesFilter>();
     options.OperationFilter<LoginEndpointExamplesFilter>();
     options.OperationFilter<RefreshEndpointExamplesFilter>();
+    options.OperationFilter<AdminRoleExamplesFilter>();
+    options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
+    options.DocumentFilter<ApiDocumentationFilter>();
 });
 
-// CORS — Angular dev server
-builder.Services.AddCors(o =>
+// Explicit origins only; an empty production configuration grants no CORS access.
+builder.Services.AddOptions<CorsSettings>()
+    .BindSafely(builder.Configuration.GetSection(CorsSettings.SectionName))
+    .Validate(settings => settings.AllowedOrigins.All(CorsSettings.IsOrigin),
+        "Cors:AllowedOrigins must contain absolute HTTP(S) origins without wildcards, credentials, paths, query or fragment.")
+    .ValidateOnStart();
+builder.Services.AddCors();
+builder.Services.AddOptions<CorsOptions>().Configure<IOptions<CorsSettings>>((options, settings) =>
 {
-    o.AddPolicy("AngularDev", p =>
+    options.AddPolicy("AngularDev", policy =>
     {
-        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-            ?? new[] { "http://localhost:4200" };
-        p.WithOrigins(origins)
-            .WithMethods("GET", "POST", "PUT", "OPTIONS")
+        policy.WithOrigins(settings.Value.AllowedOrigins.Select(origin => origin.TrimEnd('/')).ToArray())
+            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .WithHeaders("Authorization", "Content-Type");
     });
 });
@@ -214,14 +277,57 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
+// Validate before the seeder can open a database connection. Host startup also
+// runs this validator, but that normally happens after this initialization block.
+app.Services.GetRequiredService<IStartupValidator>().Validate();
+
 await using (var scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().InitializeAsync();
 
 // Pipeline
-app.UseExceptionHandler();
-app.UseSwagger();
-app.UseSwaggerUI();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+if (app.Environment.IsDevelopment()) app.UseDeveloperExceptionPage();
+else app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    // ApiExceptionHandler records safe diagnostics; avoid logging the raw exception twice.
+    SuppressDiagnosticsCallback = _ => true,
+});
+app.UseForwardedHeaders();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+var swaggerEnabled = app.Environment.IsDevelopment() &&
+    app.Services.GetRequiredService<IOptions<SwaggerSettings>>().Value.Enabled;
+if (swaggerEnabled)
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.DocumentTitle = "Playtrough API";
+        options.SwaggerEndpoint("v1/swagger.json", "Playtrough API v1");
+    });
+}
+else
+{
+    // Unknown paths normally encounter the fallback authorization policy. Keep
+    // disabled documentation consistently unavailable (404), even without a JWT.
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+        await next(context);
+    });
+}
+app.UseRouting();
 app.UseCors("AngularDev");
+app.UseMiddleware<RequestBodyLimitMiddleware>();
+app.UseMiddleware<RateLimitIdentityMiddleware>();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from './services/auth';
 import { ResendConfirmationComponent } from './resend-confirmation';
+import { createRateLimitCooldown } from './rate-limit-cooldown';
 
 type ConfirmationState = 'loading' | 'success' | 'invalid' | 'retry';
 
@@ -22,6 +23,7 @@ export class ConfirmEmailComponent {
   // Kept only in memory for an explicit network retry, never persisted or logged.
   private token = this.route.snapshot.queryParamMap.get('token') ?? '';
   protected readonly state = signal<ConfirmationState>('loading');
+  protected readonly rateLimit = createRateLimitCooldown();
 
   constructor() {
     void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
@@ -30,7 +32,7 @@ export class ConfirmEmailComponent {
   }
 
   protected retry(): void {
-    if (this.state() !== 'retry') return;
+    if (this.state() !== 'retry' || this.rateLimit.remaining() > 0) return;
     this.confirm();
   }
 
@@ -45,6 +47,10 @@ export class ConfirmEmailComponent {
           this.state.set('success');
         },
         error: (error: unknown) => {
+          if (this.rateLimit.handle(error)) {
+            this.state.set('retry');
+            return;
+          }
           if (error instanceof HttpErrorResponse && error.status === 400) {
             this.token = '';
             this.state.set('invalid');

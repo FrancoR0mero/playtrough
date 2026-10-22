@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Internal;
@@ -36,6 +37,7 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     private readonly bool _runPasswordResetWorker;
     private readonly bool _runConfirmationWorker;
     private readonly string _environment;
+    private readonly bool _includeSecurityEndpoints;
     public Mock<IEmailConfirmationQueue> ConfirmationQueue { get; } = new();
     internal TestCacheClock CacheClock { get; } = new();
     private readonly Channel<RecoveryEmail> _emails = Channel.CreateUnbounded<RecoveryEmail>();
@@ -45,9 +47,11 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
     public LoginApiFactory(bool useIndependentConnections = false, bool runPasswordResetWorker = true, bool runConfirmationWorker = true,
-        string environment = "Testing")
+        string environment = "Testing", bool includeSecurityEndpoints = false)
     {
         _environment = environment;
+        _includeSecurityEndpoints = includeSecurityEndpoints;
+        ClientOptions.BaseAddress = new Uri("https://localhost");
         _runConfirmationWorker = runConfirmationWorker;
         _runPasswordResetWorker = runPasswordResetWorker;
         EmailSender.Setup(sender => sender.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
@@ -79,9 +83,19 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
+        if (_environment == "Testing")
+            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
+                new Dictionary<string, string?> { ["Cors:AllowedOrigins:0"] = "http://localhost:4200" }));
         builder.ConfigureTestServices(services =>
         {
+            // Existing integration suites exercise business behavior without sharing
+            // rate budgets. Rate-limiting tests explicitly enable their own limits.
+            services.PostConfigure<RateLimitSettings>(settings => settings.Enabled = false);
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
+            // Validate the production options without using a real connection or credentials.
+            // The actual database provider below remains isolated SQLite.
+            services.PostConfigure<ConnectionStringSettings>(settings =>
+                settings.DefaultConnection = "Server=localhost;Database=playtrough_tests;User ID=test_user;");
             // Startup now seeds Identity. Keep the schema ready before Program executes it,
             // and never inherit real admin credentials from user-secrets or the environment.
             services.PostConfigure<AdminSeedSettings>(settings =>
@@ -138,6 +152,9 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
 
             // This assembly is never loaded as an application part by the production API.
             services.AddControllers().AddApplicationPart(typeof(TestProtectedController).Assembly);
+            if (_includeSecurityEndpoints)
+                services.AddControllers().ConfigureApplicationPartManager(manager =>
+                    manager.FeatureProviders.Add(new SecurityControllerFeatureProvider()));
         });
     }
 

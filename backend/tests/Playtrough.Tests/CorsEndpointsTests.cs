@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Playtrough.Tests;
@@ -13,6 +14,7 @@ public class CorsEndpointsTests
     [InlineData("/api/admin/role-changes", "GET")]
     [InlineData("/api/auth/login", "POST")]
     [InlineData("/api/admin/users", "OPTIONS")]
+    [InlineData("/api/admin/users", "DELETE")]
     public async Task Preflight_WithAllowedOrigin_AdvertisesMethodsAndHeadersWithoutAuthentication(string path, string method)
     {
         using var factory = new LoginApiFactory();
@@ -23,9 +25,10 @@ public class CorsEndpointsTests
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.Equal("http://localhost:4200", Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
-        Assert.Equal(new[] { "GET", "OPTIONS", "POST", "PUT" }, HeaderValues(response, "Access-Control-Allow-Methods").OrderBy(value => value));
+        Assert.Equal(new[] { "DELETE", "GET", "OPTIONS", "POST", "PUT" }, HeaderValues(response, "Access-Control-Allow-Methods").OrderBy(value => value));
         Assert.Equal(new[] { "authorization", "content-type" }, HeaderValues(response, "Access-Control-Allow-Headers").Select(value => value.ToLowerInvariant()).OrderBy(value => value));
         Assert.False(response.Headers.Contains("Access-Control-Allow-Credentials"));
+        TransportEndpointsTests.AssertHeaders(response);
     }
 
     [Theory]
@@ -66,6 +69,36 @@ public class CorsEndpointsTests
             else
                 Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
         }
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    public async Task NoProductionOrigins_GrantsNoAccessIncludingLocalhost(string environment)
+    {
+        using var factory = new LoginApiFactory(environment: environment);
+        using var client = factory.CreateClient();
+        foreach (var origin in new[] { "http://localhost:4200", "https://frontend.example" })
+        {
+            using var response = await client.SendAsync(Preflight("/api/admin/users", origin, "GET"));
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
+        }
+    }
+
+    [Theory]
+    [InlineData("*")]
+    [InlineData("https://*.example.com")]
+    [InlineData("https://frontend.example/path")]
+    [InlineData("https://frontend.example?secret=test-canary")]
+    public void InvalidOrigins_FailStartupWithoutEchoingValues(string origin)
+    {
+        using var factory = new LoginApiFactory();
+        using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, configuration) =>
+            configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["Cors:AllowedOrigins:0"] = origin })));
+        var error = Assert.Throws<OptionsValidationException>(() => configured.CreateClient());
+        Assert.Contains("Cors:AllowedOrigins", error.Message);
+        Assert.DoesNotContain("test-canary", error.ToString());
     }
 
     private static HttpRequestMessage Preflight(string path, string origin, string method)

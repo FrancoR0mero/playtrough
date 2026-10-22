@@ -276,7 +276,7 @@ public class AuthService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unexpected failure during login");
+            logger.LogError("Unexpected failure during login ({ExceptionType}).", ex.GetType().Name);
             return ServiceResult<LoginResponseDto>.Fail(AuthError.Unexpected);
         }
     }
@@ -331,7 +331,7 @@ public class AuthService(
         catch (Exception ex)
         {
             await transaction.RollbackAsync(ct);
-            logger.LogError(ex, "Unexpected failure during registration for username '{Username}'", username);
+            logger.LogError("Unexpected failure during registration ({ExceptionType}).", ex.GetType().Name);
             return ServiceResult<RegisterResponseDto>.Fail(AuthError.Unexpected);
         }
     }

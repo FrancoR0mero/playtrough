@@ -11,6 +11,7 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../../../features/auth/services/auth';
 import { HasRoleDirective } from '../../directives/has-role';
 import { NAVIGATION_ITEMS } from './layout-navigation';
+import { RateLimitNoticeService } from '../../services/rate-limit-notice';
 
 @Component({
   selector: 'app-layout',
@@ -22,6 +23,7 @@ import { NAVIGATION_ITEMS } from './layout-navigation';
 })
 export class LayoutComponent {
   protected readonly auth = inject(AuthService);
+  protected readonly rateLimitNotice = inject(RateLimitNoticeService);
   protected readonly loggingOut = signal(false);
   protected readonly menuOpen = signal(false);
   protected readonly navigationItems = NAVIGATION_ITEMS;

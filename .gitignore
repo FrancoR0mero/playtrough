@@ -45,5 +45,10 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+secrets.json
+appsettings.*.local.json
 
-# NOTE: docker-compose.yml and appsettings*.json are intentionally NOT ignored.
+# Local rate-limiting smoke check
+/backend/scripts/Test-RateLimiting.ps1
+
+# Shared docker-compose.yml and appsettings JSON stay tracked; local overrides do not.
