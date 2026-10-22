@@ -10,6 +10,7 @@ import { AuthService } from '../../../features/auth/services/auth';
 import { TokenStorageService } from '../../../features/auth/services/token-storage';
 import { LayoutComponent } from './layout';
 import { NAVIGATION_ITEMS } from './layout-navigation';
+import { RateLimitNoticeService } from '../../services/rate-limit-notice';
 
 describe('Layout navigation and logout', () => {
   let fixture: ComponentFixture<LayoutComponent>;
@@ -47,6 +48,23 @@ describe('Layout navigation and logout', () => {
     fixture.detectChanges();
     return fixture.nativeElement.querySelector('button[data-action="logout"]') as HTMLButtonElement;
   }
+
+  it('shows and dismisses the shared guard 429 alert without logout or navigation', () => {
+    renderAuthenticated();
+    TestBed.inject(RateLimitNoticeService).show(90);
+    fixture.detectChanges();
+    const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toContain(
+      'Demasiados intentos. Probá de nuevo en 1 minuto y 30 segundos',
+    );
+    (alert.querySelector('button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+    expect(auth.isAuthenticated()).toBe(true);
+    expect(auth.logout).not.toHaveBeenCalled();
+    expect(auth.clearSession).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
 
   it('hides the logout button without an active session', () => {
     // Arrange / Act

@@ -25,15 +25,17 @@
   }
   <button
     type="submit"
-    [disabled]="form.invalid || submitting() || remaining() > 0"
+    [disabled]="form.invalid || submitting() || remaining() > 0 || rateLimit.remaining() > 0"
     class="ui-button w-full rounded-md bg-accent px-4 py-2 font-semibold text-white transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
   >
     {{
       submitting()
         ? 'Enviando…'
-        : remaining() > 0
-          ? 'Reenviar en ' + remaining() + ' s'
-          : buttonLabel()
+        : rateLimit.remaining() > 0
+          ? 'Reintentar en ' + rateLimit.remaining() + ' s'
+          : remaining() > 0
+            ? 'Reenviar en ' + remaining() + ' s'
+            : buttonLabel()
     }}
   </button>
 </form>
@@ -44,6 +46,14 @@
   >
     Si el email corresponde a una cuenta pendiente de confirmación, vas a recibir un enlace para
     confirmarla. Revisá también spam.
+  </p>
+}
+@if (rateLimit.message(); as message) {
+  <p
+    role="alert"
+    class="mt-4 rounded-md border border-red-500/60 bg-red-950/40 p-4 text-sm text-red-200"
+  >
+    {{ message }}
   </p>
 }
 @if (error(); as message) {

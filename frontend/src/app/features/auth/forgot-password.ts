@@ -12,6 +12,7 @@ import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from './services/auth';
 import { createResendCooldown } from './resend-cooldown';
+import { createRateLimitCooldown } from './rate-limit-cooldown';
 
 @Component({
   selector: 'app-forgot-password',
@@ -24,6 +25,7 @@ export class ForgotPasswordComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly cooldown = createResendCooldown(30);
+  protected readonly rateLimit = createRateLimitCooldown();
   protected readonly form = inject(FormBuilder).nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
   });
@@ -40,7 +42,7 @@ export class ForgotPasswordComponent {
   }
 
   protected submit(): void {
-    if (this.submitting() || this.remaining() > 0) return;
+    if (this.submitting() || this.remaining() > 0 || this.rateLimit.remaining() > 0) return;
     this.form.markAllAsTouched();
     if (this.form.invalid) {
       this.element.nativeElement.querySelector<HTMLInputElement>('input')?.focus();
@@ -59,7 +61,10 @@ export class ForgotPasswordComponent {
           this.sent.set(true);
           this.cooldown.start();
         },
-        error: () => this.error.set('No pudimos procesar la solicitud. Intentá de nuevo.'),
+        error: (error: unknown) => {
+          if (!this.rateLimit.handle(error))
+            this.error.set('No pudimos procesar la solicitud. Intentá de nuevo.');
+        },
       });
   }
 }

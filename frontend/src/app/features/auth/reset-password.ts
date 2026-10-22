@@ -13,6 +13,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { passwordComplexityValidator } from './password-validation';
 import { AuthService } from './services/auth';
+import { createRateLimitCooldown } from './rate-limit-cooldown';
 
 @Component({
   selector: 'app-reset-password',
@@ -31,6 +32,7 @@ export class ResetPasswordComponent {
   private readonly token = this.route.snapshot.queryParamMap.get('token') ?? '';
   protected readonly invalidLink = signal(!this.email.trim() || !this.token.trim());
   protected readonly submitting = signal(false);
+  protected readonly rateLimit = createRateLimitCooldown();
   protected readonly showPassword = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly serverPasswordError = signal<string | null>(null);
@@ -79,7 +81,7 @@ export class ResetPasswordComponent {
   }
 
   protected submit(): void {
-    if (this.submitting() || this.invalidLink()) return;
+    if (this.submitting() || this.invalidLink() || this.rateLimit.remaining() > 0) return;
     this.form.markAllAsTouched();
     this.serverPasswordError.set(null);
     this.error.set(null);
@@ -102,6 +104,7 @@ export class ResetPasswordComponent {
           void this.router.navigateByUrl('/auth/login?passwordUpdated=true', { replaceUrl: true });
         },
         error: (error: unknown) => {
+          if (this.rateLimit.handle(error)) return;
           if (error instanceof HttpErrorResponse && error.status === 400) {
             const errors: unknown = error.error?.errors;
             const messages =

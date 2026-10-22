@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../features/auth/services/auth';
 import { TokenStorageService } from '../../features/auth/services/token-storage';
 import { PUBLIC_API_ENDPOINTS } from './api-endpoints';
+import { RateLimitError } from '../http/rate-limit-error';
 
 export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   const api = new URL(environment.apiUrl, window.location.origin);
@@ -16,7 +17,15 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   )
     return next(req);
   const path = url.pathname.slice(basePath.length).replace(/\/+$/, '').toLowerCase();
-  if (PUBLIC_API_ENDPOINTS.includes(path)) return next(req);
+  const propagateRateLimit = (error: unknown) =>
+    throwError(() =>
+      error instanceof HttpErrorResponse &&
+      error.status === 429 &&
+      !(error instanceof RateLimitError)
+        ? new RateLimitError(error)
+        : error,
+    );
+  if (PUBLIC_API_ENDPOINTS.includes(path)) return next(req).pipe(catchError(propagateRateLimit));
 
   const auth = inject(AuthService);
   const storage = inject(TokenStorageService);
@@ -51,5 +60,6 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
         ),
       );
     }),
+    catchError(propagateRateLimit),
   );
 };
