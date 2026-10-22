@@ -44,6 +44,7 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     };
 });
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
 builder.Services.AddOptions<TransportSettings>()
     .BindSafely(builder.Configuration.GetSection(TransportSettings.SectionName))
@@ -261,7 +262,12 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 // Pipeline
 app.UseMiddleware<SecurityHeadersMiddleware>();
-app.UseExceptionHandler();
+if (app.Environment.IsDevelopment()) app.UseDeveloperExceptionPage();
+else app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    // ApiExceptionHandler records safe diagnostics; avoid logging the raw exception twice.
+    SuppressDiagnosticsCallback = _ => true,
+});
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
 {
