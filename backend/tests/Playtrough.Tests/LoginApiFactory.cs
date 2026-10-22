@@ -88,6 +88,9 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
                 new Dictionary<string, string?> { ["Cors:AllowedOrigins:0"] = "http://localhost:4200" }));
         builder.ConfigureTestServices(services =>
         {
+            // Existing integration suites exercise business behavior without sharing
+            // rate budgets. Rate-limiting tests explicitly enable their own limits.
+            services.PostConfigure<RateLimitSettings>(settings => settings.Enabled = false);
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
             // Validate the production options without using a real connection or credentials.
             // The actual database provider below remains isolated SQLite.

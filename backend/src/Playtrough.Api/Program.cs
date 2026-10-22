@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -23,6 +24,7 @@ using Playtrough.Api.Services.Interfaces;
 using Playtrough.Api.Authorization;
 using Playtrough.Api.Controllers;
 using Playtrough.Api.Middleware;
+using Playtrough.Api.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +47,13 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 });
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+
+builder.Services.AddSingleton<IValidateOptions<RateLimitSettings>, RateLimitSettingsValidator>();
+builder.Services.AddOptions<RateLimitSettings>()
+    .BindSafely(builder.Configuration.GetSection(RateLimitSettings.SectionName))
+    .ValidateOnStart();
+builder.Services.AddRateLimiter(_ => { });
+builder.Services.AddSingleton<IConfigureOptions<RateLimiterOptions>, ConfigureRateLimiting>();
 
 builder.Services.AddOptions<TransportSettings>()
     .BindSafely(builder.Configuration.GetSection(TransportSettings.SectionName))
@@ -276,8 +285,11 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseSwagger();
 app.UseSwaggerUI();
+app.UseRouting();
 app.UseCors("AngularDev");
 app.UseMiddleware<RequestBodyLimitMiddleware>();
+app.UseMiddleware<RateLimitIdentityMiddleware>();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

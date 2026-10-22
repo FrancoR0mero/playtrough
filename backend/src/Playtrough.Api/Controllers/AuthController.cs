@@ -3,6 +3,8 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.RateLimiting;
+using Playtrough.Api.RateLimiting;
 using Playtrough.Api.Dtos.Auth;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Services.Interfaces;
@@ -15,6 +17,7 @@ namespace Playtrough.Api.Controllers;
 public class AuthController(IAuthService authService) : ControllerBase
 {
     [HttpPost("confirm-email")]
+    [EnableRateLimiting(RateLimitPolicies.TokenActions)]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequestDto dto, CancellationToken ct)
@@ -26,12 +29,14 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [HttpPost("resend-confirmation")]
+    [EnableRateLimiting(RateLimitPolicies.PasswordRecovery)]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> ResendConfirmation([FromBody] ResendConfirmationRequestDto dto, CancellationToken ct)
         => Ok(await authService.ResendConfirmationAsync(dto, ct));
 
     [HttpPost("reset-password")]
+    [EnableRateLimiting(RateLimitPolicies.TokenActions)]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> ResetPassword(
@@ -59,6 +64,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [HttpPost("forgot-password")]
+    [EnableRateLimiting(RateLimitPolicies.PasswordRecovery)]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> ForgotPassword(
@@ -73,6 +79,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [HttpPost("refresh")]
+    [EnableRateLimiting(RateLimitPolicies.Refresh)]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(RefreshResponseDto), StatusCodes.Status200OK)]
@@ -111,6 +118,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
@@ -144,6 +152,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting(RateLimitPolicies.Register)]
     [AllowAnonymous]
     [ProducesResponseType(typeof(RegisterResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
