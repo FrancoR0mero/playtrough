@@ -37,6 +37,7 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     private readonly bool _runPasswordResetWorker;
     private readonly bool _runConfirmationWorker;
     private readonly string _environment;
+    private readonly bool _includeSecurityEndpoints;
     public Mock<IEmailConfirmationQueue> ConfirmationQueue { get; } = new();
     internal TestCacheClock CacheClock { get; } = new();
     private readonly Channel<RecoveryEmail> _emails = Channel.CreateUnbounded<RecoveryEmail>();
@@ -46,9 +47,11 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
     public LoginApiFactory(bool useIndependentConnections = false, bool runPasswordResetWorker = true, bool runConfirmationWorker = true,
-        string environment = "Testing")
+        string environment = "Testing", bool includeSecurityEndpoints = false)
     {
         _environment = environment;
+        _includeSecurityEndpoints = includeSecurityEndpoints;
+        ClientOptions.BaseAddress = new Uri("https://localhost");
         _runConfirmationWorker = runConfirmationWorker;
         _runPasswordResetWorker = runPasswordResetWorker;
         EmailSender.Setup(sender => sender.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
@@ -146,6 +149,9 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
 
             // This assembly is never loaded as an application part by the production API.
             services.AddControllers().AddApplicationPart(typeof(TestProtectedController).Assembly);
+            if (_includeSecurityEndpoints)
+                services.AddControllers().ConfigureApplicationPartManager(manager =>
+                    manager.FeatureProviders.Add(new SecurityControllerFeatureProvider()));
         });
     }
 

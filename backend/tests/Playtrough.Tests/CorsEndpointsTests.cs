@@ -28,6 +28,7 @@ public class CorsEndpointsTests
         Assert.Equal(new[] { "DELETE", "GET", "OPTIONS", "POST", "PUT" }, HeaderValues(response, "Access-Control-Allow-Methods").OrderBy(value => value));
         Assert.Equal(new[] { "authorization", "content-type" }, HeaderValues(response, "Access-Control-Allow-Headers").Select(value => value.ToLowerInvariant()).OrderBy(value => value));
         Assert.False(response.Headers.Contains("Access-Control-Allow-Credentials"));
+        TransportEndpointsTests.AssertHeaders(response);
     }
 
     [Theory]

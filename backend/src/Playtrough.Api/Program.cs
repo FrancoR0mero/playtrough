@@ -1,5 +1,9 @@
 using System.Text;
+using System.Net;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -18,6 +22,7 @@ using Playtrough.Api.Services.Implementations;
 using Playtrough.Api.Services.Interfaces;
 using Playtrough.Api.Authorization;
 using Playtrough.Api.Controllers;
+using Playtrough.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,6 +44,34 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     };
 });
 builder.Services.AddProblemDetails();
+
+builder.Services.AddOptions<TransportSettings>()
+    .BindSafely(builder.Configuration.GetSection(TransportSettings.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(settings => settings.KnownProxies.All(value => IPAddress.TryParse(value, out _)),
+        "Transport:KnownProxies must contain valid IP addresses.")
+    .Validate(settings => settings.KnownNetworks.All(value => System.Net.IPNetwork.TryParse(value, out _)),
+        "Transport:KnownNetworks must contain valid CIDR networks.")
+    .ValidateOnStart();
+builder.Services.AddOptions<KestrelServerOptions>().Configure<IOptions<TransportSettings>>((options, settings) =>
+{
+    options.AddServerHeader = false;
+    options.Limits.MaxRequestBodySize = settings.Value.MaxRequestBodySizeBytes;
+});
+builder.Services.AddOptions<HttpsRedirectionOptions>().Configure<IOptions<TransportSettings>>((options, settings) =>
+    options.HttpsPort = settings.Value.HttpsPort);
+builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(30));
+// PostConfigure overrides the framework's automatic forwarded-header defaults too.
+builder.Services.AddOptions<ForwardedHeadersOptions>().PostConfigure<IOptions<TransportSettings>>((options, settings) =>
+{
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+    foreach (var proxy in settings.Value.KnownProxies) options.KnownProxies.Add(IPAddress.Parse(proxy));
+    foreach (var network in settings.Value.KnownNetworks) options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+    options.ForwardLimit = settings.Value.ForwardLimit;
+    options.ForwardedHeaders = options.KnownProxies.Count + options.KnownIPNetworks.Count == 0
+        ? ForwardedHeaders.None : ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 
 // EF Core - MySQL (Oracle provider MySql.EntityFrameworkCore).
 // This provider exposes no ServerVersion/AutoDetect API: migration generation never
@@ -227,10 +260,18 @@ await using (var scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().InitializeAsync();
 
 // Pipeline
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseExceptionHandler();
+app.UseForwardedHeaders();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("AngularDev");
+app.UseMiddleware<RequestBodyLimitMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
