@@ -1,6 +1,10 @@
+using Microsoft.Extensions.Options;
+using Playtrough.Api.Models;
+
 namespace Playtrough.Api.Middleware;
 
-public sealed class SecurityHeadersMiddleware(RequestDelegate next)
+public sealed class SecurityHeadersMiddleware(
+    RequestDelegate next, IWebHostEnvironment environment, IOptions<SwaggerSettings> swagger)
 {
     public Task InvokeAsync(HttpContext context)
     {
@@ -12,7 +16,9 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next)
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "no-referrer";
-            if (!context.Request.Path.StartsWithSegments("/swagger"))
+            var isSwaggerUi = environment.IsDevelopment() && swagger.Value.Enabled &&
+                context.Request.Path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase);
+            if (!isSwaggerUi)
                 headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
             return Task.CompletedTask;
         });

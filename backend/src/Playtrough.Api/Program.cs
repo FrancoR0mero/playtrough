@@ -215,9 +215,25 @@ builder.Services.AddScoped<IAdminUserRepository, AdminUserRepository>();
 builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 
 // Swagger / OpenAPI
+builder.Services.AddOptions<SwaggerSettings>()
+    .BindSafely(builder.Configuration.GetSection(SwaggerSettings.SectionName))
+    .ValidateOnStart();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Playtrough API",
+        Version = "v1",
+        Description = "API de la plataforma social para gamers Playtrough. " +
+            "Autenticación con JWT, confirmación de email, recuperación y administración de usuarios. " +
+            "Los errores usan ProblemDetails; extensions.code se serializa como code en la raíz cuando está disponible.",
+    });
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, "Playtrough.Api.xml"));
+    options.DocInclusionPredicate((document, description) =>
+        (description.GroupName is null || description.GroupName == document) &&
+        !new PathString("/" + description.RelativePath).StartsWithSegments("/api/test", StringComparison.OrdinalIgnoreCase) &&
+        !new PathString("/" + description.RelativePath).StartsWithSegments("/__tests", StringComparison.OrdinalIgnoreCase));
     options.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.Http,
@@ -225,16 +241,15 @@ builder.Services.AddSwaggerGen(options =>
         BearerFormat = "JWT",
         Description = "Pegá el accessToken recibido en el login, sin agregar el prefijo Bearer. No uses el refreshToken.",
     });
-    // Match the API's authenticated-by-default behavior; anonymous operations override this below.
-    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
-    {
-        [new OpenApiSecuritySchemeReference(JwtBearerDefaults.AuthenticationScheme, document)] = [],
-    });
     options.OperationFilter<AnonymousSecurityFilter>();
+    options.SchemaFilter<DtoExamplesSchemaFilter>();
     options.OperationFilter<RegisterEndpointExamplesFilter>();
     options.OperationFilter<LoginEndpointExamplesFilter>();
     options.OperationFilter<RefreshEndpointExamplesFilter>();
+    options.OperationFilter<AdminRoleExamplesFilter>();
+    options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
+    options.DocumentFilter<ApiDocumentationFilter>();
 });
 
 // Explicit origins only; an empty production configuration grants no CORS access.
@@ -283,8 +298,31 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
     app.UseHttpsRedirection();
 }
-app.UseSwagger();
-app.UseSwaggerUI();
+var swaggerEnabled = app.Environment.IsDevelopment() &&
+    app.Services.GetRequiredService<IOptions<SwaggerSettings>>().Value.Enabled;
+if (swaggerEnabled)
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.DocumentTitle = "Playtrough API";
+        options.SwaggerEndpoint("v1/swagger.json", "Playtrough API v1");
+    });
+}
+else
+{
+    // Unknown paths normally encounter the fallback authorization policy. Keep
+    // disabled documentation consistently unavailable (404), even without a JWT.
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+        await next(context);
+    });
+}
 app.UseRouting();
 app.UseCors("AngularDev");
 app.UseMiddleware<RequestBodyLimitMiddleware>();

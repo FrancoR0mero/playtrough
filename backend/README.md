@@ -10,7 +10,8 @@ dotnet test backend/Playtrough.sln --no-restore --disable-build-servers -m:1
 dotnet run --project backend/src/Playtrough.Api
 ```
 
-Swagger is available at http://localhost:5000/swagger.
+Swagger está disponible en [http://localhost:5000/swagger](http://localhost:5000/swagger)
+solo en Development con `Swagger:Enabled=true` (predeterminado de ese entorno).
 
 ## Automated integration tests
 
@@ -70,24 +71,70 @@ RevokedAt/ReplacedByToken persistence, generic errors and logout-session isolati
 The unique temporary account and its tokens were removed afterward. Existing
 RefreshTokens fields suffice; no migration is required.
 
-## Swagger authentication examples
+## Swagger / OpenAPI
 
-POST /api/auth/login documents login by email and username as selectable examples,
-plus JSON response examples for 200, 400, 401, 423 and 500. It explains required fields,
-generic credential errors, lockout and default token lifetimes. Example token values
-are illustrative and cannot authenticate requests. Use an existing registered account
-when executing requests from Swagger UI.
+Se conserva Swashbuckle.AspNetCore 10.2.3. El documento es `v1`, con título
+`Playtrough API` y descripción en español. UI, documento y recursos estáticos se
+publican solo si se cumplen ambas condiciones: entorno `Development` y
+`Swagger:Enabled=true`. La configuración base y el archivo de ejemplo usan `false`;
+`appsettings.Development.json` lo activa. Fuera de Development, incluso una
+configuración explícita `true` mantiene Swagger desactivado. Las rutas `/swagger`
+responden 404 sin exigir JWT cuando está desactivado; HTTP en producción conserva
+su redirección a HTTPS previa a ese control.
 
-POST /api/auth/refresh documents its public contract (no Authorization header),
-required refreshToken, rotation, default lifetimes, current user roles and replay
-detection, including the strict concurrent-request behavior. Selectable request
-examples cover renewal, missing token (400) and nonexistent token (401), with JSON
-response examples and typed schemas for 200/400/401/500. Replace the illustrative
-token with the current token from login or the last refresh. Save both new tokens;
-reusing an old rotated token revokes that user's active refresh tokens.
+Las operaciones se agrupan en **Auth** (registro, login, logout, refresh,
+recuperación y confirmación) y **Admin** (usuarios, roles y auditoría). Se excluyen
+`/api/test/*` y los controladores `/__tests/*` que registra únicamente la fixture.
+Los resúmenes, reglas y respuestas se documentan con comentarios XML y
+`ProducesResponseType`; el proyecto genera `Playtrough.Api.xml` y Swagger lo incluye.
+Los errores tienen schemas de ProblemDetails o ValidationProblemDetails, y cada
+operación documenta los estados que le corresponden, incluidos 413 y 429. El 204 de
+logout no incluye body. Los 429 documentan también el header `Retry-After`.
 
-SwaggerDocumentationTests checks the generated refresh contract and examples while
-preserving the login/register examples.
+El esquema HTTP **Bearer (JWT)** habilita **Authorize**. Pegá únicamente el
+`accessToken`, sin el prefijo `Bearer`: Swagger UI agrega el header automáticamente.
+El requisito de seguridad se declara en logout y Admin. Los endpoints públicos
+de Auth no tienen candado ni requisito Bearer. El filtro también respeta la
+protección por defecto de los endpoints sin atributos de autorización.
+
+Registro, login, refresh y cambio de rol incluyen ejemplos de request/response en
+sus DTOs y en las operaciones. Los ejemplos existentes de login por email/username
+y de rotación se conservan. Registro muestra `emailConfirmationRequired`; login
+incluye el 403 por email sin confirmar. Todos los valores son ilustrativos y los
+tokens de ejemplo no sirven para autenticar ni renovar sesiones.
+
+`extensions.code` se serializa como `code` en la raíz del ProblemDetails. Se
+documentan los códigos que ya emite cada flujo:
+
+| Código | Estado | Situación |
+|---|---|---|
+| `email_not_confirmed` | 403 | Login con email sin confirmar |
+| `invalid_role` | 400 | Rol inválido en un cambio de rol |
+| `cannot_change_own_role` | 400 | Un admin intenta cambiar su propio rol |
+| `last_admin` | 400 | Se intenta degradar al último admin |
+| `invalid_role_state` | 400 | El usuario no tiene exactamente un rol soportado |
+| `user_not_found` | 404 | El usuario de destino no existe |
+| `role_change_failed` | 500 | Falló el cambio de rol |
+| `rate_limited` | 429 | Presupuesto de solicitudes agotado |
+| `payload_too_large` | 413 | Body mayor al límite configurado |
+| `internal_error` | 500 | Excepción no controlada fuera de Development |
+
+Para probar desde Swagger en Development:
+
+1. Abrí `/swagger` y verificá las etiquetas Auth y Admin. `/swagger/v1/swagger.json`
+   entrega el documento sin rutas de prueba.
+2. Usá login con una cuenta de prueba cuyo email esté confirmado. Copiá el access
+   token en **Authorize** y usá logout o, con rol Admin, el listado de usuarios.
+3. En refresh, enviá el refresh token vigente del login o de la última renovación.
+   Guardá ambos tokens nuevos; repetir el anterior activa la detección de reutilización.
+4. En Development, configurá `Swagger:Enabled=false`, reiniciá y comprobá el 404
+   de UI y documento. Fuera de Development permanecen desactivados.
+
+`SwaggerDocumentationTests` comprueba disponibilidad por entorno/configuración,
+Bearer público/protegido y fallback, metadata, etiquetas, exclusión de pruebas,
+respuestas tipadas, códigos, header Retry-After y ejemplos. Los tests anteriores de
+Swagger ahora usan Development y verifican la seguridad por operación. Las pruebas
+de negocio, roles y sesiones conservan su comportamiento.
 
 ## Password recovery
 
@@ -180,6 +227,7 @@ $env:PasswordReset__FrontendBaseUrl = 'https://frontend.example.com'
 | `RateLimit:TokenActions:PermitLimit` / `RateLimit:TokenActions:Window` | Presupuesto compartido de reset y confirmación por IP; 10 en `00:15:00`. | `RateLimit__TokenActions__PermitLimit` / `RateLimit__TokenActions__Window` |
 | `RateLimit:Refresh:PermitLimit` / `RateLimit:Refresh:Window` | Renovaciones por IP; predeterminado 30 en `00:01:00`. | `RateLimit__Refresh__PermitLimit` / `RateLimit__Refresh__Window` |
 | `RateLimit:Global:PermitLimit` / `RateLimit:Global:Window` | Resto de solicitudes por usuario autenticado o IP anónima; 100 en `00:01:00`. | `RateLimit__Global__PermitLimit` / `RateLimit__Global__Window` |
+| `Swagger:Enabled` | Activa UI y documento únicamente en Development; `true` por defecto en ese entorno y `false` en la base. | `Swagger__Enabled` |
 | `Logging:LogLevel:Default` | Nivel general de logs; predeterminado `Information`. | `Logging__LogLevel__Default` |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Nivel de ASP.NET Core; predeterminado `Warning`. | `Logging__LogLevel__Microsoft.AspNetCore` |
 | `AllowedHosts` | Filtro de hosts de ASP.NET Core; configurar los hosts del servicio según el despliegue. | `AllowedHosts` |
@@ -230,8 +278,8 @@ el puerto público de destino; no crea un listener ni instala certificados.
 Las respuestas de API incluyen `X-Content-Type-Options: nosniff`,
 `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` y
 `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
-El CSP se exceptúa para `/swagger` mientras la UI está disponible. El control de
-habilitación de Swagger por entorno/configuración corresponde a la fase 4.
+El CSP se exceptúa para `/swagger` solo mientras la UI está habilitada en Development.
+Las respuestas 404 de Swagger desactivado conservan el CSP de la API.
 Kestrel no agrega `Server`.
 
 El máximo de body es 1 MiB y se aplica a los endpoints actuales. Se rechaza el
