@@ -167,7 +167,12 @@ $env:PasswordReset__FrontendBaseUrl = 'https://frontend.example.com'
 | `AdminSeed:Username` | Usuario del admin inicial; configuración opcional. | `AdminSeed__Username` |
 | `AdminSeed:Email` | Correo del admin inicial; requiere los otros dos campos del seed. | `AdminSeed__Email` |
 | `AdminSeed:Password` | Contraseña del admin inicial; privada, nunca versionada. El seed existente no modifica cuentas existentes. | `AdminSeed__Password` |
-| `Cors:AllowedOrigins:0` | Primer origen autorizado; los siguientes usan índices `:1`, `:2`, etc. | `Cors__AllowedOrigins__0` |
+| `Cors:AllowedOrigins:0` | Primer origen autorizado, sin comodines; los siguientes usan índices `:1`, `:2`, etc. Sin orígenes configurados no se concede acceso CORS. | `Cors__AllowedOrigins__0` |
+| `Transport:MaxRequestBodySizeBytes` | Máximo del cuerpo de las solicitudes, positivo; predeterminado 1048576 bytes (1 MiB). | `Transport__MaxRequestBodySizeBytes` |
+| `Transport:HttpsPort` | Puerto de destino de la redirección HTTPS fuera de Development; predeterminado 443. | `Transport__HttpsPort` |
+| `Transport:ForwardLimit` | Cantidad máxima de saltos de proxy que se procesan; positivo, predeterminado 1. | `Transport__ForwardLimit` |
+| `Transport:KnownProxies:0` | IP del primer proxy confiable; lista vacía por defecto. Los siguientes usan índices `:1`, `:2`, etc. | `Transport__KnownProxies__0` |
+| `Transport:KnownNetworks:0` | Primera red confiable en formato CIDR, por ejemplo `10.20.0.0/16`; lista vacía por defecto. | `Transport__KnownNetworks__0` |
 | `Logging:LogLevel:Default` | Nivel general de logs; predeterminado `Information`. | `Logging__LogLevel__Default` |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Nivel de ASP.NET Core; predeterminado `Warning`. | `Logging__LogLevel__Microsoft.AspNetCore` |
 | `AllowedHosts` | Filtro de hosts de ASP.NET Core; configurar los hosts del servicio según el despliegue. | `AllowedHosts` |
@@ -202,6 +207,64 @@ tokens require a new login after restarting the API.
 
 Set PasswordReset:FrontendBaseUrl to the frontend's absolute HTTP(S) URL;
 PasswordReset:TokenLifespanMinutes defaults to 60.
+
+## Transporte, CORS y errores
+
+Development permite por defecto `http://localhost:4200`; la configuración base
+no contiene orígenes. Se autorizan solamente `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`
+y los headers `Authorization`, `Content-Type`, sin credenciales de cookies. Los
+comodines y las URLs que no representen un origen se rechazan al iniciar. CORS se
+ejecuta antes de autenticación y autorización, incluso para preflight protegido.
+
+Fuera de Development, HTTP redirige a HTTPS con 307 y las respuestas HTTPS llevan
+HSTS de 30 días (con las exclusiones de loopback de ASP.NET Core). `HttpsPort` indica
+el puerto público de destino; no crea un listener ni instala certificados.
+
+Las respuestas de API incluyen `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` y
+`Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
+El CSP se exceptúa para `/swagger` mientras la UI está disponible. El control de
+habilitación de Swagger por entorno/configuración corresponde a la fase 4.
+Kestrel no agrega `Server`.
+
+El máximo de body es 1 MiB y se aplica a los endpoints actuales. Se rechaza el
+`Content-Length` excesivo antes de leer y el servidor limita también las lecturas
+de cuerpos sin longitud declarada. El rechazo devuelve 413 ProblemDetails con
+`code: payload_too_large`. La suite comprueba ambos casos contra Kestrel real,
+sin depender de las limitaciones de simulación de TestServer.
+
+Solo se procesan `X-Forwarded-For` y `X-Forwarded-Proto` de IPs/redes explícitamente
+configuradas. Sin listas, ambos headers se ignoran, incluso desde loopback y si se
+activa la configuración automática de forwarding del framework. Los valores por
+defecto de proxies del framework se sustituyen por estas listas; no se confía en
+`X-Forwarded-Host`. Forwarding precede a HTTPS, CORS y autenticación. Con múltiples
+proxies, configurar los intermediarios y `ForwardLimit` según la cadena real.
+
+Fuera de Development, las excepciones no controladas producen 500 ProblemDetails
+con `code: internal_error` y texto genérico en español. El log registra TraceId,
+tipo, HResult y traza de cada excepción de la cadena (incluidas las internas).
+Se omiten mensajes, `Data` y propiedades arbitrarias porque pueden contener claves,
+tokens, conexiones o links completos. El framework no vuelve a registrar la
+excepción cruda: se usa la [supresión de diagnósticos de ASP.NET Core 10](https://learn.microsoft.com/aspnet/core/fundamentals/error-handling?view=aspnetcore-10.0#suppressdiagnosticscallback).
+Development conserva la página de excepciones para depuración.
+
+Los endpoints que lanzan errores o muestran la conexión pertenecen únicamente al
+assembly de tests; no forman parte de la API publicada. En TestServer, un
+`IStartupFilter` de prueba fija la IP remota antes del pipeline real. Esa IP no se
+obtiene de un header enviado por el cliente. La fixture general usa HTTPS y define
+explícitamente el origen Angular en el entorno Testing.
+
+Para probar CORS y headers manualmente con la API en Development:
+
+```powershell
+curl.exe -i -X OPTIONS 'http://localhost:5000/api/admin/users' -H 'Origin: http://localhost:4200' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: authorization,content-type'
+curl.exe -i -X OPTIONS 'http://localhost:5000/api/admin/users' -H 'Origin: https://unlisted.example' -H 'Access-Control-Request-Method: GET'
+curl.exe -i 'http://localhost:5000/health'
+```
+
+El primer preflight devuelve 204 con el origen permitido; el segundo no incluye
+`Access-Control-Allow-Origin`. `/health` incluye los headers de seguridad y no
+incluye `Server`. Ajustá el puerto al indicado por tu instancia.
 
 ## Configuración del correo
 
