@@ -173,6 +173,13 @@ $env:PasswordReset__FrontendBaseUrl = 'https://frontend.example.com'
 | `Transport:ForwardLimit` | Cantidad máxima de saltos de proxy que se procesan; positivo, predeterminado 1. | `Transport__ForwardLimit` |
 | `Transport:KnownProxies:0` | IP del primer proxy confiable; lista vacía por defecto. Los siguientes usan índices `:1`, `:2`, etc. | `Transport__KnownProxies__0` |
 | `Transport:KnownNetworks:0` | Primera red confiable en formato CIDR, por ejemplo `10.20.0.0/16`; lista vacía por defecto. | `Transport__KnownNetworks__0` |
+| `RateLimit:Enabled` | Activa todos los límites; predeterminado `true`. | `RateLimit__Enabled` |
+| `RateLimit:Login:PermitLimit` / `RateLimit:Login:Window` | Intentos por IP; predeterminado 10 en `00:01:00`. | `RateLimit__Login__PermitLimit` / `RateLimit__Login__Window` |
+| `RateLimit:Register:PermitLimit` / `RateLimit:Register:Window` | Registros por IP; predeterminado 5 en `01:00:00`. | `RateLimit__Register__PermitLimit` / `RateLimit__Register__Window` |
+| `RateLimit:PasswordRecovery:PermitLimit` / `RateLimit:PasswordRecovery:Window` | Presupuesto compartido de recuperación y reenvío por IP; 5 en `00:15:00`. | `RateLimit__PasswordRecovery__PermitLimit` / `RateLimit__PasswordRecovery__Window` |
+| `RateLimit:TokenActions:PermitLimit` / `RateLimit:TokenActions:Window` | Presupuesto compartido de reset y confirmación por IP; 10 en `00:15:00`. | `RateLimit__TokenActions__PermitLimit` / `RateLimit__TokenActions__Window` |
+| `RateLimit:Refresh:PermitLimit` / `RateLimit:Refresh:Window` | Renovaciones por IP; predeterminado 30 en `00:01:00`. | `RateLimit__Refresh__PermitLimit` / `RateLimit__Refresh__Window` |
+| `RateLimit:Global:PermitLimit` / `RateLimit:Global:Window` | Resto de solicitudes por usuario autenticado o IP anónima; 100 en `00:01:00`. | `RateLimit__Global__PermitLimit` / `RateLimit__Global__Window` |
 | `Logging:LogLevel:Default` | Nivel general de logs; predeterminado `Information`. | `Logging__LogLevel__Default` |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Nivel de ASP.NET Core; predeterminado `Warning`. | `Logging__LogLevel__Microsoft.AspNetCore` |
 | `AllowedHosts` | Filtro de hosts de ASP.NET Core; configurar los hosts del servicio según el despliegue. | `AllowedHosts` |
@@ -265,6 +272,73 @@ curl.exe -i 'http://localhost:5000/health'
 El primer preflight devuelve 204 con el origen permitido; el segundo no incluye
 `Access-Control-Allow-Origin`. `/health` incluye los headers de seguridad y no
 incluye `Server`. Ajustá el puerto al indicado por tu instancia.
+
+## Rate limiting
+
+Se usa el [rate limiter integrado de ASP.NET Core](https://learn.microsoft.com/aspnet/core/performance/rate-limit?view=aspnetcore-10.0),
+sin nuevas dependencias. Está habilitado por defecto, con ventanas fijas y rechazo
+inmediato cuando se agotan los permisos, sin poner solicitudes en cola.
+
+| Política | Endpoints | Límite predeterminado | Partición |
+|---|---|---|---|
+| `login` | `POST /api/auth/login` | 10 por minuto | IP |
+| `register` | `POST /api/auth/register` | 5 por hora | IP |
+| `password-recovery` | `POST /api/auth/forgot-password`, `POST /api/auth/resend-confirmation` | 5 cada 15 minutos, compartidos | IP |
+| `token-actions` | `POST /api/auth/reset-password`, `POST /api/auth/confirm-email` | 10 cada 15 minutos, compartidos | IP |
+| `refresh` | `POST /api/auth/refresh` | 30 por minuto | IP |
+| `global` | Resto de endpoints, incluidos logout, Admin y `/health` | 100 por minuto, compartidos entre rutas | ID de usuario autenticado; IP para anónimos |
+
+Los endpoints con política propia no consumen el presupuesto global. Todas las
+solicitudes que llegan al limitador consumen un permiso, aunque después fallen por
+validación o autorización. El lockout de Identity permanece: sus respuestas 423 por
+cuenta conviven con el 429 por exceso de solicitudes. Los contadores residen en cada
+proceso y se reinician al reiniciar la API; las ventanas fijas se renuevan completas,
+no calculan una ventana móvil.
+
+La sección `RateLimit` de `appsettings.json` y `appsettings.Example.json` enumera los
+límites. Cada política tiene `PermitLimit` positivo y `Window` de tipo TimeSpan
+positivo (`hh:mm:ss`, por ejemplo `00:15:00`). Se validan al iniciar sin mostrar
+valores inválidos. `RateLimit:Enabled=false` desactiva tanto las políticas propias
+como el límite global. Los cambios requieren reiniciar la API. Se pueden cargar
+mediante user-secrets o variables de entorno como las demás claves de la tabla.
+
+El orden relevante del pipeline es ForwardedHeaders, routing, CORS, límite de body,
+resolución de identidad para el límite global, rate limiting, autenticación y
+autorización. Para respetar el limitador antes de `UseAuthentication` y particionar
+por usuario, un middleware consulta el handler Bearer existente únicamente para
+solicitudes sin política propia. Usa el `sub` solo después de validar el JWT; no
+decodifica tokens sin verificar. El handler guarda el resultado por solicitud y
+`UseAuthentication` lo reutiliza. Los endpoints con política propia siempre se
+limitan por IP, incluso si reciben un JWT. CORS resuelve los preflight antes de
+consumir permisos y conserva sus headers también en los rechazos 429.
+
+La IP procede de la conexión, con forwarding solo para los proxies/redes confiables
+de `Transport`. La misma dirección IPv4 y su representación IPv6 mapeada comparten
+presupuesto. Si no existe IP remota, los clientes anónimos comparten la partición
+`unknown`. Un JWT inválido o expirado también usa la partición de IP.
+
+El rechazo devuelve `application/problem+json`, estado 429, `code: rate_limited`
+(la extensión se serializa en la raíz de ProblemDetails), texto genérico en español
+y `Retry-After` en segundos, redondeado hacia arriba. El log de advertencia registra
+solo política e IP, sin IDs, credenciales, tokens ni datos del body.
+
+`LoginApiFactory` desactiva los límites para conservar los tests existentes. Los
+tests de `RateLimitingEndpointsTests` los habilitan con presupuestos pequeños y un
+`IStartupFilter` exclusivo de tests: como TestServer no tiene una conexión TCP real,
+el filtro toma `X-Test-Remote-IP` y fija `RemoteIpAddress` antes del pipeline. Este
+header no se interpreta en producción. Se prueban las siete rutas, presupuestos
+compartidos, aislamiento por IP/usuario, renovación de ventanas, forwarding, CORS,
+lockout, logs seguros y modo desactivado. `RateLimitConfigurationTests` comprueba
+binding y rechazo de configuraciones inválidas al iniciar.
+
+### Prueba manual
+
+Con la API levantada, límites predeterminados y presupuesto de esa IP disponible,
+enviá 11 solicitudes consecutivas a `POST /api/auth/login` con credenciales de una
+cuenta ilustrativa inexistente. Lo esperado es diez 401 y luego 429 con
+`code: rate_limited` y `Retry-After`; solicitudes previas pueden adelantar el rechazo.
+Después de esperar los segundos indicados, se admiten intentos otra vez. No uses
+una cuenta real para esta prueba porque los fallos también podrían activar su lockout.
 
 ## Configuración del correo
 
