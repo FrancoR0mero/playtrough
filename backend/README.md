@@ -13,6 +13,89 @@ dotnet run --project backend/src/Playtrough.Api
 Swagger está disponible en [http://localhost:5000/swagger](http://localhost:5000/swagger)
 solo en Development con `Swagger:Enabled=true` (predeterminado de ese entorno).
 
+## Catálogo de juegos — fase 1 (US-19)
+
+La integración se consume mediante `IGameCatalogProvider`; los endpoints públicos
+de búsqueda y detalle se incorporan en la fase 3. Esta fase no persiste juegos ni
+modifica el esquema de la base. El proveedor real es un cliente tipado de
+`IHttpClientFactory`, sin paquetes adicionales de resiliencia.
+
+Sin configuración nueva, `RawgSettings:Enabled=false`: no exige clave y el
+proveedor deshabilitado produce 503 ProblemDetails con `code=catalog_unavailable`.
+El error tiene el mismo contrato en Development y Production; otras excepciones
+conservan el manejo existente. Siguen siendo necesarias las configuraciones
+habituales de base de datos, JWT y correo para arrancar la aplicación.
+
+Para usar datos de ejemplo, configurá `Catalog:UseFake=true` en Development.
+Devuelve 20 nombres conocidos con fechas, plataformas, géneros y estudios
+**ficticios**, sin imágenes; busca por nombre sin distinguir mayúsculas y pagina
+los resultados. El arranque falla si se activa fuera de Development. El modo falso
+tiene prioridad sobre el proveedor deshabilitado/real; si también se habilita RAWG,
+su configuración debe seguir siendo válida.
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+$env:Catalog__UseFake = "true"
+dotnet run --project backend/src/Playtrough.Api
+```
+
+Para RAWG real, desactivá el falso y suministrá la clave privada desde user-secrets
+(disponible en Development) o `RawgSettings__ApiKey` en el entorno. No la pegues en
+appsettings, ejemplos, URLs de diagnóstico ni archivos `.http`. El binding de la
+clave ignora appsettings y argumentos de línea de comandos, incluso si contienen
+un valor. Los mensajes de validación muestran únicamente claves y reglas.
+
+```powershell
+# Sustituí el marcador localmente; nunca versiones la clave.
+dotnet user-secrets set "RawgSettings:ApiKey" "TU_CLAVE_PRIVADA" --project backend/src/Playtrough.Api
+dotnet user-secrets set "RawgSettings:Enabled" "true" --project backend/src/Playtrough.Api
+$env:Catalog__UseFake = "false"
+dotnet run --project backend/src/Playtrough.Api
+```
+
+Cada intento consume el limitador compartido: se encola y espacia, sin ráfagas de
+ventana. Se permiten tres reintentos ante 429 o 5xx, con esperas de 250/500/1000 ms
+o el `Retry-After` del proveedor si exige más (segundos o fecha HTTP). Otros estados,
+incluidos 401/403 y redirecciones, no se reintentan. El timeout configurable cubre
+cada petición y su cuerpo; las fallas de red, timeout o JSON se traducen a la
+excepción pública sin adjuntar la excepción original. Un 404 de detalle devuelve
+`null`, que el servicio de persistencia traducirá a juego inexistente en fase 2.
+
+El cliente elimina todos sus loggers HTTP automáticos y deshabilita redirecciones.
+Los logs propios solo contienen estados y números de reintento, nunca URL,
+cabeceras, cuerpo, clave ni excepciones del transporte. No hay una librería de
+resiliencia que pueda registrar la URL por separado.
+
+La caché usa consulta recortada y en minúsculas, página y tamaño, o ID de detalle.
+Las llamadas idénticas simultáneas comparten una petición incluso entre distintas
+instancias del proveedor. Cancelar un consumidor no cancela a los demás; el cierre
+de la aplicación cancela el trabajo compartido. No se cachean errores ni detalles
+inexistentes. Los valores vencen a los 10 minutos/24 horas por defecto. Con varias
+instancias de aplicación harían falta caché y coordinación distribuidas.
+
+Referencia oficial consultada el 24/10/2026: la
+[documentación oficial de RAWG](https://api.rawg.io/docs/?trk=public_post-text)
+y su [guía de acceso](https://rawg.io/apidocs). Decisiones de esta integración:
+
+- La clave se envía como query `key`; todos los valores se escapan con `QueryHelpers`.
+- Se usan `search`, `page`, `page_size` y `exclude_additions=true`. Las adiciones
+  incluyen DLC, ediciones GOTY/otras y aplicaciones complementarias. No se usa
+  `exclude_parents`, porque excluiría juegos base con adiciones.
+- `next` determina `HasMore`; nunca se sigue esa URL. La referencia consultada
+  describe `page_size` sin un máximo numérico explícito: **40 es el tope de nuestro
+  contrato**, sin atribuirle una garantía oficial que no se pudo confirmar.
+- Solo se toma `description_raw`, con máximo 3000 caracteres; nunca `description`
+  HTML. Si falta el texto plano, el resumen queda vacío. La descripción y los
+  estudios se obtienen en detalle, no en la lista de búsqueda.
+- `background_image` se conserva como imagen principal normalmente horizontal.
+  No se encontró un contrato oficial de reescritura resize/crop del CDN: `CoverUrl`
+  y `CoverUrlLarge` usan la original, o `null` si falta.
+
+Los tests de catálogo usan un `HttpMessageHandler` simulado, reloj controlable,
+captura global de logs y sondas HTTP exclusivas del proyecto de pruebas. No hacen
+llamadas reales a RAWG. La fixture existente solo se amplía para no heredar la
+clave ni el modo falso del equipo de desarrollo.
+
 ## Automated integration tests
 
 The test project includes WebApplicationFactory tests using the real API startup,
