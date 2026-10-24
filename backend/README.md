@@ -228,6 +228,14 @@ $env:PasswordReset__FrontendBaseUrl = 'https://frontend.example.com'
 | `RateLimit:Refresh:PermitLimit` / `RateLimit:Refresh:Window` | Renovaciones por IP; predeterminado 30 en `00:01:00`. | `RateLimit__Refresh__PermitLimit` / `RateLimit__Refresh__Window` |
 | `RateLimit:Global:PermitLimit` / `RateLimit:Global:Window` | Resto de solicitudes por usuario autenticado o IP anónima; 100 en `00:01:00`. | `RateLimit__Global__PermitLimit` / `RateLimit__Global__Window` |
 | `Swagger:Enabled` | Activa UI y documento únicamente en Development; `true` por defecto en ese entorno y `false` en la base. | `Swagger__Enabled` |
+| `RawgSettings:Enabled` | Habilita RAWG; predeterminado `false`, permite arrancar sin clave. | `RawgSettings__Enabled` |
+| `RawgSettings:ApiKey` | Clave privada, obligatoria si RAWG está habilitado; solo user-secrets o entorno, nunca archivos versionados. | `RawgSettings__ApiKey` |
+| `RawgSettings:BaseUrl` | Base HTTPS sin credenciales, query ni fragmento; `https://api.rawg.io/api`. | `RawgSettings__BaseUrl` |
+| `RawgSettings:MaxRequestsPerSecond` | Máximo compartido por todas las llamadas y reintentos; predeterminado 5 (1–1000). | `RawgSettings__MaxRequestsPerSecond` |
+| `RawgSettings:RequestTimeoutSeconds` | Timeout por intento, incluido el cuerpo; predeterminado 10 (1–120). | `RawgSettings__RequestTimeoutSeconds` |
+| `RawgSettings:SearchCacheMinutes` | Duración de búsquedas en memoria; predeterminado 10 (1–525600). | `RawgSettings__SearchCacheMinutes` |
+| `RawgSettings:DetailCacheMinutes` | Duración de detalles en memoria; predeterminado 1440, 24 horas (1–525600). | `RawgSettings__DetailCacheMinutes` |
+| `Catalog:UseFake` | Catálogo de ejemplo, predeterminado `false`. Solo Development; en otros entornos impide arrancar. | `Catalog__UseFake` |
 | `Logging:LogLevel:Default` | Nivel general de logs; predeterminado `Information`. | `Logging__LogLevel__Default` |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Nivel de ASP.NET Core; predeterminado `Warning`. | `Logging__LogLevel__Microsoft.AspNetCore` |
 | `AllowedHosts` | Filtro de hosts de ASP.NET Core; configurar los hosts del servicio según el despliegue. | `AllowedHosts` |
