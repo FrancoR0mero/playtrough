@@ -25,6 +25,7 @@ using Playtrough.Api.Authorization;
 using Playtrough.Api.Controllers;
 using Playtrough.Api.Middleware;
 using Playtrough.Api.RateLimiting;
+using Playtrough.Api.Catalog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +48,7 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 });
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddGameCatalog(builder.Configuration, builder.Environment);
 
 builder.Services.AddSingleton<IValidateOptions<RateLimitSettings>, RateLimitSettingsValidator>();
 builder.Services.AddOptions<RateLimitSettings>()
@@ -292,6 +294,7 @@ else app.UseExceptionHandler(new ExceptionHandlerOptions
     // ApiExceptionHandler records safe diagnostics; avoid logging the raw exception twice.
     SuppressDiagnosticsCallback = _ => true,
 });
+app.UseMiddleware<GameCatalogExceptionMiddleware>();
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
 {
