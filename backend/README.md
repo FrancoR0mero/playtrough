@@ -59,7 +59,7 @@ o el `Retry-After` del proveedor si exige más (segundos o fecha HTTP). Otros es
 incluidos 401/403 y redirecciones, no se reintentan. El timeout configurable cubre
 cada petición y su cuerpo; las fallas de red, timeout o JSON se traducen a la
 excepción pública sin adjuntar la excepción original. Un 404 de detalle devuelve
-`null`, que el servicio de persistencia traducirá a juego inexistente en fase 2.
+`null`, que `GameService` traduce a juego inexistente desde la fase 2.
 
 El cliente elimina todos sus loggers HTTP automáticos y deshabilita redirecciones.
 Los logs propios solo contienen estados y números de reintento, nunca URL,
@@ -95,6 +95,69 @@ Los tests de catálogo usan un `HttpMessageHandler` simulado, reloj controlable,
 captura global de logs y sondas HTTP exclusivas del proyecto de pruebas. No hacen
 llamadas reales a RAWG. La fixture existente solo se amplía para no heredar la
 clave ni el modo falso del equipo de desarrollo.
+
+## Persistencia local de juegos — fase 2 (US-22)
+
+`IGameService.GetOrCreateAsync(provider, externalId)` crea una ficha local solo al
+usarla. Por ahora acepta `rawg` (normaliza espacios y mayúsculas), también cuando el
+proveedor de desarrollo es falso. La búsqueda sigue siendo una consulta al catálogo
+y no guarda resultados. No hay importaciones masivas, biblioteca ni reseñas.
+
+`Game` contiene un ID local `int`, proveedor e ID externo, nombre, slug, resumen,
+imagen original nullable, fecha nullable, tres listas y marcas UTC de creación y
+actualización. `Games` tiene un índice único `(Provider, ExternalId)`; ninguna
+relación nueva con usuarios. Plataformas, géneros y desarrolladoras se almacenan
+como columnas MySQL `json`, serializadas desde `List<string>` con un conversor y
+un comparador de valores de EF. Esto evita tablas auxiliares y funciones JSON
+específicas del proveedor; no se necesitan filtros SQL por esos valores en esta
+épica. El comparador detecta cambios dentro de las listas, como recomienda la
+[documentación de EF Core](https://learn.microsoft.com/en-us/ef/core/modeling/value-comparers).
+Se conserva **MySql.EntityFrameworkCore de Oracle**, que es el proveedor real del
+repositorio; no se incorpora Pomelo.
+
+Una copia con hasta `Catalog:RefreshAfterDays` días se devuelve sin llamar al
+proveedor; el valor predeterminado es 30 (rango 1–3650). Si está más vieja, se
+intenta refrescar conservando el ID local y `CreatedAt`. Ante
+`GameCatalogUnavailableException`, una copia existente se devuelve sin alterar
+`UpdatedAt`, para volver a intentar en el siguiente uso. Sin copia, se propaga el
+503 `catalog_unavailable`. Si el proveedor devuelve `null`, se lanza
+`GameNotFoundException`: 404 `game_not_found`, incluso si hay una copia vieja;
+no se borra esa fila. La cancelación del consumidor se propaga.
+
+La concurrencia se resuelve en la base: las peticiones leen y consultan al proveedor
+sin mantener una transacción abierta. Si dos intentan insertar la misma identidad,
+el índice único decide cuál guarda. La otra descarta su entidad pendiente y relee
+la ficha ganadora. Solo se recupera el fallo si realmente existe esa fila; si no,
+se propaga la excepción de persistencia. No se analizan mensajes de MySQL/SQLite
+ni se depende de un bloqueo en memoria que falle con varias instancias de API.
+Repositorio y servicio son scoped; cada petición tiene su propio DbContext.
+
+La migración `20261025065759_AddGames` crea únicamente `Games` y su índice. El
+[SQL generado](sql/20261025065759_AddGames.sql) está listo para revisar y **no se
+aplicó a la base local**. No hay aplicación automática al iniciar. Para regenerar
+el SQL sin credenciales, red ni seed:
+
+```powershell
+dotnet build backend/Playtrough.sln -c Release --disable-build-servers -m:1
+dotnet ef migrations script 20261018070349_AddRoleChangeLogs 20261025065759_AddGames --project backend/src/Playtrough.Api --startup-project backend/src/Playtrough.Api --configuration Release --no-build --output backend/sql/20261025065759_AddGames.sql -- --offline
+```
+
+`AppDbContextFactory` permite a EF trabajar sin ejecutar `Program` ni IdentitySeeder.
+Con `--offline` usa una conexión de diseño sin contraseña que **no abre**; se usa
+solo para generar migraciones/SQL. Los comandos explícitos de base sin esa opción
+usan la configuración normal (incluidos entorno y user-secrets en Development) y
+validan la conexión sin exponerla. La fábrica no valida JWT, correo ni RAWG porque
+no inicia la aplicación.
+
+Los tests usan el proveedor de catálogo simulado y SQLite aislado. La carrera
+usa ocho conexiones/peticiones independientes sobre una base temporal WAL,
+comprueba una sola fila y siete colisiones reales recuperadas del índice único.
+También cubren refresco, fallback, 404/503, límite temporal configurable, listas
+JSON y modificaciones en sus elementos. Una comprobación offline usa el modelo
+del proveedor Oracle y genera el SQL real sin abrir conexión. No se ejecutó esta
+migración contra un servidor MySQL: esa aplicación queda pendiente de la revisión
+del SQL. Los endpoints públicos `/api/games` se implementan en la fase 3; las
+sondas usadas aquí solo se registran en las pruebas de catálogo.
 
 ## Automated integration tests
 
@@ -319,6 +382,7 @@ $env:PasswordReset__FrontendBaseUrl = 'https://frontend.example.com'
 | `RawgSettings:SearchCacheMinutes` | Duración de búsquedas en memoria; predeterminado 10 (1–525600). | `RawgSettings__SearchCacheMinutes` |
 | `RawgSettings:DetailCacheMinutes` | Duración de detalles en memoria; predeterminado 1440, 24 horas (1–525600). | `RawgSettings__DetailCacheMinutes` |
 | `Catalog:UseFake` | Catálogo de ejemplo, predeterminado `false`. Solo Development; en otros entornos impide arrancar. | `Catalog__UseFake` |
+| `Catalog:RefreshAfterDays` | Refrescar fichas locales con más de N días; predeterminado 30, rango 1–3650. Si el proveedor falla, devolver la copia local sin cambiar su fecha. | `Catalog__RefreshAfterDays` |
 | `Logging:LogLevel:Default` | Nivel general de logs; predeterminado `Information`. | `Logging__LogLevel__Default` |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Nivel de ASP.NET Core; predeterminado `Warning`. | `Logging__LogLevel__Microsoft.AspNetCore` |
 | `AllowedHosts` | Filtro de hosts de ASP.NET Core; configurar los hosts del servicio según el despliegue. | `AllowedHosts` |

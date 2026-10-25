@@ -22,6 +22,10 @@ public sealed class CatalogTestController(IGameCatalogProvider provider) : Contr
     [HttpGet("{id:int}")]
     public async Task<IActionResult> Detail(int id)
         => Ok(await provider.GetByExternalIdAsync(id, HttpContext.RequestAborted));
+
+    [HttpGet("local/{id:int}")]
+    public async Task<IActionResult> LocalDetail(int id, [FromServices] IGameService games)
+        => Ok(await games.GetOrCreateAsync("rawg", id, HttpContext.RequestAborted));
 }
 
 internal sealed class CatalogControllerFeatureProvider : IApplicationFeatureProvider<ControllerFeature>
