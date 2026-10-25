@@ -36,6 +36,17 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     options.InvalidModelStateResponseFactory = context =>
     {
         var response = defaultResponse(context);
+        if (context.ActionDescriptor is ControllerActionDescriptor gamesAction &&
+            gamesAction.ControllerTypeInfo.AsType() == typeof(GamesController) &&
+            response is ObjectResult { Value: ProblemDetails gamesProblem })
+        {
+            var search = gamesAction.ActionName == nameof(GamesController.Search);
+            gamesProblem.Extensions["code"] = search ? "invalid_query" : "invalid_game_id";
+            gamesProblem.Title = search ? "Consulta inválida" : "ID de juego inválido";
+            gamesProblem.Detail = search
+                ? "Revisá la consulta y los parámetros de paginación."
+                : "El ID externo debe ser un entero positivo.";
+        }
         if (context.ActionDescriptor is ControllerActionDescriptor action &&
             action.ControllerTypeInfo.AsType() == typeof(AdminUsersController) &&
             action.ActionName == nameof(AdminUsersController.ChangeRole) &&
@@ -249,6 +260,7 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<LoginEndpointExamplesFilter>();
     options.OperationFilter<RefreshEndpointExamplesFilter>();
     options.OperationFilter<AdminRoleExamplesFilter>();
+    options.OperationFilter<GamesExamplesFilter>();
     options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
     options.DocumentFilter<ApiDocumentationFilter>();
