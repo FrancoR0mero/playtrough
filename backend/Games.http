@@ -1,0 +1,41 @@
+@baseUrl = http://localhost:5000
+@accessToken = PEGAR_ACCESS_TOKEN_DEL_LOGIN
+@externalId = 1
+
+### Desarrollo: Catalog:UseFake=true; RawgSettings:Enabled=false.
+### RAWG real: Catalog:UseFake=false; RawgSettings:Enabled=true y clave solo en secretos/entorno.
+### Requiere aplicar primero la migración AddGames revisada. Login con email confirmado.
+
+### Búsqueda: no persiste juegos. Con el falso, witcher tiene tres resultados.
+GET {{baseUrl}}/api/games/search?q=witcher&page=1&pageSize=2
+Authorization: Bearer {{accessToken}}
+
+### Segunda página: un resultado y hasMore=false con el falso.
+GET {{baseUrl}}/api/games/search?q=witcher&page=2&pageSize=2
+Authorization: Bearer {{accessToken}}
+
+### Detalle: persiste y devuelve id local. Repetir conserva ese id.
+### Con RAWG real, reemplazar externalId por uno obtenido de la búsqueda.
+GET {{baseUrl}}/api/games/{{externalId}}
+Authorization: Bearer {{accessToken}}
+
+### ID positivo inexistente: 404 game_not_found cuando el proveedor devuelve 404/null.
+GET {{baseUrl}}/api/games/2147483647
+Authorization: Bearer {{accessToken}}
+
+### Consulta inválida: 400 invalid_query.
+GET {{baseUrl}}/api/games/search?q=x
+Authorization: Bearer {{accessToken}}
+
+### ID inválido: 400 invalid_game_id.
+GET {{baseUrl}}/api/games/abc
+Authorization: Bearer {{accessToken}}
+
+### Sin token: 401.
+GET {{baseUrl}}/api/games/search?q=witcher
+
+### Clave inválida: solo RAWG real; reiniciar después de configurar una clave deliberadamente inválida.
+### Esta búsqueda evita usar un detalle local que podría responder por fallback.
+### Esperado 503 catalog_unavailable si RAWG rechaza la clave con 401/403.
+GET {{baseUrl}}/api/games/search?q=prueba-clave-invalida-20261025
+Authorization: Bearer {{accessToken}}
