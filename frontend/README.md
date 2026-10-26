@@ -45,7 +45,7 @@ ng test --watch=false
 ```
 
 Authentication tests use the existing Vitest runner, Angular TestBed and
-HttpTestingController. The full suite, including catalog search and detail, has 492 passing cases.
+HttpTestingController. The full suite currently has 432 passing cases.
 Service tests cover login/session restoration and logout, including the bearer
 header, server/network failures, missing refresh tokens and the five-second timeout.
 Storage tests cover persistence, cleanup and corrupt or expired data.
@@ -150,111 +150,6 @@ La configuración actual del backend no expone `Retry-After` mediante
 puede impedir leerlo desde JavaScript: en ese caso se aplican los 60 segundos
 predeterminados. Si el header es accesible (por ejemplo, con un despliegue del
 mismo origen), se utiliza su valor. Esta tarea no cambia la configuración CORS.
-
-## Catálogo de juegos — fase 1 (US-20)
-
-`/games` requiere sesión y aparece como **Juegos** para User, Moderator y Admin.
-`GameCatalogService` consume búsqueda y detalle desde `environment.apiUrl`.
-El pie del layout conserva la identidad existente e incluye un enlace activo a RAWG
-en todas las pantallas. El modal también lo incluye porque puede cubrir el pie.
-
-La búsqueda usa Reactive Forms, un mínimo de dos caracteres después de `trim()`
-y 400 ms de espera al escribir. Cada cambio cancela inmediatamente la petición
-anterior, incluso antes de terminar esa espera. `q` se sincroniza con la URL
-usando `replaceUrl`, sin crear una entrada de historial por tecla; abrir un enlace
-o navegar a otra búsqueda restaura el campo. Las páginas tienen 20 elementos:
-**Cargar más** conserva los anteriores, elimina duplicados por `externalId` y
-bloquea cargas simultáneas. Si falla una página, se reintenta esa misma página.
-
-Las imágenes horizontales se recortan al centro. `GAME_CARD_ASPECT_RATIO`, en
-`src/app/features/games/games.ts`, define la proporción de tarjetas y esqueletos
-en un único lugar (`3 / 4`). Una imagen nula o fallida muestra el mismo placeholder.
-Los errores leen `extensions.code` y aceptan también `code` en la raíz, como las
-pantallas existentes. El 429 reutiliza el interceptor y la cuenta regresiva:
-cambiar el texto no evita la espera y al terminar se requiere reintento explícito.
-
-Las tarjetas abren el modal de detalle de US-21 con CDK Dialog, sin cambiar de ruta.
-Se conserva el cierre con Escape/clic fuera, el foco atrapado, la restauración a la
-tarjeta de origen y el bloqueo del scroll cuando el fondo puede desplazarse.
-
-Los nuevos tests cubren contratos HTTP, debounce, cancelación, URL real y
-parámetros de ruta, paginación, errores y reintentos, limpieza de timers,
-placeholders, modal, guards, navegación por rol y atribución global. Se ejecutan
-con `npm test -- --watch=false`, sin backend ni tests E2E. En jsdom se comprueba
-la semántica del botón nativo y su activación mediante `click` de teclado; la
-activación real por Enter/Espacio se incluye en la prueba manual.
-
-## Detalle de juego — fase 2 (US-21)
-
-`GameDetailComponent` reemplaza la vista previa de la fase 1. Al abrirlo consulta
-`GET /games/{externalId}` y conserva título, imagen y año de la tarjeta mientras
-muestra esqueletos para el resto. Cerrar el modal cancela la petición pendiente;
-cada apertura crea una instancia nueva, sin reutilizar datos ni la expansión del
-resumen de otro juego. Se conserva el objeto completo, incluido su `id` local.
-La acción de biblioteca solo tiene un comentario TODO en el template.
-
-El modal ocupa la pantalla en móvil y es un panel centrado con scroll propio en
-escritorio. El botón **Cerrar** permanece accesible al desplazarse. El banner 16:9
-intenta `coverUrlLarge`, luego `coverUrl` y finalmente el placeholder, también ante
-errores de carga y URLs repetidas. El título completo sigue disponible como nombre
-accesible aunque se limite visualmente a dos líneas en móvil y tres en escritorio.
-El crédito activo a RAWG se repite dentro del modal porque este puede cubrir el pie.
-
-Las secciones sin datos se ocultan. Las fechas se presentan en español con zona UTC
-para conservar el día del `DateOnly` del backend. `GAME_SUMMARY_PREVIEW_LENGTH`
-define el recorte de 500 caracteres; **Ver más / Ver menos** funciona sin nuevas
-peticiones. El resumen se interpola como texto plano, conserva saltos de línea y
-nunca usa HTML interpretado.
-
-El 404 muestra **No encontramos este juego**, sin reintentar un juego inexistente.
-El 503 y los errores de red permiten reintento explícito; el 429 reutiliza la cuenta
-regresiva existente, bloquea nuevas cargas durante la espera y no reintenta solo.
-El interceptor sigue siendo responsable del 401. Los tests incluyen estos errores,
-secciones ausentes, texto parecido a HTML, expansión, fallback de imágenes,
-cancelación al cerrar y aislamiento entre juegos. Se adaptaron únicamente los tres
-tests de apertura/accesibilidad del modal en `games.spec.ts` para responder a la nueva
-petición de detalle; se agregó allí el caso de cancelación y cambio de juego.
-
-### Prueba manual con backend
-
-1. Con la configuración habitual de base de datos, JWT y correo disponible,
-   arrancá el backend desde la raíz con el proveedor falso:
-
-   ```powershell
-   dotnet run --project backend/src/Playtrough.Api --launch-profile http -- --Catalog:UseFake=true
-   ```
-
-   Para usar RAWG real, seguí la configuración de proveedor del README del backend,
-   con `Catalog:UseFake=false`. La clave permanece en el backend.
-2. Desde `frontend`, ejecutá `npm start`, iniciá sesión y abrí **Juegos**.
-   Buscá `Portal`, comprobá `?q=Portal` y recargá: se conserva la búsqueda.
-   Verificá el enlace a RAWG al pie.
-3. Escribí distintos nombres rápidamente; en Network, usando una conexión lenta,
-   comprobá que se cancelan búsquedas anteriores y solo aparecen resultados del
-   texto actual. Con menos de dos caracteres no debe enviarse una búsqueda.
-4. Con RAWG real, buscá un término amplio como `Mario` y usá **Cargar más**:
-   debe conservar las tarjetas y bloquear clics dobles mientras carga. El proveedor
-   falso tiene solo 20 juegos en total; con páginas de 20 no permite comprobar
-   manualmente ese botón. La paginación queda cubierta con respuestas simuladas
-   en los tests, sin modificar el backend ni su catálogo.
-5. Con Tab, enfocá una tarjeta y abrila con Enter o Espacio. Recorré el modal con
-   Tab/Shift+Tab y cerralo con Escape: el foco vuelve a esa tarjeta. Repetí el cierre
-   haciendo clic fuera en escritorio y usando **Cerrar** en móvil. Con Network lento,
-   comprobá el título/imagen/año inicial y los esqueletos; después deben aparecer la
-   fecha, chips, desarrolladoras y resumen. Con un resumen largo, probá **Ver más /
-   Ver menos**. Cerrá un modal mientras carga y abrí otro: no deben mezclarse datos.
-6. El proveedor falso devuelve juegos sin imagen: comprobá los placeholders.
-   Con RAWG real también podés bloquear una URL de imagen desde DevTools para
-   comprobar el fallback ante errores de carga.
-7. Detené el backend y cambiá la búsqueda: debe mostrarse el error de conexión.
-   Reinicialo y pulsá **Reintentar**. Para comprobar el 503, arrancá con
-   `--Catalog:UseFake=false --RawgSettings:Enabled=false` y volvé a buscar.
-8. Para probar el error dentro del modal, cargá resultados, detené el backend y
-   abrí una tarjeta. Reinicialo y usá **Reintentar** dentro del modal. Para probar
-   el 429, podés arrancar el backend falso con los argumentos adicionales
-   `--RateLimit:Catalog:PermitLimit=2 --RateLimit:Catalog:Window=00:01:00`, buscar y
-   abrir/cerrar tarjetas hasta agotar el límite. Comprobá el aviso, la espera y el
-   reintento manual. La nota anterior sobre CORS y `Retry-After` también aplica aquí.
 
 ## Running end-to-end tests
 
