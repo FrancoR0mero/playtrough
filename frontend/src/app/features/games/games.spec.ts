@@ -100,6 +100,20 @@ describe('Game search screen', () => {
     vi.advanceTimersByTime(400);
   }
 
+  function flushDetail(game = GAMES[0]): void {
+    http.expectOne(`${environment.apiUrl}/games/${game.externalId}`).flush({
+      ...game,
+      id: game.externalId + 100,
+      coverUrlLarge: null,
+      releaseDate: null,
+      summary: '',
+      platforms: [],
+      genres: [],
+      developers: [],
+    });
+    fixture.detectChanges();
+  }
+
   it('starts with an invitation and does not request queries shorter than two trimmed characters', () => {
     expect(fixture.nativeElement.textContent).toContain('Tu próxima aventura empieza acá');
     for (const q of ['', ' ', 'a', ' a ']) {
@@ -438,11 +452,13 @@ describe('Game search screen', () => {
     card.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
     card.click();
     fixture.detectChanges();
+    expect(document.querySelector('[data-detail-skeleton]')).not.toBeNull();
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('2007');
+    flushDetail();
     await fixture.whenStable();
     expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
     const dialog = document.querySelector('[role="dialog"]')!;
     expect(dialog.textContent).toContain('Portal');
-    expect(dialog.textContent).toContain('2007');
     expect(dialog.querySelector('img')?.getAttribute('src')).toBe(GAMES[0].coverUrl);
     expect(dialog.querySelector('a[href="https://rawg.io"]')).not.toBeNull();
     http.expectNone((req) => req.url.includes('/games/'));
@@ -460,10 +476,11 @@ describe('Game search screen', () => {
     card.focus();
     card.click();
     fixture.detectChanges();
+    flushDetail();
     await fixture.whenStable();
     const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    expect(dialog.getAttribute('aria-labelledby')).toBe('game-preview-title');
+    expect(dialog.getAttribute('aria-labelledby')).toBe('game-detail-title');
     const close = dialog.querySelector('[data-action="close"]') as HTMLButtonElement;
     await vi.waitFor(() => expect(document.activeElement).toBe(close));
     const anchors = TestBed.inject(OverlayContainer)
@@ -490,17 +507,78 @@ describe('Game search screen', () => {
     vi.useRealTimers();
     cards()[0].click();
     fixture.detectChanges();
+    flushDetail();
     await fixture.whenStable();
     (document.querySelector('.cdk-overlay-backdrop') as HTMLElement).click();
     await fixture.whenStable();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     cards()[1].click();
     fixture.detectChanges();
+    flushDetail(GAMES[1]);
     await fixture.whenStable();
-    expect(document.querySelector('#game-preview-title')?.textContent?.trim()).toBe('Portal 2');
+    expect(document.querySelector('#game-detail-title')?.textContent?.trim()).toBe('Portal 2');
     expect(document.querySelector('[role="dialog"] [data-placeholder]')).not.toBeNull();
     (document.querySelector('[data-action="close"]') as HTMLButtonElement).click();
     await fixture.whenStable();
     expect(document.activeElement).toBe(cards()[1]);
+  });
+
+  it('cancels a closed game request and does not reuse detail or expanded state between games', async () => {
+    search();
+    flush();
+    vi.useRealTimers();
+    cards()[0].click();
+    fixture.detectChanges();
+    const first = http.expectOne(`${environment.apiUrl}/games/1`);
+    (document.querySelector('[data-action="close"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(first.cancelled).toBe(true);
+    cards()[1].click();
+    fixture.detectChanges();
+    expect(document.querySelector('#game-detail-title')?.textContent?.trim()).toBe('Portal 2');
+    expect(document.querySelector('[data-detail-skeleton]')).not.toBeNull();
+    const second = http.expectOne(`${environment.apiUrl}/games/2`);
+    const summary = 'El segundo juego tiene su propio resumen. '.repeat(30);
+    second.flush({
+      ...GAMES[1],
+      id: 102,
+      coverUrlLarge: null,
+      releaseDate: null,
+      summary,
+      platforms: [],
+      genres: [],
+      developers: [],
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const expand = document.querySelector('[data-action="expand-summary"]') as HTMLButtonElement;
+    expand.click();
+    fixture.detectChanges();
+    expect(expand.getAttribute('aria-expanded')).toBe('true');
+    (document.querySelector('[data-action="close"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    cards()[0].click();
+    fixture.detectChanges();
+    expect(document.querySelector('#game-summary')).toBeNull();
+    expect(document.querySelector('[data-action="expand-summary"]')).toBeNull();
+    expect(document.querySelector('#game-detail-title')?.textContent?.trim()).toBe('Portal');
+    http
+      .expectOne(`${environment.apiUrl}/games/1`)
+      .flush({
+        ...GAMES[0],
+        id: 101,
+        coverUrlLarge: null,
+        releaseDate: null,
+        summary: 'Otro resumen. '.repeat(60),
+        platforms: [],
+        genres: [],
+        developers: [],
+      });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(
+      document.querySelector('[data-action="expand-summary"]')?.getAttribute('aria-expanded'),
+    ).toBe('false');
+    expect(document.querySelector('#game-summary')?.textContent).not.toContain('segundo juego');
   });
 });

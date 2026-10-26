@@ -1,23 +1,19 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 
 @Component({
   selector: 'app-game-image',
   host: { class: 'block h-full w-full' },
   imports: [NgTemplateOutlet],
   template: `
-    @if (src(); as url) {
-      @if (failedUrl() !== url) {
-        <img
-          [src]="url"
-          alt=""
-          loading="lazy"
-          class="h-full w-full object-cover object-center"
-          (error)="failedUrl.set(url)"
-        />
-      } @else {
-        <ng-container [ngTemplateOutlet]="placeholder" />
-      }
+    @if (imageUrl(); as url) {
+      <img
+        [src]="url"
+        alt=""
+        loading="lazy"
+        class="h-full w-full object-cover object-center"
+        (error)="markFailed(url)"
+      />
     } @else {
       <ng-container [ngTemplateOutlet]="placeholder" />
     }
@@ -45,5 +41,14 @@ import { ChangeDetectionStrategy, Component, input, signal } from '@angular/core
 })
 export class GameImageComponent {
   readonly src = input<string | null>(null);
-  protected readonly failedUrl = signal<string | null>(null);
+  readonly fallbackSrc = input<string | null>(null);
+  private readonly failedUrls = signal<ReadonlySet<string>>(new Set());
+  protected readonly imageUrl = computed(
+    () =>
+      [this.src(), this.fallbackSrc()].find((url) => url && !this.failedUrls().has(url)) ?? null,
+  );
+
+  protected markFailed(url: string): void {
+    this.failedUrls.update((urls) => new Set([...urls, url]));
+  }
 }

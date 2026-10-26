@@ -26,7 +26,7 @@ import {
 import { ProblemDetails } from '../auth/models/register';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { GameImageComponent } from './game-image';
-import { GamePreviewComponent } from './game-preview';
+import { GameDetailComponent } from './game-detail';
 import { GameSummary } from './models/game';
 import { GameCatalogService } from './services/game-catalog';
 
@@ -48,7 +48,7 @@ export class GamesComponent implements OnInit {
   private readonly dialogs = inject(Dialog);
   private readonly queries = new Subject<{ q: string; delay: number }>();
   private readonly pages = new Subject<number>();
-  private preview: DialogRef<void, GamePreviewComponent> | null = null;
+  private preview: DialogRef<void, GameDetailComponent> | null = null;
   private query = '';
   private page = 0;
   private failedPage = 1;
@@ -179,19 +179,16 @@ export class GamesComponent implements OnInit {
 
   protected openGame(game: GameSummary, origin: HTMLButtonElement): void {
     if (this.preview) return;
-    this.preview = this.dialogs.open<void, GameSummary, GamePreviewComponent>(
-      GamePreviewComponent,
-      {
-        data: game,
-        role: 'dialog',
-        ariaModal: true,
-        ariaLabelledBy: 'game-preview-title',
-        autoFocus: '[data-action="close"]',
-        restoreFocus: origin,
-        width: '100vw',
-        maxWidth: '48rem',
-      },
-    );
+    this.preview = this.dialogs.open<void, GameSummary, GameDetailComponent>(GameDetailComponent, {
+      data: game,
+      role: 'dialog',
+      ariaModal: true,
+      ariaLabelledBy: 'game-detail-title',
+      autoFocus: '[data-action="close"]',
+      restoreFocus: origin,
+      width: '100vw',
+      maxWidth: '48rem',
+    });
     this.preview.closed
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => (this.preview = null));
