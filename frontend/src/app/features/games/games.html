@@ -1,0 +1,121 @@
+<section class="page-container" aria-labelledby="games-title">
+  <p class="eyebrow">EXPLORÁ EL CATÁLOGO</p>
+  <h1 id="games-title" class="page-heading mt-3 text-white">Encontrá tu próxima historia</h1>
+  <p class="mt-4 max-w-xl text-sm leading-relaxed text-slate-400">
+    Buscá tus juegos favoritos y descubrí nuevas aventuras.
+  </p>
+  <div class="mt-8 max-w-xl">
+    <label for="game-search" class="mb-2 block text-sm font-medium text-slate-200"
+      >Buscar juegos</label
+    >
+    <input
+      id="game-search"
+      type="search"
+      [formControl]="search"
+      autocomplete="off"
+      placeholder="Nombre de un juego…"
+      aria-describedby="game-search-hint"
+      [attr.aria-invalid]="invalidQuery()"
+      [attr.aria-errormessage]="invalidQuery() ? 'catalog-error' : null"
+      class="ui-input w-full border text-white focus:outline-none"
+    />
+    <p id="game-search-hint" class="mt-2 text-xs text-slate-400">Escribí al menos 2 caracteres.</p>
+  </div>
+  <p aria-live="polite" aria-atomic="true" class="mt-6 text-sm text-slate-400">
+    @if (loading()) {
+      {{ items().length ? 'Cargando más juegos…' : 'Buscando juegos…' }}
+    } @else if (searched()) {
+      {{ items().length }} resultados
+    }
+  </p>
+  @if (cooldown.message() || error()) {
+    <div
+      id="catalog-error"
+      role="alert"
+      class="mt-4 rounded-xl border border-red-500/40 bg-red-950/30 p-5 text-sm text-red-200"
+    >
+      <p>{{ cooldown.message() || error() }}</p>
+      @if (retryable()) {
+        <button
+          type="button"
+          data-action="retry"
+          (click)="retry()"
+          [disabled]="loading() || cooldown.remaining() > 0"
+          class="ui-button mt-4 border border-red-300/50 px-4 py-2 disabled:opacity-50"
+        >
+          {{ cooldown.remaining() ? 'Reintentar en ' + cooldown.remaining() + ' s' : 'Reintentar' }}
+        </button>
+      }
+    </div>
+  }
+  @if (items().length || loading()) {
+    <div
+      class="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5"
+      [attr.aria-busy]="loading()"
+    >
+      @for (game of items(); track game.externalId) {
+        <button
+          #card
+          type="button"
+          data-game-card
+          (click)="openGame(game, card)"
+          aria-haspopup="dialog"
+          [attr.aria-label]="'Ver detalle de ' + game.name"
+          [style.aspect-ratio]="aspectRatio"
+          class="group relative isolate w-full overflow-hidden rounded-xl border border-white/10 bg-slate-900 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+        >
+          <app-game-image class="absolute inset-0" [src]="game.coverUrl" />
+          <span
+            aria-hidden="true"
+            class="absolute inset-0 bg-gradient-to-t from-black via-black/15 to-transparent group-hover:from-black/90"
+          ></span>
+          <span class="absolute right-4 bottom-4 left-4">
+            <span class="block text-base font-semibold leading-tight text-white sm:text-lg">{{
+              game.name
+            }}</span>
+            @if (game.releaseYear) {
+              <span class="mt-2 block text-xs text-slate-300">{{ game.releaseYear }}</span>
+            }
+          </span>
+        </button>
+      }
+      @if (loading()) {
+        @for (skeleton of skeletons; track skeleton) {
+          <div
+            data-skeleton
+            aria-hidden="true"
+            [style.aspect-ratio]="aspectRatio"
+            class="rounded-xl border border-white/5 bg-slate-800 motion-safe:animate-pulse"
+          ></div>
+        }
+      }
+    </div>
+  } @else if (!error() && !cooldown.message()) {
+    <div class="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+      @if (searched()) {
+        <h2 class="text-xl font-semibold text-white">No encontramos juegos</h2>
+        <p class="mt-3 text-sm text-slate-400">
+          Probá con otro nombre o revisá cómo lo escribiste.
+        </p>
+      } @else {
+        <h2 class="text-xl font-semibold text-white">Tu próxima aventura empieza acá</h2>
+        <p class="mt-3 text-sm text-slate-400">
+          Escribí el nombre de un juego para explorar el catálogo.
+        </p>
+      }
+    </div>
+  }
+  @if (hasMore() && !error()) {
+    <div class="mt-8 text-center">
+      <button
+        type="button"
+        data-action="load-more"
+        (click)="loadMore()"
+        [disabled]="loading() || cooldown.remaining() > 0"
+        class="ui-button border border-slate-600 bg-slate-800 px-6 py-3 text-white hover:bg-slate-700 disabled:opacity-50"
+      >
+        {{ loading() ? 'Cargando…' : 'Cargar más' }}
+      </button>
+    </div>
+  }
+</section>

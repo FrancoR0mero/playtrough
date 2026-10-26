@@ -36,6 +36,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/register').then((m) => m.RegisterComponent),
   },
   {
+    path: 'games',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/games/games').then((m) => m.GamesComponent),
+  },
+  {
     path: 'library',
     canActivate: [authGuard],
     loadComponent: () => import('./features/library/library').then((m) => m.LibraryComponent),
