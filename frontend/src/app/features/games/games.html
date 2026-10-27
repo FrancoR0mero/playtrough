@@ -28,6 +28,12 @@
       {{ items().length }} resultados
     }
   </p>
+  @if (isLimited()) {
+    <p data-search-limit role="status" class="mt-3 text-sm leading-relaxed text-slate-400">
+      Se revisó una parte del catálogo para esta búsqueda. Agregá más palabras al nombre para
+      encontrar otros juegos.
+    </p>
+  }
   @if (cooldown.message() || error()) {
     <div
       id="catalog-error"

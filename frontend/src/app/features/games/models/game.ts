@@ -12,6 +12,7 @@ export interface GameSearchResponse {
   page: number;
   pageSize: number;
   hasMore: boolean;
+  isLimited?: boolean;
 }
 
 export interface GameDetail {

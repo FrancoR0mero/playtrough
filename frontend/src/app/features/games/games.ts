@@ -60,6 +60,7 @@ export class GamesComponent implements OnInit {
   protected readonly loading = signal(false);
   protected readonly searched = signal(false);
   protected readonly hasMore = signal(false);
+  protected readonly isLimited = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly retryable = signal(false);
   protected readonly invalidQuery = signal(false);
@@ -79,6 +80,7 @@ export class GamesComponent implements OnInit {
           this.failedPage = 1;
           this.items.set([]);
           this.hasMore.set(false);
+          this.isLimited.set(false);
           this.error.set(null);
           this.retryable.set(false);
           this.invalidQuery.set(false);
@@ -106,6 +108,7 @@ export class GamesComponent implements OnInit {
         this.items.set([...unique.values()]);
         this.page = response.page;
         this.hasMore.set(response.hasMore);
+        this.isLimited.set(response.isLimited ?? false);
         this.searched.set(true);
       });
 

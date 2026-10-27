@@ -250,6 +250,30 @@ describe('Game search screen', () => {
     expect(button('load-more')).toBeNull();
   });
 
+  it('explains limited search coverage without offering empty pages and clears the notice on a new query', () => {
+    search();
+    request().flush({ items: GAMES, page: 1, pageSize: 20, hasMore: false, isLimited: true });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-search-limit]')?.textContent).toContain(
+      'Agregá más palabras',
+    );
+    expect(button('load-more')).toBeNull();
+    type('Portal 2');
+    expect(fixture.nativeElement.querySelector('[data-search-limit]')).toBeNull();
+    vi.advanceTimersByTime(400);
+    flush([GAMES[1]]);
+    expect(fixture.nativeElement.querySelector('[data-search-limit]')).toBeNull();
+  });
+
+  it('shows the limited coverage notice even when no relevant candidates were found', () => {
+    search();
+    request().flush({ items: [], page: 1, pageSize: 20, hasMore: false, isLimited: true });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-search-limit]')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('No encontramos juegos');
+    expect(button('load-more')).toBeNull();
+  });
+
   it('appends pages without duplicates, prevents double requests and hides load more at the end', () => {
     search();
     flush([GAMES[0], GAMES[0]], true);
@@ -562,18 +586,16 @@ describe('Game search screen', () => {
     expect(document.querySelector('#game-summary')).toBeNull();
     expect(document.querySelector('[data-action="expand-summary"]')).toBeNull();
     expect(document.querySelector('#game-detail-title')?.textContent?.trim()).toBe('Portal');
-    http
-      .expectOne(`${environment.apiUrl}/games/1`)
-      .flush({
-        ...GAMES[0],
-        id: 101,
-        coverUrlLarge: null,
-        releaseDate: null,
-        summary: 'Otro resumen. '.repeat(60),
-        platforms: [],
-        genres: [],
-        developers: [],
-      });
+    http.expectOne(`${environment.apiUrl}/games/1`).flush({
+      ...GAMES[0],
+      id: 101,
+      coverUrlLarge: null,
+      releaseDate: null,
+      summary: 'Otro resumen. '.repeat(60),
+      platforms: [],
+      genres: [],
+      developers: [],
+    });
     fixture.detectChanges();
     await fixture.whenStable();
     expect(
