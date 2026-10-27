@@ -17,7 +17,12 @@ internal sealed class GameConfiguration : IEntityTypeConfiguration<Game>
         entity.Property(game => game.Slug).HasMaxLength(300).IsRequired();
         entity.Property(game => game.Summary).HasColumnType("text").IsRequired();
         entity.Property(game => game.CoverImageUrl).HasMaxLength(2048);
-        entity.Property(game => game.FirstReleaseDate).HasColumnType("date");
+        // Connector/NET reads MySQL DATE as DateTime; convert explicitly to the domain DateOnly.
+        entity.Property(game => game.FirstReleaseDate)
+            .HasConversion(new ValueConverter<DateOnly, DateTime>(
+                date => date.ToDateTime(TimeOnly.MinValue),
+                dateTime => DateOnly.FromDateTime(dateTime)))
+            .HasColumnType("date");
         entity.HasIndex(game => new { game.Provider, game.ExternalId }).IsUnique();
 
         // Plain JSON strings work with the existing Oracle MySQL provider and SQLite
