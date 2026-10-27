@@ -35,7 +35,7 @@ public sealed class GamesController(IGameCatalogProvider catalog, IGameService g
         var result = await catalog.SearchAsync(request.Q!.Trim(), request.Page, request.PageSize, ct);
         return Ok(new GameSearchResponseDto(result.Items.Select(game => new GameSummaryDto(game.ExternalId,
             game.Name, game.Slug, game.CoverUrl, game.ReleaseDate?.Year, game.Platforms.Take(5).ToArray())).ToArray(),
-            result.Page, result.PageSize, result.HasMore));
+            result.Page, result.PageSize, result.HasMore, result.IsLimited));
     }
 
     /// <summary>Consultar y guardar la ficha de un juego por su ID externo.</summary>

@@ -12,7 +12,7 @@ public sealed class FakeGameCatalogProvider : IGameCatalogProvider
     {
         cancellationToken.ThrowIfCancellationRequested();
         CatalogInput.ValidateSearch(query, page, pageSize);
-        var matching = Games.Where(game => game.Name.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+        var matching = GameSearchRelevance.Rank(query, Games).ToArray();
         var offset = ((long)page - 1) * pageSize;
         var items = offset >= matching.Length ? [] : matching.Skip((int)offset).Take(pageSize)
             .Select(game => new GameSummary(game.ExternalId, game.Name, game.Slug, game.CoverUrl, game.ReleaseDate, game.Platforms)).ToArray();

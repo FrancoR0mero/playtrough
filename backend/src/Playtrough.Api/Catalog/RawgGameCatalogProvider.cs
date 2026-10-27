@@ -9,18 +9,43 @@ namespace Playtrough.Api.Catalog;
 public sealed class RawgGameCatalogProvider(RawgClient client, GameCatalogCache cache, IOptions<RawgSettings> settings)
     : IGameCatalogProvider
 {
+    // Bound upstream work and rank one shared candidate set before applying local pagination.
+    internal const int CandidatePageSize = 40;
+    internal const int MaxCandidatePages = 5;
+    private sealed record SearchMatches(IReadOnlyList<GameSummary> Items, bool IsLimited);
+
     public async Task<GameSearchResult> SearchAsync(string query, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         CatalogInput.ValidateSearch(query, page, pageSize);
         var normalized = query.Trim().ToLowerInvariant();
-        return await cache.GetOrCreateAsync<GameSearchResult>($"catalog:rawg:search:{page}:{pageSize}:{normalized}",
+        var matches = await cache.GetOrCreateAsync<SearchMatches>($"catalog:rawg:relevance-v1:{normalized}",
             TimeSpan.FromMinutes(settings.Value.SearchCacheMinutes), async sharedToken =>
             {
-                var response = await client.SearchAsync(normalized, page, pageSize, sharedToken);
-                if (response?.Results is null) throw new GameCatalogUnavailableException();
-                return new GameSearchResult(response.Results.Select(MapSummary).ToArray(), page, pageSize,
-                    !string.IsNullOrWhiteSpace(response.Next));
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(sharedToken);
+                deadline.CancelAfter(TimeSpan.FromSeconds(30));
+                try
+                {
+                    var candidates = new List<GameSummary>();
+                    var hasMore = false;
+                    for (var sourcePage = 1; sourcePage <= MaxCandidatePages; sourcePage++)
+                    {
+                        var response = await client.SearchAsync(normalized, sourcePage, CandidatePageSize, deadline.Token);
+                        if (response?.Results is null || response.Results.Count > CandidatePageSize)
+                            throw new GameCatalogUnavailableException();
+                        candidates.AddRange(response.Results.Select(MapSummary));
+                        hasMore = !string.IsNullOrWhiteSpace(response.Next);
+                        if (!hasMore) break;
+                    }
+                    return new SearchMatches(GameSearchRelevance.Rank(normalized, candidates), hasMore);
+                }
+                catch (OperationCanceledException) when (!sharedToken.IsCancellationRequested)
+                {
+                    throw new GameCatalogUnavailableException();
+                }
             }, cancellationToken) ?? throw new GameCatalogUnavailableException();
+        var offset = ((long)page - 1) * pageSize;
+        var items = offset >= matches.Items.Count ? [] : matches.Items.Skip((int)offset).Take(pageSize).ToArray();
+        return new GameSearchResult(items, page, pageSize, offset + items.Length < matches.Items.Count, matches.IsLimited);
     }
 
     public Task<GameDetails?> GetByExternalIdAsync(int externalId, CancellationToken cancellationToken = default)

@@ -9,6 +9,21 @@ namespace Playtrough.Tests;
 public class GamesEndpointsTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Search_ReportsLimitedCoverageSeparatelyFromHasMore(bool limited)
+    {
+        using var context = new GamesApiTestContext();
+        context.Provider.SearchResult = new GameSearchResult([], 1, 20, false, limited);
+        using var client = await context.AuthenticatedClientAsync();
+        using var response = await client.GetAsync("/api/games/search?q=persona");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(limited, json.RootElement.GetProperty("isLimited").GetBoolean());
+        Assert.False(json.RootElement.GetProperty("hasMore").GetBoolean());
+    }
+
+    [Theory]
     [InlineData("/api/games/search?q=witcher")]
     [InlineData("/api/games/19")]
     public async Task AnonymousRequests_Return401WithoutProviderOrPersistence(string path)

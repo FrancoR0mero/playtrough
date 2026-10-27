@@ -10,7 +10,7 @@ public class GameCatalogCacheTests
     private const string Game = """{"id":42,"name":"Example","slug":"example"}""";
 
     [Fact]
-    public async Task Search_NormalizesQuery_SeparatesPagesAndSize_AndExpires()
+    public async Task Search_NormalizesQuery_SharesSnapshotAcrossPagesAndSizes_AndExpires()
     {
         using var context = new RawgTestContext((_, _, _) => Task.FromResult(RawgTestContext.Json(Search)),
             settings => settings.SearchCacheMinutes = 2);
@@ -19,10 +19,10 @@ public class GameCatalogCacheTests
         Assert.Equal(1, context.Handler.Count);
         await context.Provider.SearchAsync("example", 2, 20);
         await context.Provider.SearchAsync("example", 1, 40);
-        Assert.Equal(3, context.Handler.Count);
+        Assert.Equal(1, context.Handler.Count);
         context.CacheClock.UtcNow += TimeSpan.FromMinutes(2) + TimeSpan.FromTicks(1);
         await context.Provider.SearchAsync("example", 1, 20);
-        Assert.Equal(4, context.Handler.Count);
+        Assert.Equal(2, context.Handler.Count);
     }
 
     [Fact]

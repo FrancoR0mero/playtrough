@@ -17,6 +17,7 @@ public sealed class RawgClient(HttpClient http, IOptions<RawgSettings> settings,
         => GetAsync<RawgSearchResponse>("games", new Dictionary<string, string?>
         {
             ["search"] = query,
+            ["search_precise"] = "true",
             ["page"] = page.ToString(CultureInfo.InvariantCulture),
             ["page_size"] = pageSize.ToString(CultureInfo.InvariantCulture),
             // RAWG documents additions as DLC, GOTY/other editions and companion apps.
