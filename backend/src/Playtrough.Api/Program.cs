@@ -36,6 +36,16 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     options.InvalidModelStateResponseFactory = context =>
     {
         var response = defaultResponse(context);
+        if (context.ActionDescriptor is ControllerActionDescriptor libraryAction &&
+            libraryAction.ControllerTypeInfo.AsType() == typeof(LibraryController) &&
+            response is ObjectResult { Value: ProblemDetails libraryProblem })
+        {
+            var errors = context.ModelState.Where(entry => entry.Value?.Errors.Count > 0).Select(entry => entry.Key).ToArray();
+            libraryProblem.Extensions["code"] = libraryAction.ActionName == nameof(LibraryController.List) ? "invalid_query"
+                : errors.Any(key => key.Contains("occurredOn", StringComparison.OrdinalIgnoreCase)) ? "invalid_date"
+                : errors.Any(key => key.Contains("gameId", StringComparison.OrdinalIgnoreCase)) ? "game_not_found"
+                : "invalid_status";
+        }
         if (context.ActionDescriptor is ControllerActionDescriptor gamesAction &&
             gamesAction.ControllerTypeInfo.AsType() == typeof(GamesController) &&
             response is ObjectResult { Value: ProblemDetails gamesProblem })
@@ -309,6 +319,7 @@ else app.UseExceptionHandler(new ExceptionHandlerOptions
     SuppressDiagnosticsCallback = _ => true,
 });
 app.UseMiddleware<GameCatalogExceptionMiddleware>();
+app.UseMiddleware<LibraryExceptionMiddleware>();
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
 {

@@ -1,4 +1,5 @@
 using Playtrough.Api.Models;
+using Playtrough.Api.Dtos.Library;
 using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Services.Interfaces;
@@ -62,6 +63,12 @@ public sealed class LibraryService(ILibraryRepository repository, TimeProvider t
 
     public Task<LibraryEntry?> GetEntryAsync(int userId, int gameId, CancellationToken ct = default)
         => repository.FindAsync(userId, gameId, ct);
+
+    public Task<LibraryEntryDto> DescribeAsync(LibraryEntry entry, CancellationToken ct = default)
+        => repository.DescribeAsync(entry, ct);
+
+    public Task<LibraryListResponseDto> ListAsync(int userId, LibraryListRequest request, CancellationToken ct = default)
+        => repository.ListAsync(userId, request, ct);
 
     private static LibraryEvent Event(LibraryEntry entry, LibraryEventType type, LibraryStatus? from, LibraryStatus? to,
         DateOnly date, DateTime now) => new()
