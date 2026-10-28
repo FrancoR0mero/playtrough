@@ -181,7 +181,7 @@ public class SwaggerDocumentationTests
         Assert.Equal("Playtrough API", info.GetProperty("title").GetString());
         Assert.Equal("v1", info.GetProperty("version").GetString());
         Assert.Contains("gamers", info.GetProperty("description").GetString());
-        Assert.Equal(new[] { "Admin", "Auth", "Games" }, root.GetProperty("tags").EnumerateArray()
+        Assert.Equal(new[] { "Admin", "Auth", "Games", "Library" }, root.GetProperty("tags").EnumerateArray()
             .Select(tag => tag.GetProperty("name").GetString()).Order().ToArray());
 
         foreach (var path in root.GetProperty("paths").EnumerateObject())
@@ -192,7 +192,8 @@ public class SwaggerDocumentationTests
             {
                 Assert.False(string.IsNullOrWhiteSpace(operation.Value.GetProperty("summary").GetString()));
                 var expectedTag = path.Name.StartsWith("/api/admin", StringComparison.OrdinalIgnoreCase) ? "Admin" :
-                    path.Name.StartsWith("/api/games", StringComparison.OrdinalIgnoreCase) ? "Games" : "Auth";
+                    path.Name.StartsWith("/api/games", StringComparison.OrdinalIgnoreCase) ? "Games" :
+                    path.Name.StartsWith("/api/library", StringComparison.OrdinalIgnoreCase) ? "Library" : "Auth";
                 Assert.Equal(expectedTag,
                     Assert.Single(operation.Value.GetProperty("tags").EnumerateArray()).GetString());
             }
