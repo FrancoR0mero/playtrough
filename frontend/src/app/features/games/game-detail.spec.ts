@@ -1,12 +1,15 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
+import { HttpErrorResponse } from '@angular/common/http';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { jwtInterceptor } from '../../core/interceptors/jwt-interceptor';
 import { createSession } from '../auth/auth-test-helpers';
 import { TokenStorageService } from '../auth/services/token-storage';
+import { LibraryService } from '../library/services/library';
 import { GAME_SUMMARY_PREVIEW_LENGTH, GameDetailComponent } from './game-detail';
 import { GameDetail, GameSummary } from './models/game';
 
@@ -47,6 +50,19 @@ describe('Game detail modal content', () => {
         provideRouter([]),
         { provide: DIALOG_DATA, useValue: GAME },
         { provide: DialogRef, useValue: { close: vi.fn() } },
+        {
+          provide: LibraryService,
+          useValue: {
+            getEntry: () =>
+              throwError(
+                () =>
+                  new HttpErrorResponse({
+                    status: 404,
+                    error: { extensions: { code: 'not_in_library' } },
+                  }),
+              ),
+          },
+        },
       ],
     });
     storage = TestBed.inject(TokenStorageService);
@@ -118,7 +134,7 @@ describe('Game detail modal content', () => {
     }
     expect(element('#game-summary')!.textContent).toBe(DETAIL.summary);
     expect(fixture.componentInstance['detail']()?.id).toBe(17);
-    expect(fixture.nativeElement.textContent).not.toContain('Agregar a mi biblioteca');
+    expect(fixture.nativeElement.textContent).toContain('Agregar a mi biblioteca');
     expect(button('expand-summary')).toBeNull();
   });
 
@@ -131,7 +147,7 @@ describe('Game detail modal content', () => {
       developers: [],
       summary: '  \n ',
     });
-    expect(element('section')).toBeNull();
+    expect(element('section:not(app-library-entry section)')).toBeNull();
     expect(element('time')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('2011');
     expect(button('expand-summary')).toBeNull();

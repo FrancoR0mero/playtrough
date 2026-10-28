@@ -14,6 +14,7 @@ import { finalize } from 'rxjs';
 import { RawgAttributionComponent } from '../../shared/components/layout/rawg-attribution';
 import { ProblemDetails } from '../auth/models/register';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
+import { LibraryEntryComponent } from '../library/library-entry';
 import { GameImageComponent } from './game-image';
 import { GameDetail, GameSummary } from './models/game';
 import { GameCatalogService } from './services/game-catalog';
@@ -22,7 +23,7 @@ export const GAME_SUMMARY_PREVIEW_LENGTH = 500;
 
 @Component({
   selector: 'app-game-detail',
-  imports: [GameImageComponent, RawgAttributionComponent],
+  imports: [GameImageComponent, RawgAttributionComponent, LibraryEntryComponent],
   templateUrl: './game-detail.html',
   styles: `
     :host {

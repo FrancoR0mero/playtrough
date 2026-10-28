@@ -1,13 +1,14 @@
 import { OverlayContainer } from '@angular/cdk/overlay';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { jwtInterceptor } from '../../core/interceptors/jwt-interceptor';
 import { createSession } from '../auth/auth-test-helpers';
 import { TokenStorageService } from '../auth/services/token-storage';
+import { LibraryService } from '../library/services/library';
 import { GAME_CARD_ASPECT_RATIO, GamesComponent } from './games';
 import { GameSummary } from './models/game';
 
@@ -48,6 +49,19 @@ describe('Game search screen', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: ActivatedRoute, useValue: { queryParamMap: params.asObservable() } },
+        {
+          provide: LibraryService,
+          useValue: {
+            getEntry: () =>
+              throwError(
+                () =>
+                  new HttpErrorResponse({
+                    status: 404,
+                    error: { extensions: { code: 'not_in_library' } },
+                  }),
+              ),
+          },
+        },
       ],
     });
     storage = TestBed.inject(TokenStorageService);
