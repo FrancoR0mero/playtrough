@@ -14,6 +14,9 @@ import { guestGuard } from './core/guards/guest-guard';
 import { roleGuard } from './core/guards/role-guard';
 import { createSession } from './features/auth/auth-test-helpers';
 import { TokenStorageService } from './features/auth/services/token-storage';
+import { of } from 'rxjs';
+import { LibraryService } from './features/library/services/library';
+import { EMPTY_LIBRARY } from './features/library/library-test-helpers';
 
 describe('Application route access', () => {
   let storage: TokenStorageService;
@@ -26,6 +29,7 @@ describe('Application route access', () => {
     storage = TestBed.inject(TokenStorageService);
     storage.clear();
     httpMock = TestBed.inject(HttpTestingController);
+    vi.spyOn(TestBed.inject(LibraryService), 'list').mockReturnValue(of(EMPTY_LIBRARY));
   });
 
   afterEach(() => {

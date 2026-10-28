@@ -17,6 +17,9 @@ export class LibraryService {
   private readonly url = `${environment.apiUrl}/library`;
   private readonly changes = new Subject<LibraryChange>();
   readonly changes$ = this.changes.asObservable();
+  private readonly invalidations = new Subject<unknown>();
+  /** A failed write may leave a screen stale (including writes from an open modal). */
+  readonly invalidated$ = this.invalidations.asObservable();
 
   getEntry(gameId: number): Observable<LibraryEntryDto> {
     return this.http.get<LibraryEntryDto>(`${this.url}/games/${gameId}`);
@@ -29,7 +32,12 @@ export class LibraryService {
   ): Observable<LibraryEntryDto> {
     return this.http
       .post<LibraryEntryDto>(this.url, { gameId, ...this.statusBody(status, occurredOn) })
-      .pipe(tap((entry) => this.changes.next({ type: 'added', gameId, entry })));
+      .pipe(
+        tap({
+          next: (entry) => this.changes.next({ type: 'added', gameId, entry }),
+          error: (error: unknown) => this.invalidations.next(error),
+        }),
+      );
   }
 
   changeStatus(
@@ -39,13 +47,21 @@ export class LibraryService {
   ): Observable<LibraryEntryDto> {
     return this.http
       .put<LibraryEntryDto>(`${this.url}/${gameId}/status`, this.statusBody(status, occurredOn))
-      .pipe(tap((entry) => this.changes.next({ type: 'status-changed', gameId, entry })));
+      .pipe(
+        tap({
+          next: (entry) => this.changes.next({ type: 'status-changed', gameId, entry }),
+          error: (error: unknown) => this.invalidations.next(error),
+        }),
+      );
   }
 
   remove(gameId: number): Observable<void> {
-    return this.http
-      .delete<void>(`${this.url}/${gameId}`)
-      .pipe(tap(() => this.changes.next({ type: 'removed', gameId })));
+    return this.http.delete<void>(`${this.url}/${gameId}`).pipe(
+      tap({
+        next: () => this.changes.next({ type: 'removed', gameId }),
+        error: (error: unknown) => this.invalidations.next(error),
+      }),
+    );
   }
 
   list(query: LibraryQuery = {}): Observable<LibraryResponse> {

@@ -1,18 +1,26 @@
 export const LIBRARY_STATUSES = [
-  { value: 'playing', label: 'Jugando', style: 'border-sky-400/40 bg-sky-400/10 text-sky-200' },
+  {
+    value: 'playing',
+    label: 'Jugando',
+    tabLabel: 'Jugando',
+    style: 'border-sky-400/40 bg-sky-400/10 text-sky-200',
+  },
   {
     value: 'backlog',
     label: 'Backlog',
+    tabLabel: 'Backlog',
     style: 'border-amber-400/40 bg-amber-400/10 text-amber-200',
   },
   {
     value: 'beaten',
     label: 'Terminado',
+    tabLabel: 'Terminados',
     style: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-200',
   },
   {
     value: 'completed',
     label: 'Completado',
+    tabLabel: 'Completados',
     style: 'border-violet-400/40 bg-violet-400/10 text-violet-200',
   },
 ] as const;

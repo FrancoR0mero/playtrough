@@ -13,6 +13,9 @@ import { authGuard } from '../../core/guards/auth-guard';
 import { LayoutComponent } from '../../shared/components/layout/layout';
 import { createSession } from '../auth/auth-test-helpers';
 import { TokenStorageService } from '../auth/services/token-storage';
+import { of } from 'rxjs';
+import { LibraryService } from '../library/services/library';
+import { EMPTY_LIBRARY } from '../library/library-test-helpers';
 
 describe('Game catalog routing and layout', () => {
   let storage: TokenStorageService;
@@ -26,6 +29,7 @@ describe('Game catalog routing and layout', () => {
     storage = TestBed.inject(TokenStorageService);
     storage.clear();
     http = TestBed.inject(HttpTestingController);
+    vi.spyOn(TestBed.inject(LibraryService), 'list').mockReturnValue(of(EMPTY_LIBRARY));
   });
 
   afterEach(() => {

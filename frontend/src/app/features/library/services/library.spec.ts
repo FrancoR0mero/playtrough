@@ -115,6 +115,8 @@ describe('LibraryService', () => {
 
   it.each(['add', 'changeStatus', 'remove'] as const)('does not emit on failed %s', (method) => {
     const error = vi.fn();
+    const invalidated = vi.fn();
+    service.invalidated$.subscribe(invalidated);
     const operation: Observable<LibraryEntryDto | void> =
       method === 'remove' ? service.remove(17) : service[method](17, 'playing');
     operation.subscribe({ error });
@@ -125,6 +127,7 @@ describe('LibraryService', () => {
         { status: 409, statusText: 'Conflict' },
       );
     expect(error).toHaveBeenCalledOnce();
+    expect(invalidated).toHaveBeenCalledExactlyOnceWith(error.mock.calls[0][0]);
     expect(changed).not.toHaveBeenCalled();
   });
 

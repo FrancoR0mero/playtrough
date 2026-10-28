@@ -7,6 +7,9 @@ import { routes } from '../../app.routes';
 import { TokenStorageService } from './services/token-storage';
 import { authDestination } from './auth-navigation';
 import { RegisterComponent } from './register';
+import { of } from 'rxjs';
+import { LibraryService } from '../library/services/library';
+import { EMPTY_LIBRARY } from '../library/library-test-helpers';
 
 describe('Authentication navigation', () => {
   beforeEach(() => {
@@ -14,6 +17,7 @@ describe('Authentication navigation', () => {
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter(routes)],
     });
     TestBed.inject(TokenStorageService).clear();
+    vi.spyOn(TestBed.inject(LibraryService), 'list').mockReturnValue(of(EMPTY_LIBRARY));
   });
   afterEach(() => TestBed.inject(TokenStorageService).clear());
 
