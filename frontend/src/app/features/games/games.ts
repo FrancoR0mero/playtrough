@@ -25,18 +25,17 @@ import {
 } from 'rxjs';
 import { ProblemDetails } from '../auth/models/register';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
-import { GameImageComponent } from './game-image';
+import { GAME_CARD_ASPECT_RATIO, GameCardComponent } from './game-card';
 import { GameDetailComponent } from './game-detail';
 import { GameSummary } from './models/game';
 import { GameCatalogService } from './services/game-catalog';
 
-// RAWG supplies landscape images; change this single value to adjust all card crops and skeletons.
-export const GAME_CARD_ASPECT_RATIO = '3 / 4';
+export { GAME_CARD_ASPECT_RATIO } from './game-card';
 const PAGE_SIZE = 20;
 
 @Component({
   selector: 'app-games',
-  imports: [ReactiveFormsModule, GameImageComponent],
+  imports: [ReactiveFormsModule, GameCardComponent],
   templateUrl: './games.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

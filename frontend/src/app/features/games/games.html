@@ -60,30 +60,7 @@
       [attr.aria-busy]="loading()"
     >
       @for (game of items(); track game.externalId) {
-        <button
-          #card
-          type="button"
-          data-game-card
-          (click)="openGame(game, card)"
-          aria-haspopup="dialog"
-          [attr.aria-label]="'Ver detalle de ' + game.name"
-          [style.aspect-ratio]="aspectRatio"
-          class="group relative isolate w-full overflow-hidden rounded-xl border border-white/10 bg-slate-900 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-        >
-          <app-game-image class="absolute inset-0" [src]="game.coverUrl" />
-          <span
-            aria-hidden="true"
-            class="absolute inset-0 bg-gradient-to-t from-black via-black/15 to-transparent group-hover:from-black/90"
-          ></span>
-          <span class="absolute right-4 bottom-4 left-4">
-            <span class="block text-base font-semibold leading-tight text-white sm:text-lg">{{
-              game.name
-            }}</span>
-            @if (game.releaseYear) {
-              <span class="mt-2 block text-xs text-slate-300">{{ game.releaseYear }}</span>
-            }
-          </span>
-        </button>
+        <app-game-card [game]="game" (opened)="openGame(game, $event)" />
       }
       @if (loading()) {
         @for (skeleton of skeletons; track skeleton) {

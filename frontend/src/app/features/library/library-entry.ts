@@ -15,9 +15,9 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Subscription, finalize } from 'rxjs';
-import { ProblemDetails } from '../auth/models/register';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { displayLibraryDate, localCalendarDate } from './library-date';
+import { libraryErrorCode, libraryErrorMessage } from './library-error';
 import { LIBRARY_STATUSES, LibraryEntryDto, LibraryStatus } from './models/library';
 import { LibraryService } from './services/library';
 
@@ -91,7 +91,7 @@ export class LibraryEntryComponent implements OnChanges {
         },
         error: (error: unknown) => {
           if (
-            this.code(error) === 'not_in_library' &&
+            libraryErrorCode(error) === 'not_in_library' &&
             error instanceof HttpErrorResponse &&
             error.status === 404
           ) {
@@ -216,38 +216,14 @@ export class LibraryEntryComponent implements OnChanges {
     this.date.setValue(this.today);
   }
 
-  private code(error: unknown): string | undefined {
-    const problem =
-      error instanceof HttpErrorResponse ? (error.error as ProblemDetails | null) : null;
-    return problem?.extensions?.code ?? problem?.code;
-  }
-
   private handleError(error: unknown, mutation: boolean): void {
     if (error instanceof HttpErrorResponse && error.status === 401) return;
     if (this.cooldown.handle(error)) {
       this.error.set('Ya podés reintentar la operación en tu biblioteca.');
       return;
     }
-    const code = this.code(error);
-    const problem =
-      error instanceof HttpErrorResponse
-        ? (error.error as { extensions?: { minDate?: string }; minDate?: string } | null)
-        : null;
-    const minDate = problem?.extensions?.minDate ?? problem?.minDate;
-    const messages: Record<string, string> = {
-      already_in_library: 'Este juego ya está en tu biblioteca. Actualizamos su estado.',
-      not_in_library: 'Este juego ya no está en tu biblioteca.',
-      invalid_status: 'Elegí un estado válido.',
-      invalid_date: 'Revisá la fecha',
-      date_before_previous_event: `La fecha no puede ser anterior al último cambio${minDate ? ` (${displayLibraryDate(minDate)})` : ''}`,
-      game_not_found: 'No encontramos este juego.',
-      concurrent_modification:
-        'Tu biblioteca cambió en otra sesión. Revisá el estado actualizado y volvé a intentar.',
-    };
-    this.error.set(
-      messages[code ?? ''] ??
-        `No pudimos ${mutation ? 'actualizar' : 'cargar'} tu biblioteca. Revisá tu conexión e intentá de nuevo.`,
-    );
+    const code = libraryErrorCode(error);
+    this.error.set(libraryErrorMessage(error, mutation));
     if (!mutation) return;
     if (code === 'not_in_library') {
       this.entry.set(null);
