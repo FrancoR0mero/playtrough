@@ -115,7 +115,8 @@ describe('LibraryService', () => {
 
   it.each(['add', 'changeStatus', 'remove'] as const)('does not emit on failed %s', (method) => {
     const error = vi.fn();
-    const operation: Observable<LibraryEntryDto | void> = method === 'remove' ? service.remove(17) : service[method](17, 'playing');
+    const operation: Observable<LibraryEntryDto | void> =
+      method === 'remove' ? service.remove(17) : service[method](17, 'playing');
     operation.subscribe({ error });
     http
       .expectOne(method === 'add' ? url : `${url}/17${method === 'changeStatus' ? '/status' : ''}`)
