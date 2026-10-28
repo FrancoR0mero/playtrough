@@ -12,11 +12,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<RoleChangeLog> RoleChangeLogs => Set<RoleChangeLog>();
     public DbSet<Game> Games => Set<Game>();
+    public DbSet<LibraryEntry> LibraryEntries => Set<LibraryEntry>();
+    public DbSet<LibraryEvent> LibraryEvents => Set<LibraryEvent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
         builder.ApplyConfiguration(new GameConfiguration());
+        builder.ApplyConfiguration(new LibraryEntryConfiguration());
+        builder.ApplyConfiguration(new LibraryEventConfiguration());
 
         // Identity tables use domain names, not the framework's AspNet* prefix.
         // Data is preserved by RENAME TABLE (never recreated) in migrations.
