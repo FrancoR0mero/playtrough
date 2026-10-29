@@ -39,7 +39,11 @@ public sealed class LibraryController(ILibraryService library) : ControllerBase
     public async Task<IActionResult> GetEntry(int gameId, CancellationToken ct)
     {
         if (UserId() is not { } userId) return Challenge();
-        var entry = await library.GetEntryAsync(userId, gameId, ct) ?? throw new LibraryException("not_in_library");
+        var entry = await library.GetEntryAsync(userId, gameId, ct);
+        if (entry is null)
+            return Problem(statusCode: StatusCodes.Status404NotFound,
+                title: "No se pudo completar la operación de biblioteca",
+                extensions: new Dictionary<string, object?> { ["code"] = "not_in_library" });
         return Ok(await library.DescribeAsync(entry, ct));
     }
 
