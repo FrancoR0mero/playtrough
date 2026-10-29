@@ -1,14 +1,17 @@
-<section class="page-container" aria-labelledby="library-title">
-  <p class="eyebrow">TU ESPACIO PERSONAL</p>
-  <h1 id="library-title" class="page-heading mt-3 text-white">Tu biblioteca</h1>
-  @if (auth.currentUser(); as user) {
-    <p class="mt-4 text-sm text-slate-400">
-      Bienvenido, <span class="text-slate-200">{{ user.username }}</span
-      >. Cada aventura tiene su lugar.
-    </p>
-  }
-  <p class="mt-2 text-xs text-slate-400">Solo vos podés ver esta biblioteca.</p>
-  <div class="mt-8 flex flex-col gap-4 sm:flex-row sm:items-end">
+<section class="page-container library-page" aria-labelledby="library-title">
+  <div class="library-heading">
+    <div>
+      <h1 id="library-title" class="page-heading text-white">Tu biblioteca</h1>
+      <p class="mt-2 hidden text-sm text-slate-400 sm:block">Solo vos podés ver esta biblioteca.</p>
+    </div>
+    <a
+      routerLink="/games"
+      [queryParams]="{ focus: 'search' }"
+      class="ui-button inline-flex items-center justify-center bg-accent px-4 py-2 text-white"
+      >Agregar juego</a
+    >
+  </div>
+  <div class="library-toolbar">
     <div class="min-w-0 flex-1">
       <label for="library-search" class="mb-2 block text-sm text-slate-200"
         >Buscar en tu biblioteca</label
@@ -37,11 +40,7 @@
       </select>
     </div>
   </div>
-  <div
-    role="tablist"
-    aria-label="Estado de los juegos"
-    class="mt-6 flex gap-2 overflow-x-auto pb-3"
-  >
+  <div role="tablist" aria-label="Estado de los juegos" class="library-tabs">
     @for (tab of tabs; track tab.value; let i = $index) {
       <button
         type="button"
@@ -166,15 +165,16 @@
     } @else if (loaded() && !error()) {
       <div
         data-library-empty
-        class="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-16 text-center"
+        class="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-8 text-center sm:py-16"
       >
         @if (counts().total === 0) {
           <h2 class="text-xl font-semibold text-white">Todavía no agregaste juegos</h2>
           <p class="mt-3 text-sm text-slate-400">Explorá el catálogo y empezá tu colección.</p>
           <a
             routerLink="/games"
+            [queryParams]="{ focus: 'search' }"
             class="ui-button mt-6 inline-flex min-h-11 items-center bg-accent px-5 py-3 font-semibold text-white"
-            >Explorar juegos</a
+            >Agregar juego</a
           >
         } @else if (filters().q) {
           <h2 class="text-xl font-semibold text-white">No encontramos juegos para esta búsqueda</h2>

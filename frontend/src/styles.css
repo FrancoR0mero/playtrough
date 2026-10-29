@@ -211,7 +211,7 @@ select {
   border-color: #ffffff21;
   background-color: #10111670;
   padding-inline: 14px;
-  font-size: 13px;
+  font-size: 16px;
 }
 .ui-input:hover:not(:disabled):not(:focus) {
   border-color: #ffffff3b;
@@ -378,6 +378,9 @@ select {
 }
 .auth-card a:not(.ui-button) {
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 .auth-card a:not(.ui-button):hover {
   text-decoration: underline;
@@ -417,6 +420,82 @@ select {
   font-size: clamp(30px, 4vw, 38px);
   font-weight: 600;
   line-height: 1.2;
+}
+.library-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.library-toolbar {
+  display: flex;
+  align-items: end;
+  gap: 20px;
+  margin-top: 24px;
+}
+.library-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.library-tabs [aria-selected='true'] {
+  color: white;
+  border-color: #c4b5fd;
+  background: #a78bfa1a;
+}
+.library-tabs span {
+  font-variant-numeric: tabular-nums;
+}
+.game-detail-content {
+  display: grid;
+  gap: 28px;
+}
+.game-detail-information,
+.game-detail-library {
+  min-width: 0;
+}
+.game-detail-information {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+@media (min-width: 1024px) {
+  .game-detail-content {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 40px;
+  }
+  .game-detail-library {
+    grid-column: 2;
+    grid-row: 1;
+    padding-left: 32px;
+    border-left: 1px solid var(--line);
+  }
+  .game-detail-information {
+    grid-column: 1;
+    grid-row: 1;
+    border: 0;
+    padding: 0;
+  }
+}
+.mobile-game-navigation {
+  grid-template-columns: 1fr 1fr;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.mobile-game-navigation a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 14px;
+  border-bottom: 2px solid transparent;
+}
+.mobile-game-navigation .nav-active {
+  color: #c9b5ff;
+  border-bottom-color: #a78bfa;
 }
 .library-welcome {
   display: flex;
@@ -679,6 +758,55 @@ select {
   }
 }
 @media (max-width: 767px) {
+  .mobile-game-navigation {
+    display: grid;
+  }
+  .library-page {
+    padding-top: 20px;
+  }
+  .library-heading .page-heading {
+    font-size: 22px;
+  }
+  .library-heading > .ui-button {
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+  .library-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .library-toolbar > div:last-child {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .library-toolbar > div:last-child label {
+    flex-shrink: 0;
+    margin: 0;
+  }
+  .library-toolbar select {
+    min-width: 0;
+    flex: 1;
+  }
+  .library-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 16px;
+    gap: 6px;
+  }
+  .library-tabs button {
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: 9px;
+  }
+  .library-tabs button:first-child {
+    grid-column: 1 / -1;
+  }
+  .auth-login .auth-story {
+    display: none;
+  }
   .site-header {
     min-height: 76px;
     padding: 16px 20px;

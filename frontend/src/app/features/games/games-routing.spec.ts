@@ -88,9 +88,7 @@ describe('Game catalog routing and layout', () => {
       await TestBed.inject(Router).navigateByUrl('/games');
       await fixture.whenStable();
       fixture.detectChanges();
-      expect(fixture.nativeElement.querySelector('h1')?.textContent).toContain(
-        'Encontrá tu próxima historia',
-      );
+      expect(fixture.nativeElement.querySelector('h1')?.textContent).toContain('Juegos');
       const nav = fixture.nativeElement.querySelector('nav a[href="/games"]') as HTMLAnchorElement;
       expect(nav.textContent?.trim()).toBe('Juegos');
       expect(nav.getAttribute('aria-current')).toBe('page');
@@ -116,6 +114,21 @@ describe('Game catalog routing and layout', () => {
         fixture.nativeElement.querySelectorAll('footer a[href="https://rawg.io"]'),
       ).toHaveLength(1);
     }
+  });
+
+  it('focuses the catalog search when adding a game from the empty library', async () => {
+    storage.save(createSession());
+    const harness = await RouterTestingHarness.create('/library');
+    const link = harness.routeNativeElement!.querySelector(
+      '[data-library-empty] a',
+    ) as HTMLAnchorElement;
+    expect(link.textContent).toContain('Agregar juego');
+    link.click();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/games?focus=search');
+    expect(document.activeElement?.id).toBe('game-search');
+    http.expectNone((req) => req.url.includes('/games/search'));
   });
 
   it('hides the game navigation without a session', () => {

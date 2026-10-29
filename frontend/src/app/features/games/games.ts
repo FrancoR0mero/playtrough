@@ -4,9 +4,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   OnInit,
+  afterNextRender,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -47,6 +50,7 @@ export class GamesComponent implements OnInit {
   private readonly dialogs = inject(Dialog);
   private readonly queries = new Subject<{ q: string; delay: number }>();
   private readonly pages = new Subject<number>();
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
   private preview: DialogRef<void, GameDetailComponent> | null = null;
   private query = '';
   private page = 0;
@@ -67,6 +71,11 @@ export class GamesComponent implements OnInit {
 
   constructor() {
     this.destroyRef.onDestroy(() => this.preview?.close());
+    afterNextRender(() => {
+      if (this.route.snapshot.queryParamMap.get('focus') === 'search') {
+        this.searchInput()?.nativeElement.focus();
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -189,7 +198,7 @@ export class GamesComponent implements OnInit {
       autoFocus: '[data-action="close"]',
       restoreFocus: origin,
       width: '100vw',
-      maxWidth: '48rem',
+      maxWidth: '64rem',
     });
     this.preview.closed
       .pipe(takeUntilDestroyed(this.destroyRef))

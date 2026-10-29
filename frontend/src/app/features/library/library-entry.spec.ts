@@ -138,7 +138,7 @@ describe('Library section inside the game detail modal', () => {
       };
       request.flush(entry, { status: 201, statusText: 'Created' });
       fixture.detectChanges();
-      expect(element('[data-library-status]')?.textContent).toBe('Backlog');
+      expect(element('[data-library-status]')?.textContent).toBe('Por jugar');
       expect(element('[role="status"]')?.textContent).toContain('Agregado a tu biblioteca');
       expect(button('save-library').disabled).toBe(false);
       expect(changed).toHaveBeenCalledExactlyOnceWith({ type: 'added', gameId: 17, entry });

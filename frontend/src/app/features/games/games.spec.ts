@@ -48,7 +48,13 @@ describe('Game search screen', () => {
         provideHttpClient(withInterceptors([jwtInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: ActivatedRoute, useValue: { queryParamMap: params.asObservable() } },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParamMap: params.asObservable(),
+            snapshot: { queryParamMap: convertToParamMap({}) },
+          },
+        },
         {
           provide: LibraryService,
           useValue: {
@@ -129,7 +135,7 @@ describe('Game search screen', () => {
   }
 
   it('starts with an invitation and does not request queries shorter than two trimmed characters', () => {
-    expect(fixture.nativeElement.textContent).toContain('Tu próxima aventura empieza acá');
+    expect(fixture.nativeElement.textContent).toContain('¿Qué juego querés agregar?');
     for (const q of ['', ' ', 'a', ' a ']) {
       type(q);
       vi.advanceTimersByTime(500);
@@ -188,7 +194,7 @@ describe('Game search screen', () => {
     vi.advanceTimersByTime(500);
     noRequest();
     expect(fixture.nativeElement.querySelector('[data-skeleton]')).toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Tu próxima aventura empieza acá');
+    expect(fixture.nativeElement.textContent).toContain('¿Qué juego querés agregar?');
   });
 
   it('writes and clears q using replaceUrl without adding a history entry per keystroke', () => {

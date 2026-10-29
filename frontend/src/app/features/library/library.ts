@@ -318,7 +318,7 @@ export class LibraryComponent implements OnInit {
       autoFocus: '[data-action="close"]',
       restoreFocus: origin,
       width: '100vw',
-      maxWidth: '48rem',
+      maxWidth: '64rem',
     });
     this.preview.closed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.preview = null;

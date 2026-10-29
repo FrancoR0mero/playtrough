@@ -111,7 +111,7 @@ describe('Authentication navigation', () => {
       user: { id: 1, username: 'ana', email: 'ana@example.com', role: 'User' },
     });
     const harness = await RouterTestingHarness.create('/library');
-    expect(harness.routeNativeElement?.textContent).toContain('Bienvenido, ana');
+    expect(harness.routeNativeElement?.textContent).toContain('Tu biblioteca');
     await harness.navigateByUrl('/auth/login');
     await harness.fixture.whenStable();
     expect(TestBed.inject(Router).url).toBe('/library');

@@ -121,7 +121,7 @@ describe('Personal library screen', () => {
     for (const [status, label, count] of [
       ['all', 'Todos', 10],
       ['playing', 'Jugando', 4],
-      ['backlog', 'Backlog', 3],
+      ['backlog', 'Por jugar', 3],
       ['beaten', 'Terminados', 2],
       ['completed', 'Completados', 1],
     ]) {
@@ -278,7 +278,10 @@ describe('Personal library screen', () => {
     start(query);
     flush([], { counts });
     expect(element('[data-library-empty]')?.textContent).toContain(message);
-    expect(element('a[href="/games"]') !== null).toBe(counts.total === 0);
+    expect(element('[data-library-empty] a[href="/games?focus=search"]') !== null).toBe(
+      counts.total === 0,
+    );
+    expect(element('.library-heading a[href="/games?focus=search"]')).not.toBeNull();
   });
 
   it('renders invalid_query as an alert without retrying the same invalid input', () => {
@@ -610,18 +613,16 @@ describe('Personal library screen', () => {
     vi.useRealTimers();
     cards()[0].click();
     fixture.detectChanges();
-    http
-      .expectOne(`${environment.apiUrl}/games/4200`)
-      .flush({
-        ...LIBRARY_GAMES[0],
-        id: 17,
-        coverUrlLarge: null,
-        releaseDate: null,
-        summary: '',
-        platforms: [],
-        genres: [],
-        developers: [],
-      });
+    http.expectOne(`${environment.apiUrl}/games/4200`).flush({
+      ...LIBRARY_GAMES[0],
+      id: 17,
+      coverUrlLarge: null,
+      releaseDate: null,
+      summary: '',
+      platforms: [],
+      genres: [],
+      developers: [],
+    });
     fixture.detectChanges();
     http.expectOne(`${url}/games/17`).flush(LIBRARY_GAMES[0]);
     await fixture.whenStable();
@@ -652,18 +653,16 @@ describe('Personal library screen', () => {
     vi.useRealTimers();
     cards()[0].click();
     fixture.detectChanges();
-    http
-      .expectOne(`${environment.apiUrl}/games/4200`)
-      .flush({
-        ...LIBRARY_GAMES[0],
-        id: 17,
-        coverUrlLarge: null,
-        releaseDate: null,
-        summary: '',
-        platforms: [],
-        genres: [],
-        developers: [],
-      });
+    http.expectOne(`${environment.apiUrl}/games/4200`).flush({
+      ...LIBRARY_GAMES[0],
+      id: 17,
+      coverUrlLarge: null,
+      releaseDate: null,
+      summary: '',
+      platforms: [],
+      genres: [],
+      developers: [],
+    });
     fixture.detectChanges();
     http.expectOne(`${url}/games/17`).flush(LIBRARY_GAMES[0]);
     await fixture.whenStable();

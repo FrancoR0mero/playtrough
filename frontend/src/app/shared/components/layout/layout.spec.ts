@@ -92,7 +92,9 @@ describe('Layout navigation and logout', () => {
       fixture.detectChanges();
       const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
       expect(nav.textContent).toContain('franco');
-      expect(nav.querySelector('[aria-label="Rol de la cuenta"]')?.textContent?.trim()).toBe(role);
+      expect(nav.querySelector('[aria-label="Rol de la cuenta"]')?.textContent?.trim()).toBe(
+        role === 'User' ? undefined : role,
+      );
       expect(nav.querySelector('a[href="/library"]')?.textContent).toContain('Mi biblioteca');
       expect(nav.querySelector('button[data-action="logout"]')).not.toBeNull();
       expect(nav.querySelector('a[href="/auth/login"]')).toBeNull();

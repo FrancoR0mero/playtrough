@@ -7,8 +7,8 @@ export const LIBRARY_STATUSES = [
   },
   {
     value: 'backlog',
-    label: 'Backlog',
-    tabLabel: 'Backlog',
+    label: 'Por jugar',
+    tabLabel: 'Por jugar',
     style: 'border-amber-400/40 bg-amber-400/10 text-amber-200',
   },
   {

@@ -1,15 +1,15 @@
 <section class="page-container" aria-labelledby="games-title">
-  <p class="eyebrow">EXPLORÁ EL CATÁLOGO</p>
-  <h1 id="games-title" class="page-heading mt-3 text-white">Encontrá tu próxima historia</h1>
+  <h1 id="games-title" class="page-heading text-white">Juegos</h1>
   <p class="mt-4 max-w-xl text-sm leading-relaxed text-slate-400">
-    Buscá tus juegos favoritos y descubrí nuevas aventuras.
+    Buscá por nombre y agregá juegos a tu biblioteca.
   </p>
-  <div class="mt-8 max-w-xl">
+  <div class="mt-5 max-w-xl">
     <label for="game-search" class="mb-2 block text-sm font-medium text-slate-200"
       >Buscar juegos</label
     >
     <input
       id="game-search"
+      #searchInput
       type="search"
       [formControl]="search"
       autocomplete="off"
@@ -81,7 +81,7 @@
           Probá con otro nombre o revisá cómo lo escribiste.
         </p>
       } @else {
-        <h2 class="text-xl font-semibold text-white">Tu próxima aventura empieza acá</h2>
+        <h2 class="text-xl font-semibold text-white">¿Qué juego querés agregar?</h2>
         <p class="mt-3 text-sm text-slate-400">
           Escribí el nombre de un juego para explorar el catálogo.
         </p>
