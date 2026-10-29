@@ -29,7 +29,6 @@ import {
   switchMap,
   timer,
 } from 'rxjs';
-import { AuthService } from '../auth/services/auth';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { GAME_CARD_ASPECT_RATIO, GameCardComponent } from '../games/game-card';
 import { GameDetailComponent } from '../games/game-detail';
@@ -80,7 +79,6 @@ interface PageRequest {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LibraryComponent implements OnInit {
-  protected readonly auth = inject(AuthService);
   private readonly library = inject(LibraryService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);

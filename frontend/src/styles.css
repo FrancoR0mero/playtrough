@@ -761,7 +761,7 @@ select {
   .mobile-game-navigation {
     display: grid;
   }
-  .library-page {
+  .page-container.library-page {
     padding-top: 20px;
   }
   .library-heading .page-heading {

@@ -52,8 +52,6 @@
         [attr.data-tab]="tab.value || 'all'"
         (click)="chooseTab(tab.value)"
         (keydown)="tabKey($event, i)"
-        [class.border-violet-300]="filters().status === tab.value"
-        [class.bg-violet-400/10]="filters().status === tab.value"
         class="ui-button flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-200"
       >
         {{ tab.label }}
