@@ -2,7 +2,7 @@ import { LibraryEntryDto, LibraryResponse } from './models/library';
 
 export const EMPTY_LIBRARY: LibraryResponse = {
   items: [],
-  counts: { playing: 0, backlog: 0, beaten: 0, completed: 0, total: 0 },
+  counts: { playing: 0, backlog: 0, beaten: 0, completed: 0, abandoned: 0, total: 0 },
   page: 1,
   pageSize: 20,
   hasMore: false,
@@ -32,4 +32,11 @@ export const LIBRARY_GAMES: LibraryEntryDto[] = [
     addedAt: '2026-10-26T12:00:00Z',
   },
 ];
-export const LIBRARY_COUNTS = { playing: 1, backlog: 1, beaten: 0, completed: 0, total: 2 };
+export const LIBRARY_COUNTS = {
+  playing: 1,
+  backlog: 1,
+  beaten: 0,
+  completed: 0,
+  abandoned: 0,
+  total: 2,
+};

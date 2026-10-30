@@ -107,11 +107,16 @@ describe('Library section inside the game detail modal', () => {
     expect(button('save-library').textContent).toContain('Actualizar estado');
   });
 
-  it.each([false, true])(
-    'adds with explicit date enabled=%s, locks controls and emits exactly once',
-    (withDate) => {
+  it.each([
+    ['backlog', 'Por jugar', false],
+    ['backlog', 'Por jugar', true],
+    ['abandoned', 'Abandonado', false],
+    ['abandoned', 'Abandonado', true],
+  ] as const)(
+    'adds %s (%s) with explicit date enabled=%s, locks controls and emits exactly once',
+    (status, label, withDate) => {
       missing();
-      click('choose-backlog');
+      click('choose-' + status);
       expect(button('save-library').disabled).toBe(false);
       if (withDate) {
         click('toggle-date');
@@ -128,17 +133,17 @@ describe('Library section inside the game detail modal', () => {
       const request = http.expectOne(url);
       expect(request.request.body).toEqual({
         gameId: 17,
-        status: 'backlog',
+        status,
         ...(withDate ? { occurredOn: '2026-01-02' } : {}),
       });
       const entry = {
         ...ENTRY,
-        status: 'backlog' as const,
+        status,
         statusChangedOn: withDate ? '2026-01-02' : ENTRY.statusChangedOn,
       };
       request.flush(entry, { status: 201, statusText: 'Created' });
       fixture.detectChanges();
-      expect(element('[data-library-status]')?.textContent).toBe('Por jugar');
+      expect(element('[data-library-status]')?.textContent).toBe(label);
       expect(element('[role="status"]')?.textContent).toContain('Agregado a tu biblioteca');
       expect(button('save-library').disabled).toBe(false);
       expect(changed).toHaveBeenCalledExactlyOnceWith({ type: 'added', gameId: 17, entry });
@@ -353,12 +358,12 @@ describe('Library section inside the game detail modal', () => {
     );
     expect(button('choose-playing').tabIndex).toBe(0);
     const steps = [
-      ['playing', 'ArrowLeft', 'completed'],
-      ['completed', 'ArrowRight', 'playing'],
+      ['playing', 'ArrowLeft', 'abandoned'],
+      ['abandoned', 'ArrowRight', 'playing'],
       ['playing', 'ArrowDown', 'backlog'],
       ['backlog', 'ArrowUp', 'playing'],
-      ['playing', 'End', 'completed'],
-      ['completed', 'Home', 'playing'],
+      ['playing', 'End', 'abandoned'],
+      ['abandoned', 'Home', 'playing'],
     ];
     for (const [from, key, to] of steps) {
       button(`choose-${from}`).dispatchEvent(

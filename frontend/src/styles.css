@@ -70,18 +70,6 @@ input::placeholder {
 select {
   color-scheme: dark;
 }
-.skip-link {
-  position: fixed;
-  top: -100px;
-  left: 16px;
-  z-index: 100;
-  padding: 12px 20px;
-  background: #6543c0;
-  border-radius: 8px;
-}
-.skip-link:focus {
-  top: 12px;
-}
 .app-shell {
   background: radial-gradient(ellipse at 80% 0%, #7660be09, transparent 45%);
 }
@@ -800,9 +788,6 @@ select {
     justify-content: space-between;
     padding: 8px 10px;
     border-radius: 9px;
-  }
-  .library-tabs button:first-child {
-    grid-column: 1 / -1;
   }
   .auth-login .auth-story {
     display: none;

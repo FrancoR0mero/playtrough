@@ -23,6 +23,12 @@ export const LIBRARY_STATUSES = [
     tabLabel: 'Completados',
     style: 'border-violet-400/40 bg-violet-400/10 text-violet-200',
   },
+  {
+    value: 'abandoned',
+    label: 'Abandonado',
+    tabLabel: 'Abandonados',
+    style: 'border-slate-400/40 bg-slate-400/10 text-slate-200',
+  },
 ] as const;
 
 export type LibraryStatus = (typeof LIBRARY_STATUSES)[number]['value'];

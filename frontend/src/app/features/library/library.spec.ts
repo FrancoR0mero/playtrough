@@ -115,7 +115,7 @@ describe('Personal library screen', () => {
     pending.flush({
       ...EMPTY_LIBRARY,
       items: LIBRARY_GAMES,
-      counts: { playing: 4, backlog: 3, beaten: 2, completed: 1, total: 10 },
+      counts: { playing: 4, backlog: 3, beaten: 2, completed: 1, abandoned: 0, total: 10 },
     });
     fixture.detectChanges();
     for (const [status, label, count] of [
@@ -124,6 +124,7 @@ describe('Personal library screen', () => {
       ['backlog', 'Por jugar', 3],
       ['beaten', 'Terminados', 2],
       ['completed', 'Completados', 1],
+      ['abandoned', 'Abandonados', 0],
     ]) {
       expect(tab(String(status)).textContent).toContain(label);
       expect(tab(String(status)).textContent).toContain(String(count));
@@ -188,8 +189,8 @@ describe('Personal library screen', () => {
     tab('playing').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
     fixture.detectChanges();
     flush([]);
-    expect(document.activeElement).toBe(tab('completed'));
-    tab('completed').dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    expect(document.activeElement).toBe(tab('abandoned'));
+    tab('abandoned').dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
     fixture.detectChanges();
     const all = request();
     expect(all.request.params.has('status')).toBe(false);
@@ -337,18 +338,21 @@ describe('Personal library screen', () => {
     expect(element('[role="alert"]')).toBeNull();
   });
 
-  it('updates badge and global counts once after a menu change using the local date', () => {
+  it.each([
+    ['beaten', 'Terminado'],
+    ['abandoned', 'Abandonado'],
+  ] as const)('updates badge and counts after changing to %s (%s)', (status, label) => {
     start({ sort: 'name' });
     flush();
-    choose('beaten');
+    choose(status);
     const pending = http.expectOne(`${url}/17/status`);
-    expect(pending.request.body).toEqual({ status: 'beaten', occurredOn: localCalendarDate() });
+    expect(pending.request.body).toEqual({ status, occurredOn: localCalendarDate() });
     expect(element<HTMLButtonElement>('[data-library-menu]')?.disabled).toBe(true);
-    pending.flush({ ...LIBRARY_GAMES[0], status: 'beaten' });
+    pending.flush({ ...LIBRARY_GAMES[0], status });
     fixture.detectChanges();
-    expect(cards()[0].querySelector('[data-library-badge]')?.textContent).toBe('Terminado');
+    expect(cards()[0].querySelector('[data-library-badge]')?.textContent).toBe(label);
     expect(tab('playing').textContent).toContain('0');
-    expect(tab('beaten').textContent).toContain('1');
+    expect(tab(status).textContent).toContain('1');
     expect(tab('all').textContent).toContain('2');
     expect(element('[data-action-notice]')?.textContent).toContain('Estado actualizado');
     noRequest();
@@ -593,7 +597,7 @@ describe('Personal library screen', () => {
     expect(tab('all').textContent).toContain('3');
     expect(tab('completed').textContent).toContain('1');
     flush([added, LIBRARY_GAMES[1], LIBRARY_GAMES[0]], {
-      counts: { ...LIBRARY_COUNTS, completed: 1, total: 3 },
+      counts: { ...LIBRARY_COUNTS, completed: 1, abandoned: 0, total: 3 },
     });
     expect(cards()[0].textContent).toContain('Celeste');
   });

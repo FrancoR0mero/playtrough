@@ -152,7 +152,7 @@ describe('LibraryService', () => {
     expect(request.request.urlWithParams).toContain('q=Ratchet%20%26%20Clank');
     const response = {
       items: [],
-      counts: { playing: 4, backlog: 3, beaten: 2, completed: 1, total: 10 },
+      counts: { playing: 4, backlog: 3, beaten: 2, completed: 1, abandoned: 0, total: 10 },
       page: 2,
       pageSize: 12,
       hasMore: false,

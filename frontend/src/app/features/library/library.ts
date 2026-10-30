@@ -54,6 +54,7 @@ const EMPTY_COUNTS: LibraryResponse['counts'] = {
   backlog: 0,
   beaten: 0,
   completed: 0,
+  abandoned: 0,
   total: 0,
 };
 const SORTS = [

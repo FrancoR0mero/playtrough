@@ -57,7 +57,6 @@
       <div
         role="radiogroup"
         aria-labelledby="library-state-label"
-        aria-describedby="library-state-hint"
         class="mt-2 grid grid-cols-2 gap-2"
       >
         @for (state of states; track state.value; let i = $index) {
@@ -79,10 +78,6 @@
           </button>
         }
       </div>
-      <p id="library-state-hint" class="mt-3 text-sm leading-relaxed text-slate-400">
-        Terminado: lo das por terminado. Completado: no te queda nada pendiente, según tu propio
-        criterio.
-      </p>
       <button
         type="button"
         data-action="toggle-date"
