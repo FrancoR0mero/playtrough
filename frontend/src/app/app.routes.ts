@@ -46,6 +46,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/library/library').then((m) => m.LibraryComponent),
   },
   {
+    path: 'profile',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/profile/profile').then((m) => m.ProfileComponent),
+  },
+  {
     path: 'admin/roles',
     canActivate: [authGuard, roleGuard],
     data: { minRole: 'Admin' },
