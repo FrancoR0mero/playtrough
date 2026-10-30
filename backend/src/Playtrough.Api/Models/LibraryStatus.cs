@@ -6,4 +6,5 @@ public enum LibraryStatus
     Backlog,
     Beaten,
     Completed,
+    Abandoned,
 }

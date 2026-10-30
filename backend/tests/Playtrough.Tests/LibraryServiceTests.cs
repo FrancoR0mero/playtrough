@@ -89,6 +89,7 @@ public class LibraryServiceTests
     [InlineData(LibraryStatus.Backlog)]
     [InlineData(LibraryStatus.Beaten)]
     [InlineData(LibraryStatus.Completed)]
+    [InlineData(LibraryStatus.Abandoned)]
     public async Task AllTransitionsAreAllowed_AndRecordOldAndNewStatuses(LibraryStatus from)
     {
         using var context = new LibraryTestContext();
@@ -113,7 +114,7 @@ public class LibraryServiceTests
         }
         // Return to the initial status too; no transition has special restrictions.
         await context.ChangeAsync(from, new DateOnly(2020, 1, 2));
-        Assert.Equal(5, (await context.EventsAsync()).Count);
+        Assert.Equal(Enum.GetValues<LibraryStatus>().Length + 1, (await context.EventsAsync()).Count);
     }
 
     [Theory]
@@ -282,7 +283,7 @@ public class LibraryServiceTests
 
     [Theory]
     [InlineData(-1)]
-    [InlineData(4)]
+    [InlineData(5)]
     [InlineData(100)]
     public async Task UndefinedEnum_IsInvalidStatus_OnAddAndChange(int value)
     {

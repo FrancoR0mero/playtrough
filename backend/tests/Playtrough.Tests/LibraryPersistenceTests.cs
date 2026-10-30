@@ -14,6 +14,7 @@ public class LibraryPersistenceTests
     [InlineData(LibraryStatus.Backlog, "backlog")]
     [InlineData(LibraryStatus.Beaten, "beaten")]
     [InlineData(LibraryStatus.Completed, "completed")]
+    [InlineData(LibraryStatus.Abandoned, "abandoned")]
     public async Task StatusAndEventValues_ArePersistedAsExactContractText(LibraryStatus status, string text)
     {
         using var context = new LibraryTestContext();

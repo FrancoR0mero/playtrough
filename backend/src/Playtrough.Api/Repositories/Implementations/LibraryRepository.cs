@@ -31,7 +31,7 @@ public sealed class LibraryRepository(AppDbContext db) : ILibraryRepository
             .Select(group => new { Status = group.Key, Count = group.Count() }).ToListAsync(ct);
         int Count(LibraryStatus status) => groups.SingleOrDefault(group => group.Status == status)?.Count ?? 0;
         var counts = new LibraryCountsDto(Count(LibraryStatus.Playing), Count(LibraryStatus.Backlog),
-            Count(LibraryStatus.Beaten), Count(LibraryStatus.Completed));
+            Count(LibraryStatus.Beaten), Count(LibraryStatus.Completed), Count(LibraryStatus.Abandoned));
 
         if (!string.IsNullOrEmpty(request.Status))
         {

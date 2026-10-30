@@ -11,6 +11,7 @@ public static class LibraryValues
         LibraryStatus.Backlog => "backlog",
         LibraryStatus.Beaten => "beaten",
         LibraryStatus.Completed => "completed",
+        LibraryStatus.Abandoned => "abandoned",
         _ => throw new LibraryException("invalid_status"),
     };
 
@@ -20,6 +21,7 @@ public static class LibraryValues
         "backlog" => LibraryStatus.Backlog,
         "beaten" => LibraryStatus.Beaten,
         "completed" => LibraryStatus.Completed,
+        "abandoned" => LibraryStatus.Abandoned,
         _ => throw new LibraryException("invalid_status"),
     };
 

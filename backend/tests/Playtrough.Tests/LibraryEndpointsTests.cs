@@ -19,7 +19,30 @@ namespace Playtrough.Tests;
 
 public class LibraryEndpointsTests
 {
-    private static readonly string[] States = ["playing", "backlog", "beaten", "completed"];
+    private static readonly string[] States = ["playing", "backlog", "beaten", "completed", "abandoned"];
+
+    [Fact]
+    public async Task Abandoned_CanBeAddedResumedFilteredAndRemoved()
+    {
+        using var context = new GamesApiTestContext();
+        using var client = await context.AuthenticatedClientAsync();
+        var id = await OpenGame(client);
+        Assert.Equal("abandoned", (await Add(client, id, "abandoned")).Status);
+        var list = (await client.GetFromJsonAsync<LibraryListResponseDto>("/api/library?status=abandoned"))!;
+        Assert.Single(list.Items);
+        Assert.Equal(1, list.Counts.Abandoned);
+        Assert.Equal(1, list.Counts.Total);
+        using var resumed = await client.PutAsJsonAsync($"/api/library/{id}/status", new { status = "playing" });
+        Assert.Equal(HttpStatusCode.OK, resumed.StatusCode);
+        using var abandoned = await client.PutAsJsonAsync($"/api/library/{id}/status", new { status = "abandoned" });
+        Assert.Equal(HttpStatusCode.OK, abandoned.StatusCode);
+        Assert.Equal("abandoned", (await client.GetFromJsonAsync<LibraryEntryDto>($"/api/library/games/{id}"))!.Status);
+        using var removed = await client.DeleteAsync($"/api/library/{id}");
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+        list = (await client.GetFromJsonAsync<LibraryListResponseDto>("/api/library"))!;
+        Assert.Equal(0, list.Counts.Abandoned);
+        Assert.Equal(0, list.Counts.Total);
+    }
 
     private static async Task<int> OpenGame(HttpClient client, int externalId = 5)
     {
@@ -89,7 +112,7 @@ public class LibraryEndpointsTests
         Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow), (await today.Content.ReadFromJsonAsync<LibraryEntryDto>())!.StatusChangedOn);
         var list = (await client.GetFromJsonAsync<LibraryListResponseDto>("/api/library?status=completed&q=PORTAL&sort=name"))!;
         Assert.Single(list.Items);
-        Assert.Equal(new LibraryCountsDto(0, 0, 0, 1), list.Counts);
+        Assert.Equal(new LibraryCountsDto(0, 0, 0, 1, 0), list.Counts);
         using var read = await client.GetAsync($"/api/library/games/{id}");
         using var json = JsonDocument.Parse(await read.Content.ReadAsStringAsync());
         Assert.Equal(new[] { "addedAt", "coverUrl", "externalId", "gameId", "name", "releaseYear", "slug", "status", "statusChangedOn" },
@@ -184,14 +207,14 @@ public class LibraryEndpointsTests
     {
         using var context = new GamesApiTestContext(); using var client = await context.AuthenticatedClientAsync();
         var added = new List<LibraryEntryDto>();
-        for (var index = 0; index < 6; index++) added.Add(await Add(client, await OpenGame(client, index + 1), States[index % 4], $"2026-01-{index + 1:D2}"));
+        for (var index = 0; index < 6; index++) added.Add(await Add(client, await OpenGame(client, index + 1), States[index % States.Length], $"2026-01-{index + 1:D2}"));
         foreach (var sort in new[] { "recent", "added", "name", "release" })
         {
             var actual = new List<LibraryEntryDto>();
             for (var page = 1; page <= 3; page++)
             {
                 var response = (await client.GetFromJsonAsync<LibraryListResponseDto>($"/api/library?sort={sort}&page={page}&pageSize=2"))!;
-                Assert.Equal(new LibraryCountsDto(2, 2, 1, 1), response.Counts);
+                Assert.Equal(new LibraryCountsDto(2, 1, 1, 1, 1), response.Counts);
                 Assert.Equal(page < 3, response.HasMore); actual.AddRange(response.Items);
             }
             var expected = sort switch
@@ -203,7 +226,7 @@ public class LibraryEndpointsTests
             };
             Assert.Equal(expected, actual.Select(entry => entry.GameId));
         }
-        var filter = (await client.GetFromJsonAsync<LibraryListResponseDto>("/api/library?status=playing&q=%20pOrTaL%20"))!;
+        var filter = (await client.GetFromJsonAsync<LibraryListResponseDto>("/api/library?status=abandoned&q=%20pOrTaL%20"))!;
         Assert.Single(filter.Items); Assert.Equal(6, filter.Counts.Total);
         foreach (var query in new[] { "?q=%25", "?q=_%27%20OR%201%3D1", "?page=2147483647&pageSize=40" })
         {

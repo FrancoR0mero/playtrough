@@ -6,9 +6,9 @@ namespace Playtrough.Api.Dtos.Library;
 public sealed record LibraryEntryDto(int GameId, int ExternalId, string Name, string Slug,
     string? CoverUrl, int? ReleaseYear, string Status, DateOnly StatusChangedOn, DateTime AddedAt);
 
-public sealed record LibraryCountsDto(int Playing, int Backlog, int Beaten, int Completed)
+public sealed record LibraryCountsDto(int Playing, int Backlog, int Beaten, int Completed, int Abandoned)
 {
-    public int Total => Playing + Backlog + Beaten + Completed;
+    public int Total => Playing + Backlog + Beaten + Completed + Abandoned;
 }
 
 public sealed record LibraryListResponseDto(IReadOnlyList<LibraryEntryDto> Items, LibraryCountsDto Counts,
@@ -35,7 +35,7 @@ public sealed class LibraryListRequest : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (!string.IsNullOrEmpty(Status) && Status is not ("playing" or "backlog" or "beaten" or "completed"))
+        if (!string.IsNullOrEmpty(Status) && Status is not ("playing" or "backlog" or "beaten" or "completed" or "abandoned"))
             yield return new("El estado de la consulta no es válido.", [nameof(Status)]);
         if (!string.IsNullOrEmpty(Sort) && Sort is not ("recent" or "added" or "name" or "release"))
             yield return new("El orden no es válido.", [nameof(Sort)]);
