@@ -467,24 +467,6 @@ select {
     padding: 0;
   }
 }
-.mobile-game-navigation {
-  grid-template-columns: 1fr 1fr;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--line);
-}
-.mobile-game-navigation a {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  color: var(--muted);
-  font-size: 14px;
-  border-bottom: 2px solid transparent;
-}
-.mobile-game-navigation .nav-active {
-  color: #c9b5ff;
-  border-bottom-color: #a78bfa;
-}
 .library-welcome {
   display: flex;
   justify-content: space-between;
@@ -746,8 +728,10 @@ select {
   }
 }
 @media (max-width: 767px) {
-  .mobile-game-navigation {
-    display: grid;
+  /* Inputs live inside routed components, outside Layout's style encapsulation. */
+  .app-shell:has(input:focus, textarea:focus, [contenteditable='true']:focus)
+    .mobile-game-navigation {
+    display: none;
   }
   .page-container.library-page {
     padding-top: 20px;

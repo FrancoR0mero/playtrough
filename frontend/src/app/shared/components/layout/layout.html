@@ -1,4 +1,7 @@
-<div class="app-shell flex min-h-screen flex-col">
+<div
+  class="app-shell flex min-h-screen flex-col"
+  [class.has-mobile-navigation]="auth.isAuthenticated()"
+>
   <header class="site-header flex flex-wrap items-center justify-between gap-4">
     <a
       routerLink="/"
@@ -11,6 +14,7 @@
       ></a
     >
     <button
+      [class.hidden]="auth.isAuthenticated()"
       #menuToggle
       type="button"
       aria-controls="primary-navigation"
@@ -86,25 +90,6 @@
     </nav>
   </header>
 
-  @if (auth.isAuthenticated()) {
-    <nav aria-label="Accesos a tus juegos" class="mobile-game-navigation md:hidden">
-      <a
-        routerLink="/games"
-        routerLinkActive="nav-active"
-        ariaCurrentWhenActive="page"
-        (click)="closeMenu()"
-        >Juegos</a
-      >
-      <a
-        routerLink="/library"
-        routerLinkActive="nav-active"
-        ariaCurrentWhenActive="page"
-        (click)="closeMenu()"
-        >Mi biblioteca</a
-      >
-    </nav>
-  }
-
   <main id="main-content" tabindex="-1" class="flex-1">
     @if (rateLimitNotice.message(); as message) {
       <div
@@ -125,4 +110,37 @@
   </main>
 
   <app-site-footer />
+  @if (auth.isAuthenticated()) {
+    <nav aria-label="Navegación móvil" class="mobile-game-navigation">
+      <a routerLink="/games" routerLinkActive="nav-active" ariaCurrentWhenActive="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 7h12l3 10-3 2-4-4h-4l-4 4-3-2 3-10Z" />
+          <path d="M7 9v5m-2.5-2.5h5M16 10h.01M18 13h.01" />
+        </svg>
+        <span>Juegos</span>
+      </a>
+      <a routerLink="/library" routerLinkActive="nav-active" ariaCurrentWhenActive="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="4" width="5" height="16" rx="1" />
+          <rect x="10" y="4" width="5" height="16" rx="1" />
+          <path d="m17 5 4 14M5.5 8h0M12.5 8h0" />
+        </svg>
+        <span>Biblioteca</span>
+      </a>
+      <button type="button" disabled aria-label="Reseñas, próximamente">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 15a3 3 0 0 1-3 3H9l-5 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v9Z" />
+          <path d="M8 8h8M8 12h5" />
+        </svg>
+        <span>Reseñas</span><small>Próximamente</small>
+      </button>
+      <a routerLink="/profile" routerLinkActive="nav-active" ariaCurrentWhenActive="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+        </svg>
+        <span>Perfil</span>
+      </a>
+    </nav>
+  }
 </div>

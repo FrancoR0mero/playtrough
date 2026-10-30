@@ -75,6 +75,27 @@ describe('Layout navigation and logout', () => {
     expect(auth.logout).not.toHaveBeenCalled();
   });
 
+  it('provides mobile destinations and a disabled reviews placeholder only when signed in', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.mobile-game-navigation')).toBeNull();
+    renderAuthenticated();
+    const nav = fixture.nativeElement.querySelector('.mobile-game-navigation') as HTMLElement;
+    expect(Array.from(nav.querySelectorAll('a')).map((link) => link.getAttribute('href'))).toEqual([
+      '/games',
+      '/library',
+      '/profile',
+    ]);
+    const reviews = nav.querySelector('button')!;
+    expect(reviews.disabled).toBe(true);
+    expect(reviews.getAttribute('aria-label')).toBe('Reseñas, próximamente');
+    expect(reviews.textContent).toContain('Próximamente');
+    expect(
+      fixture.nativeElement
+        .querySelector('[aria-controls="primary-navigation"]')
+        .classList.contains('hidden'),
+    ).toBe(true);
+  });
+
   it('shows login and registration links without a session', () => {
     fixture.detectChanges();
     const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
