@@ -81,6 +81,43 @@ public class ReviewsSwaggerTests
         Assert.True(Example(detail.GetProperty("responses"), "200").TryGetProperty("ratingSummary", out _));
     }
 
+    [Fact]
+    public async Task Swagger_DocumentsPublicListSortsPagingAuthorProjectionAndErrors()
+    {
+        using var context = new GamesApiTestContext(environment: "Development");
+        using var client = context.Factory.CreateClient();
+        using var document = (await client.GetFromJsonAsync<JsonDocument>("/swagger/v1/swagger.json"))!;
+        var root = document.RootElement;
+        var operation = root.GetProperty("paths").GetProperty("/api/games/{gameId}/reviews").GetProperty("get");
+        Assert.Equal("Reviews", Assert.Single(operation.GetProperty("tags").EnumerateArray()).GetString());
+        Assert.False(string.IsNullOrWhiteSpace(operation.GetProperty("summary").GetString()));
+        Assert.True(Assert.Single(operation.GetProperty("security").EnumerateArray()).TryGetProperty("Bearer", out _));
+        var parameters = operation.GetProperty("parameters").EnumerateArray().ToArray();
+        var sort = Assert.Single(parameters, parameter => parameter.GetProperty("name").GetString() == "sort").GetProperty("schema");
+        Assert.Equal(new[] { "recent", "top", "low" }, sort.GetProperty("enum").EnumerateArray().Select(value => value.GetString()).ToArray());
+        Assert.Equal("recent", sort.GetProperty("default").GetString());
+        var page = Assert.Single(parameters, parameter => parameter.GetProperty("name").GetString() == "page").GetProperty("schema");
+        Assert.Equal(1, page.GetProperty("default").GetInt32());
+        Assert.Equal(1, page.GetProperty("minimum").GetInt32());
+        var size = Assert.Single(parameters, parameter => parameter.GetProperty("name").GetString() == "pageSize").GetProperty("schema");
+        Assert.Equal(10, size.GetProperty("default").GetInt32());
+        Assert.Equal(30, size.GetProperty("maximum").GetInt32());
+        var responses = operation.GetProperty("responses");
+        foreach (var code in new[] { "200", "400", "401", "404", "429", "500" }) Assert.True(responses.TryGetProperty(code, out _));
+        Assert.Equal("invalid_query", Example(responses, "400").GetProperty("code").GetString());
+        Assert.Equal("game_not_found", Example(responses, "404").GetProperty("code").GetString());
+        Assert.Equal("rate_limited", Example(responses, "429").GetProperty("code").GetString());
+        Assert.True(responses.GetProperty("429").GetProperty("headers").TryGetProperty("Retry-After", out _));
+        var example = Example(responses, "200");
+        Assert.Equal(JsonValueKind.Null, example.GetProperty("items")[0].GetProperty("text").ValueKind);
+        var author = example.GetProperty("items")[0].GetProperty("author");
+        Assert.Equal(new[] { "userId", "username" }, author.EnumerateObject().Select(property => property.Name).Order().ToArray());
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        Assert.Equal(new[] { "userId", "username" }, schemas.GetProperty("ReviewAuthorDto").GetProperty("properties")
+            .EnumerateObject().Select(property => property.Name).Order().ToArray());
+        Assert.True(schemas.GetProperty("ReviewListResponse").GetProperty("properties").TryGetProperty("ratingSummary", out _));
+    }
+
     private static JsonElement Example(JsonElement responses, string status)
         => responses.GetProperty(status).GetProperty("content").GetProperty("application/json").GetProperty("example");
 }

@@ -146,6 +146,50 @@ Swagger. Se ajustaron solo dos tests existentes por el contrato ampliado:
 `GamesEndpointsTests` (campo `ratingSummary`) y `SwaggerDocumentationTests`
 (etiqueta `Reviews` y clasificación de sus rutas).
 
+## Listado público de reseñas — fase 3 (US-29.1)
+
+`GET /api/games/{gameId}/reviews` usa el ID **local** y requiere un usuario
+autenticado de cualquier rol. El contenido es público entre esos usuarios y no
+exige biblioteca. Las lecturas conservan el límite global existente.
+
+Parámetros: `sort=recent` (predeterminado), `top` o `low`; `page=1` por defecto;
+`pageSize=10` por defecto y rango 1–30. Los valores vacíos, tipos incorrectos,
+órdenes desconocidos y tamaños fuera de rango producen 400 `invalid_query`.
+No se recortan tamaños inválidos y sort distingue mayúsculas. Un juego local
+inexistente produce 404 `game_not_found`, sin importar datos del proveedor.
+
+La respuesta es `{ items, ratingSummary, page, pageSize, hasMore }`. Cada item
+contiene únicamente `{ id, rating, text, createdAt, editedAt, author, isMine }`;
+`author` solo tiene `{ userId, username }`. Se proyectan esas columnas directamente
+en SQL y no se cargan entidades completas de usuario ni sus emails. La propia
+reseña aparece entre las demás; `isMine` se calcula con el token y nunca con un
+parámetro de usuario. Las reseñas sin texto aparecen con `text: null`.
+
+`recent` ordena por creación descendente e ID descendente; `top` antepone la
+puntuación descendente y `low` la ascendente. Las claves de puntuación usan unidades
+enteras de media estrella (`Rating * 2`), exactas en MySQL y SQLite, manteniendo
+el almacenamiento decimal. El DTO se proyecta después del orden y la paginación.
+Se lee como máximo `pageSize + 1` para calcular `hasMore`; offsets que exceden el
+rango que acepta EF devuelven una página vacía conservando el resumen.
+
+La página y el resumen global del juego se leen en una transacción Serializable,
+igual que la biblioteca, envuelta en la estrategia de ejecución de EF. Así
+comparten un estado consistente, también cuando hay reintentos. El resumen no
+depende de la página ni del orden. La paginación por offset es estable mientras
+no cambien los datos: las escrituras entre peticiones pueden desplazar elementos;
+no se agrega cursor ni snapshot entre páginas al contrato solicitado.
+
+Los tests nuevos cubren fechas y puntuaciones empatadas, los tres órdenes,
+paginación sin repeticiones ni omisiones sobre un conjunto fijo, hasMore, tamaños
+predeterminados/máximos, offsets grandes, roles, isMine, privacidad del JSON y del
+SQL, aislamiento entre juegos, errores, límites y coherencia con el detalle y el
+recálculo después de editar/borrar. También se verifica el reintento de la lectura
+transaccional y Swagger. No se agrega otra migración.
+
+La [guía de prueba manual con curl y SQL](docs/reviews-manual.md) recorre alta,
+edición, repetición idéntica, los tres órdenes, baja y comprobación de contadores;
+incluye las decisiones de contrato y sus límites.
+
 ## Catálogo de juegos — fase 1 (US-19)
 
 La integración se consume mediante `IGameCatalogProvider`; los endpoints públicos
