@@ -15,4 +15,6 @@ public sealed class Game
     public List<string> Developers { get; set; } = [];
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public int RatingCount { get; set; }
+    public decimal RatingSum { get; set; }
 }

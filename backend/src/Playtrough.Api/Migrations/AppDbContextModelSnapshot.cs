@@ -271,6 +271,17 @@ namespace Playtrough.Api.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
 
+                    b.Property<int>("RatingCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<decimal>("RatingSum")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 1)
+                        .HasColumnType("decimal(12,1)")
+                        .HasDefaultValue(0m);
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasMaxLength(300)
@@ -409,6 +420,51 @@ namespace Playtrough.Api.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.Review", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("EditedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("GameId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Rating")
+                        .HasPrecision(2, 1)
+                        .HasColumnType("decimal(2,1)");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId", "Rating");
+
+                    b.HasIndex("UserId", "GameId")
+                        .IsUnique();
+
+                    b.HasIndex("GameId", "CreatedAt", "Id");
+
+                    b.ToTable("Reviews", (string)null);
+
+                    b.HasAnnotation("MySQL:Charset", "utf8mb4");
+                });
+
             modelBuilder.Entity("Playtrough.Api.Models.RoleChangeLog", b =>
                 {
                     b.Property<int>("Id")
@@ -528,6 +584,21 @@ namespace Playtrough.Api.Migrations
 
             modelBuilder.Entity("Playtrough.Api.Models.RefreshToken", b =>
                 {
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.Review", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.Game", null)
+                        .WithMany()
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
