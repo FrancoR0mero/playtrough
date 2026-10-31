@@ -58,8 +58,9 @@ porque [las cascadas de FK de MySQL no activan triggers de la tabla hija](https:
 No se agrega ningún endpoint de eliminación de cuentas.
 
 La migración `20261031000047_AddReviews` y su
-[SQL completo](sql/20261031000047_AddReviews.sql) están listos para revisión y **no
-se aplicaron a la base local**. No hay migraciones automáticas al iniciar. El
+[SQL completo](sql/20261031000047_AddReviews.sql) se aplicaron explícitamente a la
+base de desarrollo `playtrought_dev` el 30/10/2026, después de revisar el SQL.
+EF confirmó que la base quedó actualizada. No hay migraciones automáticas al iniciar. El
 timestamp de la migración lo genera EF en UTC. Para regenerar el script offline:
 
 ```powershell
@@ -74,8 +75,15 @@ saneamiento y consistencia tras 160 operaciones aleatorias. También comprueban 
 aritmética del SQL ejecutado, el modelo y el SQL de migración del proveedor Oracle,
 sin abrir conexión MySQL. `EnsureCreated` no instala triggers: la fixture de
 reseñas ejecuta el SQL SQLite de la propia migración para probar la cascada.
-La ejecución real de la migración y la concurrencia en un servidor MySQL siguen
-pendientes; SQLite no verifica el comportamiento de InnoDB.
+En MySQL 8.4 se verificaron el esquema, los índices, `utf8mb4`, los contadores
+iniciales y el trigger. Una prueba con un usuario temporal confirmó puntuación
+4,5, emoji y ajuste de contadores por cascada; se revirtió con `ROLLBACK` y no dejó
+registros de prueba. La cuenta de aplicación no pudo crear el trigger con binary
+logging activo: se completó ese paso y el registro de migración con la cuenta
+administrativa del contenedor, sin cambiar privilegios ni configuración global.
+En otros entornos, la cuenta que aplica migraciones debe tener los permisos
+necesarios para crear el trigger. La concurrencia real de `ReviewService` en MySQL
+sigue pendiente; las pruebas automatizadas de concurrencia usan SQLite WAL.
 
 ## Catálogo de juegos — fase 1 (US-19)
 
