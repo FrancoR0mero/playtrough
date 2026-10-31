@@ -47,7 +47,8 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
                 Status = StatusCodes.Status400BadRequest,
                 Title = "No se pudo completar la operación de reseñas",
             };
-            reviewProblem.Extensions["code"] = invalidText ? "invalid_text" : "invalid_rating";
+            reviewProblem.Extensions["code"] = reviewAction.ActionName == nameof(ReviewsController.List)
+                ? "invalid_query" : invalidText ? "invalid_text" : "invalid_rating";
             return new BadRequestObjectResult(reviewProblem);
         }
         var response = defaultResponse(context);

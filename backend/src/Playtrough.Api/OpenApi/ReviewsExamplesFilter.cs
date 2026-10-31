@@ -34,11 +34,27 @@ public sealed class ReviewsExamplesFilter : IOperationFilter, ISchemaFilter
         if (context.MethodInfo.DeclaringType != typeof(ReviewsController) || operation.Responses is not { } responses) return;
         var upsert = context.MethodInfo.Name == nameof(ReviewsController.Upsert);
         var delete = context.MethodInfo.Name == nameof(ReviewsController.Delete);
+        var list = context.MethodInfo.Name == nameof(ReviewsController.List);
         if (operation.Parameters?.FirstOrDefault(parameter => parameter.Name == "gameId") is OpenApiParameter id)
         {
             id.Description = "ID local de Games; se obtiene del campo id en el detalle, no del externalId.";
             id.Example = JsonValue.Create(7);
         }
+        if (list && operation.Parameters is { } parameters)
+            foreach (var parameter in parameters.OfType<OpenApiParameter>())
+            {
+                if (parameter.Name == "sort")
+                {
+                    parameter.Description = "recent: creación descendente; top: puntuación descendente; low: puntuación ascendente. Empates por creación e ID descendentes.";
+                    parameter.Schema = new OpenApiSchema
+                    {
+                        Type = JsonSchemaType.String, Default = JsonValue.Create("recent"),
+                        Enum = [JsonValue.Create("recent")!, JsonValue.Create("top")!, JsonValue.Create("low")!],
+                    };
+                }
+                if (parameter.Name is "page" or "pageSize" && parameter.Schema is OpenApiSchema paging)
+                    paging.Default = JsonValue.Create(parameter.Name == "page" ? 1 : 10);
+            }
         if (upsert && operation.RequestBody is OpenApiRequestBody body) body.Required = true;
         if (upsert && operation.RequestBody?.Content is { } content)
             foreach (var media in content.Values)
@@ -52,7 +68,9 @@ public sealed class ReviewsExamplesFilter : IOperationFilter, ISchemaFilter
             }
 
         const string review = """{"id":11,"gameId":7,"rating":4.5,"text":"Opinión ficticia del juego.","createdAt":"2026-10-30T12:00:00Z","editedAt":null}""";
-        var success = upsert ? """{"review":REVIEW,"ratingSummary":{"average":4.5,"count":1}}""".Replace("REVIEW", review)
+        var success = list ? """
+            {"items":[{"id":11,"rating":4.5,"text":null,"createdAt":"2026-10-30T12:00:00Z","editedAt":null,"author":{"userId":2,"username":"autor_ficticio"},"isMine":false}],"ratingSummary":{"average":4.5,"count":1},"page":1,"pageSize":10,"hasMore":false}
+            """ : upsert ? """{"review":REVIEW,"ratingSummary":{"average":4.5,"count":1}}""".Replace("REVIEW", review)
             : delete ? """{"ratingSummary":{"average":null,"count":0}}""" : review;
         SetExample(responses, "200", success);
         SetExample(responses, "201", success);
@@ -65,13 +83,15 @@ public sealed class ReviewsExamplesFilter : IOperationFilter, ISchemaFilter
                 Schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "uri-reference" },
             };
         }
-        SetExample(responses, "404", upsert
+        SetExample(responses, "404", upsert || list
             ? """{"title":"No se pudo completar la operación de reseñas","status":404,"code":"game_not_found"}"""
             : """{"title":"No se pudo completar la operación de reseñas","status":404,"code":"review_not_found"}""");
         SetExample(responses, "409", """{"title":"No se pudo completar la operación de reseñas","status":409,"code":"concurrent_modification"}""");
         SetExample(responses, "401", """{"title":"No autenticado","status":401}""");
         SetExample(responses, "500", """{"title":"Error interno","status":500,"code":"internal_error"}""");
-        if (responses.TryGetValue("400", out var badRequest) && badRequest.Content is { } errors)
+        if (list)
+            SetExample(responses, "400", """{"title":"No se pudo completar la operación de reseñas","status":400,"code":"invalid_query"}""");
+        else if (responses.TryGetValue("400", out var badRequest) && badRequest.Content is { } errors)
             foreach (var media in errors.Values)
                 media.Examples = new Dictionary<string, IOpenApiExample>
                 {

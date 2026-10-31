@@ -1,6 +1,8 @@
 using System.Text;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Playtrough.Api.Data;
+using Playtrough.Api.Dtos.Reviews;
 using Playtrough.Api.Models;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Services.Interfaces;
@@ -98,6 +100,40 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewS
 
     private Task<Review?> FindAsync(int userId, int gameId, CancellationToken ct)
         => db.Reviews.AsNoTracking().SingleOrDefaultAsync(review => review.UserId == userId && review.GameId == gameId, ct);
+
+    public Task<ReviewListResponse> ListAsync(int userId, int gameId, ReviewListRequest request, CancellationToken ct = default)
+        => db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            // Keep the aggregate and page in the same consistent transaction, using
+            // the isolation level already used by the library on both MySQL and SQLite.
+            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var summary = await GetSummaryAsync(gameId, ct);
+            var query = from review in db.Reviews.AsNoTracking()
+                        join author in db.Users.AsNoTracking() on review.UserId equals author.Id
+                        where review.GameId == gameId
+                        select new
+                        {
+                            review.Id, review.Rating, review.Text, review.CreatedAt, review.EditedAt,
+                            AuthorId = author.Id, Username = author.UserName,
+                        };
+            // Half-star units are exact integers. The integral ordering key works
+            // on both providers without converting ratings to floating point.
+            var ordered = request.Sort switch
+            {
+                "top" => query.OrderByDescending(review => (int)(review.Rating * 2m))
+                    .ThenByDescending(review => review.CreatedAt).ThenByDescending(review => review.Id),
+                "low" => query.OrderBy(review => (int)(review.Rating * 2m))
+                    .ThenByDescending(review => review.CreatedAt).ThenByDescending(review => review.Id),
+                _ => query.OrderByDescending(review => review.CreatedAt).ThenByDescending(review => review.Id),
+            };
+            var offset = ((long)request.Page - 1) * request.PageSize;
+            var rows = offset > int.MaxValue ? [] : await ordered.Skip((int)offset).Take(request.PageSize + 1)
+                .Select(review => new ReviewListItemDto(review.Id, review.Rating, review.Text, review.CreatedAt, review.EditedAt,
+                    new ReviewAuthorDto(review.AuthorId, review.Username!), review.AuthorId == userId)).ToListAsync(ct);
+            await transaction.CommitAsync(ct);
+            return new ReviewListResponse(rows.Take(request.PageSize).ToArray(), summary,
+                request.Page, request.PageSize, rows.Count > request.PageSize);
+        });
 
     private async Task<RatingSummary> SaveAsync(Review review, Guid previousToken, decimal previousRating,
         bool created, bool delete, CancellationToken ct)

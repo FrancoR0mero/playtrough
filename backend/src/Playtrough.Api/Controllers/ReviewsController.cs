@@ -10,7 +10,7 @@ using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Api.Controllers;
 
-/// <summary>Reseña propia de un juego identificado por su ID local.</summary>
+/// <summary>Reseñas de juegos locales y operaciones sobre la reseña propia.</summary>
 [ApiController]
 [Route("api/games/{gameId:int}/reviews")]
 [Tags("Reviews")]
@@ -21,6 +21,25 @@ namespace Playtrough.Api.Controllers;
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 public sealed class ReviewsController(IReviewService reviews) : ControllerBase
 {
+    /// <summary>Listar las reseñas de un juego local.</summary>
+    /// <remarks>Requiere un token válido de cualquier rol. Incluye todas las reseñas, también la propia.
+    /// sort: recent (predeterminado, creación descendente), top (puntuación descendente), low (puntuación ascendente).
+    /// Los empates usan creación descendente e ID descendente. page empieza en 1; pageSize es 10 por defecto y admite 1–30.
+    /// El autor solo contiene userId y username; isMine se calcula desde el token. No requiere biblioteca.
+    /// El resumen y la página comparten una transacción consistente. Las escrituras entre peticiones pueden desplazar páginas.</remarks>
+    /// <response code="200">Reseñas paginadas, ratingSummary global del juego y hasMore. Sin reseñas: items vacío, average null y count 0.</response>
+    /// <response code="400">Orden o paginación inválidos; extensions.code: invalid_query.</response>
+    /// <response code="404">El juego no existe en Games; extensions.code: game_not_found.</response>
+    [HttpGet]
+    [ProducesResponseType(typeof(ReviewListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> List(int gameId, [FromQuery] ReviewListRequest request, CancellationToken ct)
+    {
+        if (UserId() is not { } userId) return Challenge();
+        return Ok(await reviews.ListAsync(userId, gameId, request, ct));
+    }
+
     /// <summary>Consultar la reseña propia de un juego local.</summary>
     /// <remarks>Requiere un token válido de cualquier rol. Solo consulta la reseña del usuario del token.</remarks>
     /// <response code="200">Reseña propia; text y editedAt pueden ser null.</response>
