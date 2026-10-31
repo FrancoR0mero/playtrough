@@ -17,8 +17,8 @@ solo en Development con `Swagger:Enabled=true` (predeterminado de ese entorno).
 
 `IReviewService` centraliza alta/edición, lectura propia, eliminación definitiva y
 lectura del resumen. Usa el ID **local** de `Games`, no exige biblioteca y limita
-cada operación propia al par `(UserId, GameId)`. Todavía no hay endpoints de reseñas:
-se incorporarán en la fase 2, después de revisar esta fase.
+cada operación propia al par `(UserId, GameId)`. Los endpoints propios se describen
+en la fase 2; el listado de reseñas corresponde a la fase 3.
 
 La puntuación admite **1 a 5 en pasos de 0,5**, según la aclaración del alcance.
 `Review.Rating` usa `decimal(2,1)` y `Game.RatingSum`, `decimal(12,1)`; no se usa
@@ -84,6 +84,67 @@ administrativa del contenedor, sin cambiar privilegios ni configuración global.
 En otros entornos, la cuenta que aplica migraciones debe tener los permisos
 necesarios para crear el trigger. La concurrencia real de `ReviewService` en MySQL
 sigue pendiente; las pruebas automatizadas de concurrencia usan SQLite WAL.
+
+## Reseña propia y resumen en detalle — fase 2 (US-28.2, US-30.3 y US-31.1)
+
+Los tres endpoints usan el **ID local** devuelto como `id` en el detalle del juego.
+Requieren JWT válido de cualquier rol (`User`, `Moderator` o `Admin`) y trabajan
+exclusivamente con el usuario del token. No reciben identidad de autor para escribir:
+los campos adicionales `userId`/`id` se ignoran, como en los DTOs existentes. Enviar
+el ID de otro usuario nunca cambia qué reseña se consulta, edita o elimina.
+
+| Endpoint | Respuesta |
+|---|---|
+| `GET /api/games/{gameId}/reviews/me` | 200 `{ id, gameId, rating, text, createdAt, editedAt }`; 404 `review_not_found` si no existe una reseña propia. |
+| `PUT /api/games/{gameId}/reviews/me` | Body `{ rating, text? }`. 201 al crear, con `Location` del GET propio; 200 al editar o repetir una edición idéntica. Devuelve `{ review, ratingSummary }`. |
+| `DELETE /api/games/{gameId}/reviews/me` | 200 `{ ratingSummary }`; 404 `review_not_found` si no existe una reseña propia. |
+
+`ratingSummary` tiene `{ average, count }`: promedio redondeado a un decimal
+(incluidos valores enteros como `4.0`) o null cuando no hay reseñas. `text` y
+`editedAt` pueden ser null; no se exponen IDs de autor, email ni token de concurrencia
+en la respuesta propia. Las fechas son UTC. No es necesario agregar el juego a la
+biblioteca, pero tiene que existir en `Games`.
+
+La validación conserva los tipos JSON originales. Puntuación ausente, no numérica,
+fuera de 1–5 o que no respete pasos de 0,5 devuelve 400 `invalid_rating`;
+las cadenas numéricas se rechazan. También se rechazan valores que solo parezcan
+válidos después de perder precisión decimal. Las representaciones numéricas
+equivalentes (por ejemplo, `45e-1`) son válidas: se comprueban con
+[`JsonElement.DeepEquals`](https://learn.microsoft.com/en-us/dotnet/api/system.text.json.jsonelement.deepequals?view=net-10.0),
+que compara números sin redondearlos. Texto no cadena/null o de más de 2000
+caracteres Unicode después del saneamiento devuelve 400 `invalid_text`.
+Un body vacío o null devuelve `invalid_rating`; para JSON mal formado se usa ese
+código, o `invalid_text` cuando el parser identifica el campo text. No se devuelven
+los mensajes genéricos de conversión del model binding ni se repite el input.
+
+PUT devuelve 404 `game_not_found` si el juego local no existe, sin llamar al proveedor
+ni importarlo. PUT y DELETE pueden devolver 409 `concurrent_modification` si persiste
+el conflicto después del reintento. La decisión para DELETE mantiene el contrato
+del servicio transaccional de la fase 1, aunque la lista inicial de respuestas de
+DELETE no mencionaba ese estado.
+
+Todos pueden devolver 401 y 429 `rate_limited` con `Retry-After` en segundos.
+PUT y DELETE comparten la política `reviews-write`: **20 escrituras por minuto por
+usuario** de forma predeterminada, configurable en `RateLimit:ReviewsWrite` con
+`PermitLimit` y `Window`. Cambiar de IP o renovar el JWT no reinicia el presupuesto;
+otro usuario tiene su propia cuota. Las peticiones inválidas autenticadas consumen
+la cuota. Las peticiones anónimas o con JWT inválido llegan a 401 sin consumirla.
+GET propio conserva el límite global existente. La cuota de catálogo es independiente.
+
+`GET /api/games/{externalId}` incorpora `ratingSummary` y conserva el ID externo de
+su ruta. Después de obtener los metadatos mediante `GameService`, consulta el resumen
+con `ReviewService` directamente desde la base, incluso si los metadatos o sus
+contadores en memoria están desactualizados. La respuesta sigue enviando
+`Cache-Control: no-store`. No se agrega una caché de puntuaciones ni otra migración.
+
+Swagger en Development documenta la etiqueta `Reviews`, las respuestas tipadas,
+restricciones del body, errores, `Location`, `Retry-After` y ejemplos ficticios.
+Las pruebas nuevas usan `WebApplicationFactory` con login/JWT reales y SQLite
+aislado: cubren roles, flujo completo y contadores en cada paso, privacidad e IDOR,
+cuerpos inválidos, conflictos, resumen sin caché obsoleta, límites por usuario y
+Swagger. Se ajustaron solo dos tests existentes por el contrato ampliado:
+`GamesEndpointsTests` (campo `ratingSummary`) y `SwaggerDocumentationTests`
+(etiqueta `Reviews` y clasificación de sus rutas).
 
 ## Catálogo de juegos — fase 1 (US-19)
 

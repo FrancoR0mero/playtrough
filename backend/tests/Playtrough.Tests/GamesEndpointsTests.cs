@@ -160,7 +160,7 @@ public class GamesEndpointsTests
         Assert.Equal("2018-01-01", game.GetProperty("releaseDate").GetString());
         Assert.Equal(JsonValueKind.Null, game.GetProperty("coverUrl").ValueKind);
         Assert.Equal(JsonValueKind.Null, game.GetProperty("coverUrlLarge").ValueKind);
-        Assert.Equal(new[] { "coverUrl", "coverUrlLarge", "developers", "externalId", "genres", "id", "name", "platforms", "releaseDate", "slug", "summary" },
+        Assert.Equal(new[] { "coverUrl", "coverUrlLarge", "developers", "externalId", "genres", "id", "name", "platforms", "ratingSummary", "releaseDate", "slug", "summary" },
             game.EnumerateObject().Select(property => property.Name).Order().ToArray());
         Assert.Equal(1, context.Provider.DetailCalls);
     }
