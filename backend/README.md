@@ -13,6 +13,70 @@ dotnet run --project backend/src/Playtrough.Api
 Swagger está disponible en [http://localhost:5000/swagger](http://localhost:5000/swagger)
 solo en Development con `Swagger:Enabled=true` (predeterminado de ese entorno).
 
+## Reseñas y puntuación — fase 1 (US-28.1, US-28.3, US-30.1 y US-30.2)
+
+`IReviewService` centraliza alta/edición, lectura propia, eliminación definitiva y
+lectura del resumen. Usa el ID **local** de `Games`, no exige biblioteca y limita
+cada operación propia al par `(UserId, GameId)`. Todavía no hay endpoints de reseñas:
+se incorporarán en la fase 2, después de revisar esta fase.
+
+La puntuación admite **1 a 5 en pasos de 0,5**, según la aclaración del alcance.
+`Review.Rating` usa `decimal(2,1)` y `Game.RatingSum`, `decimal(12,1)`; no se usa
+punto flotante. `RatingCount` sigue siendo entero. Ambos contadores empiezan en 0,
+también en juegos existentes. El promedio es nullable cuando no hay reseñas y se
+redondea a un decimal con `MidpointRounding.AwayFromZero` (mitad hacia arriba).
+
+El texto opcional normaliza CRLF/CR a LF, elimina controles salvo LF/tabulación y
+recorta los extremos. Vacío equivale a null. El límite de 2000 se cuenta en valores
+Unicode escalares, no en unidades UTF-16: un emoji como 🎮 cuenta como un carácter;
+las secuencias compuestas pueden contener varios. Se conserva el texto tal cual,
+sin interpretar ni codificar HTML. La columna usa explícitamente `utf8mb4`.
+
+La reseña tiene fechas UTC, token Guid de concurrencia e índice único por usuario
+y juego. Una edición idéntica después del saneamiento no escribe ni altera fechas
+o token. Una edición real conserva `CreatedAt` y cambia `EditedAt` y el token.
+Las escrituras usan `ExecuteUpdateAsync` con aritmética SQL dentro de la misma
+transacción que la reseña; una edición ajusta solo la diferencia de puntuación.
+La baja y los ajustes negativos tienen guardas para impedir contadores negativos;
+si los datos ya estaban inconsistentes, se revierte la operación en lugar de
+ocultar el problema. La transacción completa se ejecuta mediante la estrategia de
+ejecución de EF, compatible también con proveedores configurados con reintentos.
+
+El contador se actualiza antes de escribir la reseña para tomar primero el bloqueo
+de `Game` y evitar la conversión de bloqueos compartidos de FK entre altas
+simultáneas. Véase la [documentación de bloqueos de InnoDB](https://dev.mysql.com/doc/refman/8.0/en/innodb-locks-set.html).
+La colisión de alta relee la identidad ganadora y pasa a edición. Una edición o
+baja con conflicto de token relee y reintenta una vez; un segundo conflicto produce
+`concurrent_modification`. Los objetos de reseña se desacoplan tras cada intento.
+El refresco del catálogo guarda solo sus metadatos y preserva los contadores aunque
+otra petición los haya cambiado desde que se cargó el juego.
+
+La FK impide borrar juegos con reseñas y elimina las reseñas al borrar su usuario.
+La única migración agrega un trigger `BEFORE DELETE` de `Users` para descontar sus
+reseñas de cada juego antes de la cascada, en la misma transacción. Hace falta
+porque [las cascadas de FK de MySQL no activan triggers de la tabla hija](https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html).
+No se agrega ningún endpoint de eliminación de cuentas.
+
+La migración `20261031000047_AddReviews` y su
+[SQL completo](sql/20261031000047_AddReviews.sql) están listos para revisión y **no
+se aplicaron a la base local**. No hay migraciones automáticas al iniciar. El
+timestamp de la migración lo genera EF en UTC. Para regenerar el script offline:
+
+```powershell
+dotnet ef migrations script 20261028004629_AddLibrary 20261031000047_AddReviews --project backend/src/Playtrough.Api --startup-project backend/src/Playtrough.Api --no-build --output backend/sql/20261031000047_AddReviews.sql -- --offline
+```
+
+Los tests nuevos usan SQLite WAL aislado con conexiones independientes, un reloj
+controlable y SQL interceptado. Cubren carreras reales de altas, el índice único,
+ediciones y bajas concurrentes, conflictos repetidos, rollback ante fallos de la
+reseña y del resumen, reintento de la transacción completa, cascada de usuarios,
+saneamiento y consistencia tras 160 operaciones aleatorias. También comprueban la
+aritmética del SQL ejecutado, el modelo y el SQL de migración del proveedor Oracle,
+sin abrir conexión MySQL. `EnsureCreated` no instala triggers: la fixture de
+reseñas ejecuta el SQL SQLite de la propia migración para probar la cascada.
+La ejecución real de la migración y la concurrencia en un servidor MySQL siguen
+pendientes; SQLite no verifica el comportamiento de InnoDB.
+
 ## Catálogo de juegos — fase 1 (US-19)
 
 La integración se consume mediante `IGameCatalogProvider`; los endpoints públicos
