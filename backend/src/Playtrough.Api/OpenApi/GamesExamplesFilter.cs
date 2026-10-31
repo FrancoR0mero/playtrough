@@ -20,7 +20,7 @@ public sealed class GamesExamplesFilter : IOperationFilter
         SetExample(responses, "200", search ? """
             {"items":[{"externalId":42,"name":"Juego de ejemplo","slug":"juego-de-ejemplo","coverUrl":null,"releaseYear":2020,"platforms":["PC de ejemplo"]}],"page":1,"pageSize":20,"hasMore":false}
             """ : """
-            {"id":1,"externalId":42,"name":"Juego de ejemplo","slug":"juego-de-ejemplo","summary":"Resumen ficticio en texto plano.","coverUrl":null,"coverUrlLarge":null,"releaseDate":"2020-01-01","platforms":["PC de ejemplo"],"genres":["Aventura de ejemplo"],"developers":["Estudio ficticio"]}
+            {"id":1,"externalId":42,"name":"Juego de ejemplo","slug":"juego-de-ejemplo","summary":"Resumen ficticio en texto plano.","coverUrl":null,"coverUrlLarge":null,"releaseDate":"2020-01-01","platforms":["PC de ejemplo"],"genres":["Aventura de ejemplo"],"developers":["Estudio ficticio"],"ratingSummary":{"average":4.5,"count":2}}
             """);
         SetExample(responses, "400", search ? """
             {"title":"Consulta inválida","status":400,"detail":"Revisá la consulta y los parámetros de paginación.","code":"invalid_query","errors":{"q":["La consulta debe tener entre 2 y 100 caracteres después de recortar espacios."]}}

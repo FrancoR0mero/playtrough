@@ -9,7 +9,7 @@ using Playtrough.Api.RateLimiting;
 
 namespace Playtrough.Api.Middleware;
 
-/// <summary>Resolves the global/catalog partition identity before UseAuthentication.</summary>
+/// <summary>Resolves the global/catalog/reviews partition identity before UseAuthentication.</summary>
 public sealed class RateLimitIdentityMiddleware(RequestDelegate next, IOptions<RateLimitSettings> settings)
 {
     internal static readonly object UserPartitionKey = new();
@@ -19,7 +19,7 @@ public sealed class RateLimitIdentityMiddleware(RequestDelegate next, IOptions<R
         var endpoint = context.GetEndpoint();
         var policy = endpoint?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
         if (settings.Value.Enabled &&
-            (policy is null || policy == RateLimitPolicies.Catalog) &&
+            (policy is null || policy is RateLimitPolicies.Catalog or RateLimitPolicies.ReviewsWrite) &&
             endpoint?.Metadata.GetMetadata<DisableRateLimitingAttribute>() is null)
         {
             // Never read an unvalidated token's subject. The real JWT handler validates

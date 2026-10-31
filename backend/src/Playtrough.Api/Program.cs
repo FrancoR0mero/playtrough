@@ -35,6 +35,21 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     var defaultResponse = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (context.ActionDescriptor is ControllerActionDescriptor reviewAction &&
+            reviewAction.ControllerTypeInfo.AsType() == typeof(ReviewsController))
+        {
+            // Empty/null/malformed bodies must use the public review contract rather
+            // than framework conversion messages or echoed JSON input.
+            var invalidText = context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
+                entry.Key.Contains("text", StringComparison.OrdinalIgnoreCase));
+            var reviewProblem = new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "No se pudo completar la operación de reseñas",
+            };
+            reviewProblem.Extensions["code"] = invalidText ? "invalid_text" : "invalid_rating";
+            return new BadRequestObjectResult(reviewProblem);
+        }
         var response = defaultResponse(context);
         if (context.ActionDescriptor is ControllerActionDescriptor libraryAction &&
             libraryAction.ControllerTypeInfo.AsType() == typeof(LibraryController) &&
@@ -274,6 +289,8 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<RefreshEndpointExamplesFilter>();
     options.OperationFilter<AdminRoleExamplesFilter>();
     options.OperationFilter<GamesExamplesFilter>();
+    options.SchemaFilter<ReviewsExamplesFilter>();
+    options.OperationFilter<ReviewsExamplesFilter>();
     options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
     options.DocumentFilter<ApiDocumentationFilter>();
@@ -321,6 +338,7 @@ else app.UseExceptionHandler(new ExceptionHandlerOptions
 });
 app.UseMiddleware<GameCatalogExceptionMiddleware>();
 app.UseMiddleware<LibraryExceptionMiddleware>();
+app.UseMiddleware<ReviewExceptionMiddleware>();
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
 {

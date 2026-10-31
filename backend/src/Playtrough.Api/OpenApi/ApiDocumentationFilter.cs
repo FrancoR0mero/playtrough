@@ -14,6 +14,7 @@ public sealed class ApiDocumentationFilter : IOperationFilter, IDocumentFilter
             new OpenApiTag { Name = "Admin", Description = "Usuarios, roles y auditoría. Requiere rol Admin." },
             new OpenApiTag { Name = "Games", Description = "Búsqueda y fichas de juegos. Requiere autenticación; límite compartido por usuario." },
             new OpenApiTag { Name = "Library", Description = "Biblioteca privada del usuario autenticado: juegos, estados, fechas y filtros." },
+            new OpenApiTag { Name = "Reviews", Description = "Reseñas y puntuación de juegos locales. Requiere autenticación; escrituras limitadas por usuario." },
         };
 
     public void Apply(OpenApiOperation operation, OperationFilterContext context)

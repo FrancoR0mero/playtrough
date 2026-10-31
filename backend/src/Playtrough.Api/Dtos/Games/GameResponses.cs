@@ -1,3 +1,5 @@
+using Playtrough.Api.Services.Contracts;
+
 namespace Playtrough.Api.Dtos.Games;
 
 public sealed record GameSummaryDto(int ExternalId, string Name, string Slug, string? CoverUrl,
@@ -7,4 +9,4 @@ public sealed record GameSearchResponseDto(IReadOnlyList<GameSummaryDto> Items, 
 
 public sealed record GameDetailsDto(int Id, int ExternalId, string Name, string Slug, string Summary,
     string? CoverUrl, string? CoverUrlLarge, DateOnly? ReleaseDate, IReadOnlyList<string> Platforms,
-    IReadOnlyList<string> Genres, IReadOnlyList<string> Developers);
+    IReadOnlyList<string> Genres, IReadOnlyList<string> Developers, RatingSummary RatingSummary);
