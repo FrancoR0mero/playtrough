@@ -35,6 +35,10 @@ public sealed class GameRepository(AppDbContext db) : IGameRepository
     public async Task UpdateAsync(Game game, CancellationToken cancellationToken = default)
     {
         db.Games.Update(game);
+        // A catalog refresh owns metadata only. Atomic review counters may have changed
+        // since this entity was loaded, including in a different request/DbContext.
+        db.Entry(game).Property(value => value.RatingCount).IsModified = false;
+        db.Entry(game).Property(value => value.RatingSum).IsModified = false;
         await db.SaveChangesAsync(cancellationToken);
     }
 }

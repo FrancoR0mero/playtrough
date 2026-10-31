@@ -238,6 +238,7 @@ builder.Services.AddScoped<IAdminUserRepository, AdminUserRepository>();
 builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
 
 // Swagger / OpenAPI
 builder.Services.AddOptions<SwaggerSettings>()

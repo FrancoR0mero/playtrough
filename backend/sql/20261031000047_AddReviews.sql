@@ -37,4 +37,3 @@ INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
 VALUES ('20261031000047_AddReviews', '10.0.14');
 
 COMMIT;
-
