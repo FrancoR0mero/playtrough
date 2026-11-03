@@ -1,3 +1,4 @@
+import { NO_REVIEW_PROVIDER } from '../reviews/review-test-helpers';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -26,6 +27,7 @@ describe('Personal library screen', () => {
     TestBed.configureTestingModule({
       imports: [LibraryComponent],
       providers: [
+        NO_REVIEW_PROVIDER,
         provideHttpClient(withInterceptors([jwtInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),

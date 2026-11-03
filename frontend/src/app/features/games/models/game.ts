@@ -1,3 +1,5 @@
+import { RatingSummary } from '../../reviews/models/review';
+
 export interface GameSummary {
   externalId: number;
   name: string;
@@ -16,6 +18,7 @@ export interface GameSearchResponse {
 }
 
 export interface GameDetail {
+  ratingSummary: RatingSummary;
   id: number;
   externalId: number;
   name: string;

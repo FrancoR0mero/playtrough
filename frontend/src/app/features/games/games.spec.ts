@@ -1,3 +1,4 @@
+import { NO_REVIEW_PROVIDER } from '../reviews/review-test-helpers';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -45,6 +46,7 @@ describe('Game search screen', () => {
     TestBed.configureTestingModule({
       imports: [GamesComponent],
       providers: [
+        NO_REVIEW_PROVIDER,
         provideHttpClient(withInterceptors([jwtInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),

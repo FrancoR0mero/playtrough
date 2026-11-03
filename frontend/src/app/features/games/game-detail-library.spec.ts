@@ -1,3 +1,4 @@
+import { NO_REVIEW_PROVIDER } from '../reviews/review-test-helpers';
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -35,6 +36,7 @@ describe('Game detail and library integration', () => {
     TestBed.configureTestingModule({
       imports: [GameDetailComponent],
       providers: [
+        NO_REVIEW_PROVIDER,
         provideHttpClient(withInterceptors([jwtInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),

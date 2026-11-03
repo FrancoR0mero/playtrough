@@ -1,3 +1,4 @@
+import { NO_REVIEW_PROVIDER } from '../reviews/review-test-helpers';
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { HttpErrorResponse } from '@angular/common/http';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -22,6 +23,7 @@ const GAME: GameSummary = {
   platforms: ['PC'],
 };
 const DETAIL: GameDetail = {
+  ratingSummary: { average: null, count: 0 },
   id: 17,
   externalId: 4200,
   name: 'Portal 2',
@@ -45,6 +47,7 @@ describe('Game detail modal content', () => {
     TestBed.configureTestingModule({
       imports: [GameDetailComponent],
       providers: [
+        NO_REVIEW_PROVIDER,
         provideHttpClient(withInterceptors([jwtInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),
@@ -147,7 +150,7 @@ describe('Game detail modal content', () => {
       developers: [],
       summary: '  \n ',
     });
-    expect(element('section:not(app-library-entry section)')).toBeNull();
+    expect(element('.game-detail-information section')).toBeNull();
     expect(element('time')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('2011');
     expect(button('expand-summary')).toBeNull();
