@@ -1,0 +1,191 @@
+<section class="page-container" aria-labelledby="reviews-title">
+  <div class="mx-auto max-w-3xl">
+    <button
+      type="button"
+      data-action="back"
+      (click)="back()"
+      class="ui-button mb-6 min-h-11 rounded-md border border-slate-600 px-4 text-sm text-white"
+    >
+      Volver
+    </button>
+    <header class="flex items-start gap-4 sm:gap-6">
+      @if (detail(); as game) {
+        <div class="h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-900 sm:h-32 sm:w-28">
+          <app-game-image [src]="game.coverUrl" />
+        </div>
+      }
+      <div class="min-w-0">
+        <h1 #title id="reviews-title" tabindex="-1" class="page-heading break-words text-white">
+          {{ detail() ? 'Reseñas de ' + detail()!.name : 'Reseñas del juego' }}
+        </h1>
+        @if (detail()) {
+          <div class="mt-4" data-rating-summary><app-rating-summary [summary]="summary()" /></div>
+        }
+      </div>
+    </header>
+    @if (loading.detail()) {
+      <div
+        data-detail-skeleton
+        aria-label="Cargando el juego"
+        class="mt-8 space-y-4 motion-safe:animate-pulse"
+      >
+        <div class="h-6 w-2/3 rounded bg-slate-800"></div>
+        <div class="h-32 rounded bg-slate-800"></div>
+      </div>
+    }
+    @if (notFound()) {
+      <div
+        role="alert"
+        class="mt-8 rounded-xl border border-red-500/40 bg-red-950/30 p-5 text-red-200"
+      >
+        <p>No encontramos este juego</p>
+        <a routerLink="/games" class="ui-button mt-4 inline-flex min-h-11 items-center underline"
+          >Ir a Juegos</a
+        >
+      </div>
+    } @else {
+      @if (errors.detail()) {
+        <div
+          role="alert"
+          class="mt-8 rounded-xl border border-red-500/40 bg-red-950/30 p-5 text-sm text-red-200"
+        >
+          <p>{{ cooldowns.detail.message() || errors.detail() }}</p>
+          <button
+            type="button"
+            data-action="retry-detail"
+            (click)="loadDetail()"
+            [disabled]="loading.detail() || cooldowns.detail.remaining() > 0"
+            class="ui-button mt-4 min-h-11 border border-red-300/50 px-4 disabled:opacity-50"
+          >
+            Reintentar
+          </button>
+        </div>
+      }
+      @if (detail()) {
+        @if (loading.mine()) {
+          <div
+            data-mine-skeleton
+            aria-label="Cargando tu reseña"
+            class="mt-8 h-24 rounded-xl bg-slate-800 motion-safe:animate-pulse"
+          ></div>
+        }
+        @if (errors.mine()) {
+          <div
+            role="alert"
+            class="mt-8 rounded-xl border border-red-500/40 bg-red-950/30 p-5 text-sm text-red-200"
+          >
+            <p>{{ cooldowns.mine.message() || errors.mine() }}</p>
+            <button
+              type="button"
+              data-action="retry-mine"
+              (click)="loadMine()"
+              [disabled]="loading.mine() || cooldowns.mine.remaining() > 0"
+              class="ui-button mt-4 min-h-11 border border-red-300/50 px-4 disabled:opacity-50"
+            >
+              Reintentar mi reseña
+            </button>
+          </div>
+        }
+        @if (mine(); as review) {
+          <section
+            data-my-review
+            aria-labelledby="my-review-heading"
+            class="mt-8 rounded-xl border border-violet-400/30 bg-violet-400/5 p-5 sm:p-6"
+          >
+            <h2 id="my-review-heading" class="mb-3 text-lg font-semibold text-white">Mi reseña</h2>
+            <app-review-content [review]="review" textId="own-review-text" />
+            <p class="mt-4 text-sm text-slate-400">Podés editarla desde la ficha del juego</p>
+          </section>
+        }
+        <div class="mt-10 flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-xl font-semibold text-white">Reseñas de jugadores</h2>
+          <div class="w-full sm:w-auto">
+            <label for="review-sort" class="mb-2 block text-sm text-slate-400">Ordenar por</label
+            ><select
+              id="review-sort"
+              [formControl]="sort"
+              class="ui-input min-h-11 w-full border text-white"
+            >
+              @for (option of sorts; track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div aria-live="polite" role="status" class="sr-only">
+          {{ loading.list() ? 'Cargando reseñas…' : listLoaded() ? 'Reseñas cargadas' : '' }}
+        </div>
+        <ul
+          class="mt-5 divide-y divide-white/10"
+          aria-label="Reseñas de jugadores"
+          [attr.aria-busy]="loading.list()"
+        >
+          @for (review of items(); track review.id) {
+            <li class="py-6" [attr.data-review-id]="review.id">
+              <!-- TODO: enlazar el username al perfil público cuando se implemente la épica de perfil. -->
+              <p class="mb-3 break-words font-semibold text-white">{{ review.author.username }}</p>
+              <app-review-content [review]="review" [textId]="'review-text-' + review.id" />
+            </li>
+          }
+        </ul>
+        @if (loading.list()) {
+          <div
+            data-list-skeleton
+            aria-label="Cargando reseñas"
+            class="space-y-4 motion-safe:animate-pulse"
+          >
+            @for (row of [1, 2, 3]; track row) {
+              <div class="h-28 rounded-xl bg-slate-800"></div>
+            }
+          </div>
+        }
+        @if (errors.list()) {
+          <div
+            role="alert"
+            class="mt-5 rounded-xl border border-red-500/40 bg-red-950/30 p-5 text-sm text-red-200"
+          >
+            <p>{{ cooldowns.list.message() || errors.list() }}</p>
+            <button
+              type="button"
+              data-action="retry-list"
+              (click)="retryList()"
+              [disabled]="loading.list() || cooldowns.list.remaining() > 0"
+              class="ui-button mt-4 min-h-11 border border-red-300/50 px-4 disabled:opacity-50"
+            >
+              Reintentar
+            </button>
+          </div>
+        }
+        @if (listLoaded() && !items().length && !loading.list() && !errors.list()) {
+          <div data-empty class="py-8 text-sm leading-relaxed text-slate-400">
+            @if (summary().count === 0) {
+              <p class="text-base text-white">Todavía no hay reseñas de este juego</p>
+              <p class="mt-2">
+                Abrí la ficha del juego desde el catálogo para escribir la primera.
+              </p>
+              <a
+                routerLink="/games"
+                [queryParams]="{ q: detail()!.name }"
+                class="ui-button mt-4 inline-flex min-h-11 items-center text-violet-300 underline"
+                >Buscar el juego</a
+              >
+            } @else {
+              <p>No hay reseñas de otros jugadores todavía.</p>
+            }
+          </div>
+        }
+        @if (hasMore() && !errors.list()) {
+          <button
+            type="button"
+            data-action="load-more"
+            (click)="loadMore()"
+            [disabled]="loading.list() || cooldowns.list.remaining() > 0"
+            class="ui-button mt-5 min-h-11 w-full border border-slate-600 px-5 text-sm text-white disabled:opacity-50"
+          >
+            {{ loading.list() ? 'Cargando…' : 'Cargar más' }}
+          </button>
+        }
+      }
+    }
+  </div>
+</section>
