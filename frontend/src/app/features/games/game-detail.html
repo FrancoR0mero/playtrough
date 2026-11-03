@@ -41,14 +41,15 @@
 
   @if (detail()) {
     <div data-rating-summary class="px-5 pt-5 sm:px-8" [hidden]="editing()">
-      <app-star-rating [value]="rating().average" />
-      @if (rating().count > 0) {
-        <p class="mt-2 text-sm text-slate-300">
-          {{ average() }} · {{ rating().count }} {{ rating().count === 1 ? 'reseña' : 'reseñas' }}
-        </p>
-      } @else {
-        <p class="mt-2 text-sm text-slate-300">Sin reseñas todavía</p>
-      }
+      <app-rating-summary [summary]="rating()" />
+      <button
+        type="button"
+        data-action="view-reviews"
+        (click)="viewReviews()"
+        class="ui-button mt-3 min-h-11 rounded-md border border-slate-600 px-4 text-sm text-white"
+      >
+        Ver reseñas{{ rating().count ? ' (' + rating().count + ')' : '' }}
+      </button>
     </div>
   }
   <div

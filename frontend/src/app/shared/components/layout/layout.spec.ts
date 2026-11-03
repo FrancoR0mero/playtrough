@@ -75,7 +75,7 @@ describe('Layout navigation and logout', () => {
     expect(auth.logout).not.toHaveBeenCalled();
   });
 
-  it('provides mobile destinations and a disabled reviews placeholder only when signed in', () => {
+  it('provides three mobile destinations without a separate reviews item when signed in', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.mobile-game-navigation')).toBeNull();
     renderAuthenticated();
@@ -85,10 +85,8 @@ describe('Layout navigation and logout', () => {
       '/library',
       '/profile',
     ]);
-    const reviews = nav.querySelector('button')!;
-    expect(reviews.disabled).toBe(true);
-    expect(reviews.getAttribute('aria-label')).toBe('Reseñas, próximamente');
-    expect(reviews.textContent).toContain('Próximamente');
+    expect(nav.querySelector('button')).toBeNull();
+    expect(nav.textContent).not.toContain('Reseñas');
     expect(
       fixture.nativeElement
         .querySelector('[aria-controls="primary-navigation"]')

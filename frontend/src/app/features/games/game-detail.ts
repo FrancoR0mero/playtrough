@@ -15,11 +15,12 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
+import { Router } from '@angular/router';
 import { RawgAttributionComponent } from '../../shared/components/layout/rawg-attribution';
 import { ProblemDetails } from '../auth/models/register';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { LibraryEntryComponent } from '../library/library-entry';
-import { StarRatingComponent } from '../../shared/components/star-rating/star-rating';
+import { RatingSummaryComponent } from '../reviews/rating-summary';
 import { MyReviewComponent } from '../reviews/my-review';
 import { ReviewService } from '../reviews/services/review';
 import { GameImageComponent } from './game-image';
@@ -34,7 +35,7 @@ export const GAME_SUMMARY_PREVIEW_LENGTH = 500;
     GameImageComponent,
     RawgAttributionComponent,
     LibraryEntryComponent,
-    StarRatingComponent,
+    RatingSummaryComponent,
     MyReviewComponent,
   ],
   host: { '(keydown.escape)': 'escape($event)' },
@@ -59,19 +60,13 @@ export class GameDetailComponent implements OnInit {
   private readonly catalog = inject(GameCatalogService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly reviews = inject(ReviewService);
+  private readonly router = inject(Router);
   private readonly injector = inject(Injector);
   private readonly title = viewChild<ElementRef<HTMLElement>>('detailTitle');
   protected readonly myReview = viewChild(MyReviewComponent);
   protected readonly editing = signal(false);
   protected readonly rating = computed(
     () => this.detail()?.ratingSummary ?? { average: null, count: 0 },
-  );
-  protected readonly average = computed(
-    () =>
-      this.rating().average?.toLocaleString('es-AR', {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      }) ?? '',
   );
   protected readonly detail = signal<GameDetail | null>(null);
   protected readonly loading = signal(false);
@@ -128,6 +123,13 @@ export class GameDetailComponent implements OnInit {
 
   protected refreshSummary(): void {
     this.loadDetail();
+  }
+
+  protected viewReviews(): void {
+    if (this.editing() || !this.detail()) return;
+    this.dialog.config.restoreFocus = false;
+    this.dialog.close();
+    void this.router.navigate(['/games', this.game.externalId, 'reviews']);
   }
 
   protected retry(): void {
