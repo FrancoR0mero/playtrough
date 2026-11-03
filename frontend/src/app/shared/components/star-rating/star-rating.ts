@@ -38,6 +38,10 @@ export class StarRatingComponent implements ControlValueAccessor {
       : `Puntuación ${this.clamp(value).toLocaleString('es-AR')} de 5`;
   }
 
+  protected tabStop(): number {
+    return Math.max(1, Math.ceil(this.clamp(this.selected() ?? 1)));
+  }
+
   protected fill(star: number): number {
     const value = this.mode() === 'input' ? (this.preview() ?? this.selected()) : this.value();
     return Math.round(Math.max(0, Math.min(1, this.clamp(value ?? 0) - star + 1)) * 100);
