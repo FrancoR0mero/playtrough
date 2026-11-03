@@ -1,0 +1,50 @@
+:host {
+  display: inline-block;
+}
+.stars {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  color: #e9c474;
+}
+svg {
+  display: block;
+  flex-shrink: 0;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+button:focus-visible {
+  outline: 2px solid #b7a1ff;
+  outline-offset: 2px;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+span {
+  margin-inline-start: 8px;
+  color: #a2a3b5;
+  font-size: 0.875rem;
+}
+@media (forced-colors: active) {
+  .stars {
+    color: CanvasText;
+  }
+  button:focus-visible {
+    outline-color: Highlight;
+  }
+}
