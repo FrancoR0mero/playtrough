@@ -1,6 +1,5 @@
-<div class="auth-layout">
+<div class="auth-layout" [class.auth-login]="isLogin()">
   <aside class="auth-story" aria-label="Acerca de Playtrough">
-    <p class="eyebrow"><span class="status-dot"></span> PARA LOS QUE VIVEN CADA HISTORIA</p>
     <h2>Hay mundos por descubrir.<br /><span>Este es tu lugar.</span></h2>
     <p class="auth-story-copy">
       Un espacio para tu pasión por los videojuegos. Cada aventura, cada desafío y cada logro, en un
@@ -20,9 +19,6 @@
         <path d="M7 10v5m-2.5-2.5h5M16 11h.01M18 14h.01" stroke-linecap="round" />
       </svg>
     </div>
-    <p class="eyebrow mb-3">
-      {{ isLogin() ? 'QUÉ BUENO TENERTE DE VUELTA' : 'TU PRÓXIMA AVENTURA' }}
-    </p>
     <h1 class="mb-3 text-3xl font-semibold tracking-tight text-white">
       {{ isLogin() ? 'Iniciar sesión' : registeredEmail() ? 'Revisá tu correo' : 'Crear cuenta' }}
     </h1>

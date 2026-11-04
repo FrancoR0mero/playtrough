@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.DependencyInjection;
+using Playtrough.Api.Catalog;
 using Playtrough.Api.Services.Contracts;
 using Xunit;
 
@@ -16,17 +18,19 @@ public class RawgProviderTests
     {
         using var context = new RawgTestContext((_, _, _) => Task.FromResult(RawgTestContext.Json(EmptySearch)));
         const string query = "  \"acción & amigos\" #test + café?key=otro  ";
-        await context.Provider.SearchAsync(query, 2, 40);
+        await context.Services.GetRequiredService<RawgClient>().SearchAsync(query.Trim().ToLowerInvariant(), 2, 40, default);
         var uri = Assert.Single(context.Handler.Requests);
         Assert.Equal("https://api.rawg.io/api/games", uri.GetLeftPart(UriPartial.Path));
         Assert.Empty(uri.Fragment);
         var parameters = QueryHelpers.ParseQuery(uri.Query);
-        Assert.Equal(5, parameters.Count);
+        Assert.Equal(6, parameters.Count);
         Assert.Equal(RawgTestContext.Key, Assert.Single(parameters["key"]));
         Assert.Equal(query.Trim().ToLowerInvariant(), Assert.Single(parameters["search"]));
         Assert.Equal("2", parameters["page"]);
         Assert.Equal("40", parameters["page_size"]);
         Assert.Equal("true", parameters["exclude_additions"]);
+        Assert.Equal("true", parameters["search_precise"]);
+        Assert.False(parameters.ContainsKey("search_exact"));
         Assert.False(parameters.ContainsKey("injected"));
     }
 
@@ -35,15 +39,16 @@ public class RawgProviderTests
     {
         const string body = """
             {"next":"https://untrusted.example/games?key=never-follow", "results":[
-              {"id":1,"name":"First","slug":"first","released":"2020-02-29","background_image":null,
+              {"id":1,"name":"Example First","slug":"first","released":"2020-02-29","background_image":null,
                "platforms":[{"platform":{"name":"PC"}},{"platform":{"name":"Switch"}},{"platform":{"name":"PC"}},null,{}]},
-              {"id":2,"name":"Second","slug":"second","released":null,"platforms":null},
-              {"id":3,"name":"Third","slug":"third","released":"invalid","background_image":"https://media.rawg.io/media/games/example.jpg"}
+              {"id":2,"name":"Example Second","slug":"second","released":null,"platforms":null},
+              {"id":3,"name":"Example Third","slug":"third","released":"invalid","background_image":"https://media.rawg.io/media/games/example.jpg"}
             ]}
             """;
-        using var context = new RawgTestContext((_, _, _) => Task.FromResult(RawgTestContext.Json(body)));
+        using var context = new RawgTestContext((_, attempt, _) => Task.FromResult(RawgTestContext.Json(attempt == 1 ? body : EmptySearch)));
         var result = await context.Provider.SearchAsync("example", 1, 20);
-        Assert.True(result.HasMore);
+        Assert.False(result.HasMore);
+        Assert.False(result.IsLimited);
         Assert.Equal(1, result.Page);
         Assert.Equal(20, result.PageSize);
         Assert.Equal(new DateOnly(2020, 2, 29), result.Items[0].ReleaseDate);
@@ -53,7 +58,8 @@ public class RawgProviderTests
         Assert.Empty(result.Items[1].Platforms);
         Assert.Null(result.Items[2].ReleaseDate);
         Assert.Equal("https://media.rawg.io/media/games/example.jpg", result.Items[2].CoverUrl);
-        Assert.Equal(1, context.Handler.Count);
+        Assert.Equal(2, context.Handler.Count);
+        Assert.All(context.Handler.Requests, uri => Assert.Equal("api.rawg.io", uri.Host));
     }
 
     [Fact]

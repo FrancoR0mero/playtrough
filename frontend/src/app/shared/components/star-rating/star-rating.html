@@ -1,0 +1,53 @@
+<div
+  class="stars"
+  [attr.role]="mode() === 'input' ? 'radiogroup' : 'img'"
+  [attr.aria-label]="mode() === 'input' ? label() : accessibleValue()"
+  [attr.aria-required]="mode() === 'input' ? 'true' : null"
+  [attr.aria-disabled]="mode() === 'input' ? disabled() : null"
+  (pointerleave)="preview.set(null)"
+  (focusout)="blur($event)"
+>
+  @for (star of stars; track star) {
+    @if (mode() === 'input') {
+      <button
+        type="button"
+        role="radio"
+        [disabled]="disabled()"
+        [attr.aria-label]="star + ' de 5 estrellas'"
+        [attr.aria-checked]="selected() === star"
+        [attr.tabindex]="!disabled() && tabStop() === star ? 0 : -1"
+        (click)="choose(star)"
+        (keydown)="keydown($event, star)"
+        (pointerenter)="hover(star, $event)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" [attr.width]="size()" [attr.height]="size()">
+          <path
+            [attr.fill]="fill(star) > 0 ? 'currentColor' : 'none'"
+            [style.clip-path]="'inset(0 ' + (100 - fill(star)) + '% 0 0)'"
+            d="m12 3 2.8 5.7 6.3.9-4.55 4.44 1.07 6.26L12 17.35l-5.62 2.95 1.07-6.26L2.9 9.6l6.3-.9Z"
+          />
+          <path
+            fill="none"
+            d="m12 3 2.8 5.7 6.3.9-4.55 4.44 1.07 6.26L12 17.35l-5.62 2.95 1.07-6.26L2.9 9.6l6.3-.9Z"
+          />
+        </svg>
+      </button>
+    } @else {
+      <svg viewBox="0 0 24 24" aria-hidden="true" [attr.width]="size()" [attr.height]="size()">
+        <path
+          fill="none"
+          d="m12 3 2.8 5.7 6.3.9-4.55 4.44 1.07 6.26L12 17.35l-5.62 2.95 1.07-6.26L2.9 9.6l6.3-.9Z"
+        />
+        <path
+          class="star-fill"
+          fill="currentColor"
+          [style.clip-path]="'inset(0 ' + (100 - fill(star)) + '% 0 0)'"
+          d="m12 3 2.8 5.7 6.3.9-4.55 4.44 1.07 6.26L12 17.35l-5.62 2.95 1.07-6.26L2.9 9.6l6.3-.9Z"
+        />
+      </svg>
+    }
+  }
+  @if (mode() === 'read' && value() === null) {
+    <span>Sin puntuación</span>
+  }
+</div>

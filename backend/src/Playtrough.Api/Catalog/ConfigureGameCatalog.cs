@@ -4,6 +4,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Playtrough.Api.Models;
 using Playtrough.Api.Services.Interfaces;
+using Playtrough.Api.Repositories.Interfaces;
+using Playtrough.Api.Repositories.Implementations;
+using Playtrough.Api.Services.Implementations;
 
 namespace Playtrough.Api.Catalog;
 
@@ -19,11 +22,15 @@ public static class ConfigureGameCatalog
         services.AddOptions<CatalogSettings>().BindSafely(configuration.GetSection(CatalogSettings.SectionName))
             .Validate(settings => !settings.UseFake || environment.IsDevelopment(),
                 "Catalog:UseFake can only be true in Development.")
+            .Validate(settings => settings.RefreshAfterDays is >= 1 and <= 3650,
+                "Catalog:RefreshAfterDays must be between 1 and 3650.")
             .ValidateOnStart();
         services.TryAddSingleton(TimeProvider.System);
         services.AddMemoryCache();
         services.AddSingleton<RawgRequestLimiter>();
         services.AddSingleton<GameCatalogCache>();
+        services.AddScoped<IGameRepository, GameRepository>();
+        services.AddScoped<IGameService, GameService>();
         services.AddHttpClient<RawgClient>((provider, client) =>
         {
             var settings = provider.GetRequiredService<IOptions<RawgSettings>>().Value;

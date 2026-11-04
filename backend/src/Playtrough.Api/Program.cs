@@ -35,7 +35,44 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     var defaultResponse = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (context.ActionDescriptor is ControllerActionDescriptor reviewAction &&
+            reviewAction.ControllerTypeInfo.AsType() == typeof(ReviewsController))
+        {
+            // Empty/null/malformed bodies must use the public review contract rather
+            // than framework conversion messages or echoed JSON input.
+            var invalidText = context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
+                entry.Key.Contains("text", StringComparison.OrdinalIgnoreCase));
+            var reviewProblem = new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "No se pudo completar la operación de reseñas",
+            };
+            reviewProblem.Extensions["code"] = reviewAction.ActionName == nameof(ReviewsController.List)
+                ? "invalid_query" : invalidText ? "invalid_text" : "invalid_rating";
+            return new BadRequestObjectResult(reviewProblem);
+        }
         var response = defaultResponse(context);
+        if (context.ActionDescriptor is ControllerActionDescriptor libraryAction &&
+            libraryAction.ControllerTypeInfo.AsType() == typeof(LibraryController) &&
+            response is ObjectResult { Value: ProblemDetails libraryProblem })
+        {
+            var errors = context.ModelState.Where(entry => entry.Value?.Errors.Count > 0).Select(entry => entry.Key).ToArray();
+            libraryProblem.Extensions["code"] = libraryAction.ActionName == nameof(LibraryController.List) ? "invalid_query"
+                : errors.Any(key => key.Contains("occurredOn", StringComparison.OrdinalIgnoreCase)) ? "invalid_date"
+                : errors.Any(key => key.Contains("gameId", StringComparison.OrdinalIgnoreCase)) ? "game_not_found"
+                : "invalid_status";
+        }
+        if (context.ActionDescriptor is ControllerActionDescriptor gamesAction &&
+            gamesAction.ControllerTypeInfo.AsType() == typeof(GamesController) &&
+            response is ObjectResult { Value: ProblemDetails gamesProblem })
+        {
+            var search = gamesAction.ActionName == nameof(GamesController.Search);
+            gamesProblem.Extensions["code"] = search ? "invalid_query" : "invalid_game_id";
+            gamesProblem.Title = search ? "Consulta inválida" : "ID de juego inválido";
+            gamesProblem.Detail = search
+                ? "Revisá la consulta y los parámetros de paginación."
+                : "El ID externo debe ser un entero positivo.";
+        }
         if (context.ActionDescriptor is ControllerActionDescriptor action &&
             action.ControllerTypeInfo.AsType() == typeof(AdminUsersController) &&
             action.ActionName == nameof(AdminUsersController.ChangeRole) &&
@@ -215,6 +252,9 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAdminUserRepository, AdminUserRepository>();
 builder.Services.AddScoped<IAdminUserService, AdminUserService>();
+builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
+builder.Services.AddScoped<ILibraryService, LibraryService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
 
 // Swagger / OpenAPI
 builder.Services.AddOptions<SwaggerSettings>()
@@ -249,6 +289,9 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<LoginEndpointExamplesFilter>();
     options.OperationFilter<RefreshEndpointExamplesFilter>();
     options.OperationFilter<AdminRoleExamplesFilter>();
+    options.OperationFilter<GamesExamplesFilter>();
+    options.SchemaFilter<ReviewsExamplesFilter>();
+    options.OperationFilter<ReviewsExamplesFilter>();
     options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
     options.DocumentFilter<ApiDocumentationFilter>();
@@ -295,6 +338,8 @@ else app.UseExceptionHandler(new ExceptionHandlerOptions
     SuppressDiagnosticsCallback = _ => true,
 });
 app.UseMiddleware<GameCatalogExceptionMiddleware>();
+app.UseMiddleware<LibraryExceptionMiddleware>();
+app.UseMiddleware<ReviewExceptionMiddleware>();
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
 {

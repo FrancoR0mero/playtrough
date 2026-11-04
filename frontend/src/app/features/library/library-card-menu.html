@@ -1,0 +1,50 @@
+<button
+  type="button"
+  data-library-menu
+  aria-haspopup="menu"
+  [attr.aria-expanded]="opened()"
+  [attr.aria-controls]="'library-menu-' + gameId()"
+  [attr.aria-label]="'Acciones para ' + gameName()"
+  [disabled]="disabled()"
+  (click)="toggle()"
+  (keydown)="triggerKey($event)"
+  class="ui-button min-h-11 min-w-11 border border-white/30 bg-black/90 px-3 text-xl text-white disabled:opacity-50"
+>
+  ⋯
+</button>
+@if (opened()) {
+  <div
+    role="menu"
+    tabindex="-1"
+    [id]="'library-menu-' + gameId()"
+    [attr.aria-label]="'Biblioteca: ' + gameName()"
+    (keydown)="menuKey($event)"
+    class="absolute top-12 right-0 z-30 w-44 max-w-[calc(50vw-2rem)] rounded-xl border border-slate-600 bg-slate-950 p-1 shadow-xl sm:max-w-none"
+  >
+    @for (state of states; track state.value) {
+      <button
+        type="button"
+        role="menuitemradio"
+        tabindex="-1"
+        [attr.aria-checked]="status() === state.value"
+        [attr.data-status]="state.value"
+        [disabled]="disabled() || status() === state.value"
+        (click)="choose(state.value)"
+        class="ui-button block min-h-11 w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-60"
+      >
+        {{ state.label }}{{ status() === state.value ? ' ✓' : '' }}
+      </button>
+    }
+    <button
+      type="button"
+      role="menuitem"
+      tabindex="-1"
+      data-action="menu-remove"
+      [disabled]="disabled()"
+      (click)="choose('remove')"
+      class="ui-button mt-1 block min-h-11 w-full border-t border-slate-700 px-3 py-2 text-left text-sm text-red-300"
+    >
+      Quitar de mi biblioteca
+    </button>
+  </div>
+}

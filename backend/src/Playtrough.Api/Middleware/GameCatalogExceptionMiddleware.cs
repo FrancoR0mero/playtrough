@@ -9,6 +9,12 @@ public sealed class GameCatalogExceptionMiddleware(RequestDelegate next, ILogger
     public async Task InvokeAsync(HttpContext context)
     {
         try { await next(context); }
+        catch (GameNotFoundException) when (!context.Response.HasStarted)
+        {
+            await Results.Problem(statusCode: StatusCodes.Status404NotFound,
+                title: "Juego no encontrado", detail: "No se encontró el juego solicitado.",
+                extensions: new Dictionary<string, object?> { ["code"] = "game_not_found" }).ExecuteAsync(context);
+        }
         catch (GameCatalogUnavailableException) when (!context.Response.HasStarted)
         {
             logger.LogWarning("Game catalog unavailable. TraceId: {TraceId}.", context.TraceIdentifier);

@@ -75,6 +75,25 @@ describe('Layout navigation and logout', () => {
     expect(auth.logout).not.toHaveBeenCalled();
   });
 
+  it('provides three mobile destinations without a separate reviews item when signed in', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.mobile-game-navigation')).toBeNull();
+    renderAuthenticated();
+    const nav = fixture.nativeElement.querySelector('.mobile-game-navigation') as HTMLElement;
+    expect(Array.from(nav.querySelectorAll('a')).map((link) => link.getAttribute('href'))).toEqual([
+      '/games',
+      '/library',
+      '/profile',
+    ]);
+    expect(nav.querySelector('button')).toBeNull();
+    expect(nav.textContent).not.toContain('Reseñas');
+    expect(
+      fixture.nativeElement
+        .querySelector('[aria-controls="primary-navigation"]')
+        .classList.contains('hidden'),
+    ).toBe(true);
+  });
+
   it('shows login and registration links without a session', () => {
     fixture.detectChanges();
     const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
@@ -92,8 +111,10 @@ describe('Layout navigation and logout', () => {
       fixture.detectChanges();
       const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
       expect(nav.textContent).toContain('franco');
-      expect(nav.querySelector('[aria-label="Rol de la cuenta"]')?.textContent?.trim()).toBe(role);
-      expect(nav.querySelector('a[href="/library"]')?.textContent).toContain('Biblioteca');
+      expect(nav.querySelector('[aria-label="Rol de la cuenta"]')?.textContent?.trim()).toBe(
+        role === 'User' ? undefined : role,
+      );
+      expect(nav.querySelector('a[href="/library"]')?.textContent).toContain('Mi biblioteca');
       expect(nav.querySelector('button[data-action="logout"]')).not.toBeNull();
       expect(nav.querySelector('a[href="/auth/login"]')).toBeNull();
       expect(nav.querySelector('a[href="/auth/register"]')).toBeNull();

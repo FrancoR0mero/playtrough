@@ -1,0 +1,35 @@
+<section class="page-container" aria-labelledby="profile-title">
+  <h1 id="profile-title" class="page-heading text-white">Mi perfil</h1>
+  @if (auth.currentUser(); as user) {
+    <div class="mt-7 max-w-xl">
+      <div class="flex items-center gap-4">
+        <span class="account-avatar" aria-hidden="true">{{ user.username.slice(0, 2) }}</span>
+        <h2 class="min-w-0 break-words text-xl font-semibold text-white">{{ user.username }}</h2>
+      </div>
+      <dl class="mt-6 border-y border-white/10 py-5">
+        <dt class="text-sm text-slate-400">Email</dt>
+        <dd class="mt-2 break-words text-base text-slate-200">{{ user.email }}</dd>
+      </dl>
+      @if (auth.hasRole('Admin')) {
+        <a
+          routerLink="/admin/roles"
+          class="ui-button mt-6 inline-flex items-center border border-slate-600 px-4 py-2 text-white"
+          >Administrar roles</a
+        >
+      }
+      <button
+        type="button"
+        data-action="profile-logout"
+        (click)="logout()"
+        [disabled]="loggingOut()"
+        [attr.aria-busy]="loggingOut()"
+        class="ui-button mt-6 block border border-slate-600 px-5 py-3 text-white disabled:opacity-60"
+      >
+        {{ loggingOut() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
+      </button>
+      <p role="status" aria-live="polite" class="sr-only">
+        {{ loggingOut() ? 'Cerrando sesión…' : '' }}
+      </p>
+    </div>
+  }
+</section>

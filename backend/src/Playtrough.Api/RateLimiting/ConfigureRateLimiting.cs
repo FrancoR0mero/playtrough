@@ -18,6 +18,16 @@ public sealed class ConfigureRateLimiting(
         AddPolicy(options, RateLimitPolicies.PasswordRecovery, limits.PasswordRecovery, limits.Enabled);
         AddPolicy(options, RateLimitPolicies.TokenActions, limits.TokenActions, limits.Enabled);
         AddPolicy(options, RateLimitPolicies.Refresh, limits.Refresh, limits.Enabled);
+        options.AddPolicy(RateLimitPolicies.Catalog, context => limits.Enabled &&
+            context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var userId)
+                ? FixedWindow($"user:{userId}", limits.Catalog)
+                // Let authentication consistently return 401; anonymous requests cannot
+                // consume an authenticated user's catalog budget by claiming its subject.
+                : RateLimitPartition.GetNoLimiter<string>("catalog-anonymous"));
+        options.AddPolicy(RateLimitPolicies.ReviewsWrite, context => limits.Enabled &&
+            context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var userId)
+                ? FixedWindow($"user:{userId}", limits.ReviewsWrite)
+                : RateLimitPartition.GetNoLimiter<string>("reviews-write-anonymous"));
 
         if (limits.Enabled)
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
@@ -79,6 +89,8 @@ public sealed class ConfigureRateLimiting(
         RateLimitPolicies.PasswordRecovery => limits.PasswordRecovery.Window,
         RateLimitPolicies.TokenActions => limits.TokenActions.Window,
         RateLimitPolicies.Refresh => limits.Refresh.Window,
+        RateLimitPolicies.Catalog => limits.Catalog.Window,
+        RateLimitPolicies.ReviewsWrite => limits.ReviewsWrite.Window,
         _ => limits.Global.Window,
     };
 }

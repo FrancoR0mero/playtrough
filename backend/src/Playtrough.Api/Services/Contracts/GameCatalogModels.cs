@@ -8,4 +8,4 @@ public sealed record GameDetails(int ExternalId, string Name, string Slug, strin
     IReadOnlyList<string> Genres, IReadOnlyList<string> Developers, string? CoverUrlLarge)
     : GameSummary(ExternalId, Name, Slug, CoverUrl, ReleaseDate, Platforms);
 
-public sealed record GameSearchResult(IReadOnlyList<GameSummary> Items, int Page, int PageSize, bool HasMore);
+public sealed record GameSearchResult(IReadOnlyList<GameSummary> Items, int Page, int PageSize, bool HasMore, bool IsLimited = false);

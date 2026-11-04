@@ -13,11 +13,188 @@ dotnet run --project backend/src/Playtrough.Api
 Swagger está disponible en [http://localhost:5000/swagger](http://localhost:5000/swagger)
 solo en Development con `Swagger:Enabled=true` (predeterminado de ese entorno).
 
+## Reseñas y puntuación — fase 1 (US-28.1, US-28.3, US-30.1 y US-30.2)
+
+`IReviewService` centraliza alta/edición, lectura propia, eliminación definitiva y
+lectura del resumen. Usa el ID **local** de `Games`, no exige biblioteca y limita
+cada operación propia al par `(UserId, GameId)`. Los endpoints propios se describen
+en la fase 2; el listado de reseñas corresponde a la fase 3.
+
+La puntuación admite **1 a 5 en pasos de 0,5**, según la aclaración del alcance.
+`Review.Rating` usa `decimal(2,1)` y `Game.RatingSum`, `decimal(12,1)`; no se usa
+punto flotante. `RatingCount` sigue siendo entero. Ambos contadores empiezan en 0,
+también en juegos existentes. El promedio es nullable cuando no hay reseñas y se
+redondea a un decimal con `MidpointRounding.AwayFromZero` (mitad hacia arriba).
+
+El texto opcional normaliza CRLF/CR a LF, elimina controles salvo LF/tabulación y
+recorta los extremos. Vacío equivale a null. El límite de 2000 se cuenta en valores
+Unicode escalares, no en unidades UTF-16: un emoji como 🎮 cuenta como un carácter;
+las secuencias compuestas pueden contener varios. Se conserva el texto tal cual,
+sin interpretar ni codificar HTML. La columna usa explícitamente `utf8mb4`.
+
+La reseña tiene fechas UTC, token Guid de concurrencia e índice único por usuario
+y juego. Una edición idéntica después del saneamiento no escribe ni altera fechas
+o token. Una edición real conserva `CreatedAt` y cambia `EditedAt` y el token.
+Las escrituras usan `ExecuteUpdateAsync` con aritmética SQL dentro de la misma
+transacción que la reseña; una edición ajusta solo la diferencia de puntuación.
+La baja y los ajustes negativos tienen guardas para impedir contadores negativos;
+si los datos ya estaban inconsistentes, se revierte la operación en lugar de
+ocultar el problema. La transacción completa se ejecuta mediante la estrategia de
+ejecución de EF, compatible también con proveedores configurados con reintentos.
+
+El contador se actualiza antes de escribir la reseña para tomar primero el bloqueo
+de `Game` y evitar la conversión de bloqueos compartidos de FK entre altas
+simultáneas. Véase la [documentación de bloqueos de InnoDB](https://dev.mysql.com/doc/refman/8.0/en/innodb-locks-set.html).
+La colisión de alta relee la identidad ganadora y pasa a edición. Una edición o
+baja con conflicto de token relee y reintenta una vez; un segundo conflicto produce
+`concurrent_modification`. Los objetos de reseña se desacoplan tras cada intento.
+El refresco del catálogo guarda solo sus metadatos y preserva los contadores aunque
+otra petición los haya cambiado desde que se cargó el juego.
+
+La FK impide borrar juegos con reseñas y elimina las reseñas al borrar su usuario.
+La única migración agrega un trigger `BEFORE DELETE` de `Users` para descontar sus
+reseñas de cada juego antes de la cascada, en la misma transacción. Hace falta
+porque [las cascadas de FK de MySQL no activan triggers de la tabla hija](https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html).
+No se agrega ningún endpoint de eliminación de cuentas.
+
+La migración `20261031000047_AddReviews` y su
+[SQL completo](sql/20261031000047_AddReviews.sql) se aplicaron explícitamente a la
+base de desarrollo `playtrought_dev` el 30/10/2026, después de revisar el SQL.
+EF confirmó que la base quedó actualizada. No hay migraciones automáticas al iniciar. El
+timestamp de la migración lo genera EF en UTC. Para regenerar el script offline:
+
+```powershell
+dotnet ef migrations script 20261028004629_AddLibrary 20261031000047_AddReviews --project backend/src/Playtrough.Api --startup-project backend/src/Playtrough.Api --no-build --output backend/sql/20261031000047_AddReviews.sql -- --offline
+```
+
+Los tests nuevos usan SQLite WAL aislado con conexiones independientes, un reloj
+controlable y SQL interceptado. Cubren carreras reales de altas, el índice único,
+ediciones y bajas concurrentes, conflictos repetidos, rollback ante fallos de la
+reseña y del resumen, reintento de la transacción completa, cascada de usuarios,
+saneamiento y consistencia tras 160 operaciones aleatorias. También comprueban la
+aritmética del SQL ejecutado, el modelo y el SQL de migración del proveedor Oracle,
+sin abrir conexión MySQL. `EnsureCreated` no instala triggers: la fixture de
+reseñas ejecuta el SQL SQLite de la propia migración para probar la cascada.
+En MySQL 8.4 se verificaron el esquema, los índices, `utf8mb4`, los contadores
+iniciales y el trigger. Una prueba con un usuario temporal confirmó puntuación
+4,5, emoji y ajuste de contadores por cascada; se revirtió con `ROLLBACK` y no dejó
+registros de prueba. La cuenta de aplicación no pudo crear el trigger con binary
+logging activo: se completó ese paso y el registro de migración con la cuenta
+administrativa del contenedor, sin cambiar privilegios ni configuración global.
+En otros entornos, la cuenta que aplica migraciones debe tener los permisos
+necesarios para crear el trigger. La concurrencia real de `ReviewService` en MySQL
+sigue pendiente; las pruebas automatizadas de concurrencia usan SQLite WAL.
+
+## Reseña propia y resumen en detalle — fase 2 (US-28.2, US-30.3 y US-31.1)
+
+Los tres endpoints usan el **ID local** devuelto como `id` en el detalle del juego.
+Requieren JWT válido de cualquier rol (`User`, `Moderator` o `Admin`) y trabajan
+exclusivamente con el usuario del token. No reciben identidad de autor para escribir:
+los campos adicionales `userId`/`id` se ignoran, como en los DTOs existentes. Enviar
+el ID de otro usuario nunca cambia qué reseña se consulta, edita o elimina.
+
+| Endpoint | Respuesta |
+|---|---|
+| `GET /api/games/{gameId}/reviews/me` | 200 `{ id, gameId, rating, text, createdAt, editedAt }`; 404 `review_not_found` si no existe una reseña propia. |
+| `PUT /api/games/{gameId}/reviews/me` | Body `{ rating, text? }`. 201 al crear, con `Location` del GET propio; 200 al editar o repetir una edición idéntica. Devuelve `{ review, ratingSummary }`. |
+| `DELETE /api/games/{gameId}/reviews/me` | 200 `{ ratingSummary }`; 404 `review_not_found` si no existe una reseña propia. |
+
+`ratingSummary` tiene `{ average, count }`: promedio redondeado a un decimal
+(incluidos valores enteros como `4.0`) o null cuando no hay reseñas. `text` y
+`editedAt` pueden ser null; no se exponen IDs de autor, email ni token de concurrencia
+en la respuesta propia. Las fechas son UTC. No es necesario agregar el juego a la
+biblioteca, pero tiene que existir en `Games`.
+
+La validación conserva los tipos JSON originales. Puntuación ausente, no numérica,
+fuera de 1–5 o que no respete pasos de 0,5 devuelve 400 `invalid_rating`;
+las cadenas numéricas se rechazan. También se rechazan valores que solo parezcan
+válidos después de perder precisión decimal. Las representaciones numéricas
+equivalentes (por ejemplo, `45e-1`) son válidas: se comprueban con
+[`JsonElement.DeepEquals`](https://learn.microsoft.com/en-us/dotnet/api/system.text.json.jsonelement.deepequals?view=net-10.0),
+que compara números sin redondearlos. Texto no cadena/null o de más de 2000
+caracteres Unicode después del saneamiento devuelve 400 `invalid_text`.
+Un body vacío o null devuelve `invalid_rating`; para JSON mal formado se usa ese
+código, o `invalid_text` cuando el parser identifica el campo text. No se devuelven
+los mensajes genéricos de conversión del model binding ni se repite el input.
+
+PUT devuelve 404 `game_not_found` si el juego local no existe, sin llamar al proveedor
+ni importarlo. PUT y DELETE pueden devolver 409 `concurrent_modification` si persiste
+el conflicto después del reintento. La decisión para DELETE mantiene el contrato
+del servicio transaccional de la fase 1, aunque la lista inicial de respuestas de
+DELETE no mencionaba ese estado.
+
+Todos pueden devolver 401 y 429 `rate_limited` con `Retry-After` en segundos.
+PUT y DELETE comparten la política `reviews-write`: **20 escrituras por minuto por
+usuario** de forma predeterminada, configurable en `RateLimit:ReviewsWrite` con
+`PermitLimit` y `Window`. Cambiar de IP o renovar el JWT no reinicia el presupuesto;
+otro usuario tiene su propia cuota. Las peticiones inválidas autenticadas consumen
+la cuota. Las peticiones anónimas o con JWT inválido llegan a 401 sin consumirla.
+GET propio conserva el límite global existente. La cuota de catálogo es independiente.
+
+`GET /api/games/{externalId}` incorpora `ratingSummary` y conserva el ID externo de
+su ruta. Después de obtener los metadatos mediante `GameService`, consulta el resumen
+con `ReviewService` directamente desde la base, incluso si los metadatos o sus
+contadores en memoria están desactualizados. La respuesta sigue enviando
+`Cache-Control: no-store`. No se agrega una caché de puntuaciones ni otra migración.
+
+Swagger en Development documenta la etiqueta `Reviews`, las respuestas tipadas,
+restricciones del body, errores, `Location`, `Retry-After` y ejemplos ficticios.
+Las pruebas nuevas usan `WebApplicationFactory` con login/JWT reales y SQLite
+aislado: cubren roles, flujo completo y contadores en cada paso, privacidad e IDOR,
+cuerpos inválidos, conflictos, resumen sin caché obsoleta, límites por usuario y
+Swagger. Se ajustaron solo dos tests existentes por el contrato ampliado:
+`GamesEndpointsTests` (campo `ratingSummary`) y `SwaggerDocumentationTests`
+(etiqueta `Reviews` y clasificación de sus rutas).
+
+## Listado público de reseñas — fase 3 (US-29.1)
+
+`GET /api/games/{gameId}/reviews` usa el ID **local** y requiere un usuario
+autenticado de cualquier rol. El contenido es público entre esos usuarios y no
+exige biblioteca. Las lecturas conservan el límite global existente.
+
+Parámetros: `sort=recent` (predeterminado), `top` o `low`; `page=1` por defecto;
+`pageSize=10` por defecto y rango 1–30. Los valores vacíos, tipos incorrectos,
+órdenes desconocidos y tamaños fuera de rango producen 400 `invalid_query`.
+No se recortan tamaños inválidos y sort distingue mayúsculas. Un juego local
+inexistente produce 404 `game_not_found`, sin importar datos del proveedor.
+
+La respuesta es `{ items, ratingSummary, page, pageSize, hasMore }`. Cada item
+contiene únicamente `{ id, rating, text, createdAt, editedAt, author, isMine }`;
+`author` solo tiene `{ userId, username }`. Se proyectan esas columnas directamente
+en SQL y no se cargan entidades completas de usuario ni sus emails. La propia
+reseña aparece entre las demás; `isMine` se calcula con el token y nunca con un
+parámetro de usuario. Las reseñas sin texto aparecen con `text: null`.
+
+`recent` ordena por creación descendente e ID descendente; `top` antepone la
+puntuación descendente y `low` la ascendente. Las claves de puntuación usan unidades
+enteras de media estrella (`Rating * 2`), exactas en MySQL y SQLite, manteniendo
+el almacenamiento decimal. El DTO se proyecta después del orden y la paginación.
+Se lee como máximo `pageSize + 1` para calcular `hasMore`; offsets que exceden el
+rango que acepta EF devuelven una página vacía conservando el resumen.
+
+La página y el resumen global del juego se leen en una transacción Serializable,
+igual que la biblioteca, envuelta en la estrategia de ejecución de EF. Así
+comparten un estado consistente, también cuando hay reintentos. El resumen no
+depende de la página ni del orden. La paginación por offset es estable mientras
+no cambien los datos: las escrituras entre peticiones pueden desplazar elementos;
+no se agrega cursor ni snapshot entre páginas al contrato solicitado.
+
+Los tests nuevos cubren fechas y puntuaciones empatadas, los tres órdenes,
+paginación sin repeticiones ni omisiones sobre un conjunto fijo, hasMore, tamaños
+predeterminados/máximos, offsets grandes, roles, isMine, privacidad del JSON y del
+SQL, aislamiento entre juegos, errores, límites y coherencia con el detalle y el
+recálculo después de editar/borrar. También se verifica el reintento de la lectura
+transaccional y Swagger. No se agrega otra migración.
+
+La [guía de prueba manual con curl y SQL](docs/reviews-manual.md) recorre alta,
+edición, repetición idéntica, los tres órdenes, baja y comprobación de contadores;
+incluye las decisiones de contrato y sus límites.
+
 ## Catálogo de juegos — fase 1 (US-19)
 
 La integración se consume mediante `IGameCatalogProvider`; los endpoints públicos
-de búsqueda y detalle se incorporan en la fase 3. Esta fase no persiste juegos ni
-modifica el esquema de la base. El proveedor real es un cliente tipado de
+de búsqueda y detalle están disponibles desde la fase 3. La integración del
+proveedor no persiste búsquedas. El proveedor real es un cliente tipado de
 `IHttpClientFactory`, sin paquetes adicionales de resiliencia.
 
 Sin configuración nueva, `RawgSettings:Enabled=false`: no exige clave y el
@@ -59,7 +236,7 @@ o el `Retry-After` del proveedor si exige más (segundos o fecha HTTP). Otros es
 incluidos 401/403 y redirecciones, no se reintentan. El timeout configurable cubre
 cada petición y su cuerpo; las fallas de red, timeout o JSON se traducen a la
 excepción pública sin adjuntar la excepción original. Un 404 de detalle devuelve
-`null`, que el servicio de persistencia traducirá a juego inexistente en fase 2.
+`null`, que `GameService` traduce a juego inexistente desde la fase 2.
 
 El cliente elimina todos sus loggers HTTP automáticos y deshabilita redirecciones.
 Los logs propios solo contienen estados y números de reintento, nunca URL,
@@ -95,6 +272,161 @@ Los tests de catálogo usan un `HttpMessageHandler` simulado, reloj controlable,
 captura global de logs y sondas HTTP exclusivas del proyecto de pruebas. No hacen
 llamadas reales a RAWG. La fixture existente solo se amplía para no heredar la
 clave ni el modo falso del equipo de desarrollo.
+
+## Persistencia local de juegos — fase 2 (US-22)
+
+`IGameService.GetOrCreateAsync(provider, externalId)` crea una ficha local solo al
+usarla. Por ahora acepta `rawg` (normaliza espacios y mayúsculas), también cuando el
+proveedor de desarrollo es falso. La búsqueda sigue siendo una consulta al catálogo
+y no guarda resultados. No hay importaciones masivas, biblioteca ni reseñas.
+
+`Game` contiene un ID local `int`, proveedor e ID externo, nombre, slug, resumen,
+imagen original nullable, fecha nullable, tres listas y marcas UTC de creación y
+actualización. `Games` tiene un índice único `(Provider, ExternalId)`; ninguna
+relación nueva con usuarios. Plataformas, géneros y desarrolladoras se almacenan
+como columnas MySQL `json`, serializadas desde `List<string>` con un conversor y
+un comparador de valores de EF. Esto evita tablas auxiliares y funciones JSON
+específicas del proveedor; no se necesitan filtros SQL por esos valores en esta
+épica. El comparador detecta cambios dentro de las listas, como recomienda la
+[documentación de EF Core](https://learn.microsoft.com/en-us/ef/core/modeling/value-comparers).
+Se conserva **MySql.EntityFrameworkCore de Oracle**, que es el proveedor real del
+repositorio; no se incorpora Pomelo.
+
+Una copia con hasta `Catalog:RefreshAfterDays` días se devuelve sin llamar al
+proveedor; el valor predeterminado es 30 (rango 1–3650). Si está más vieja, se
+intenta refrescar conservando el ID local y `CreatedAt`. Ante
+`GameCatalogUnavailableException`, una copia existente se devuelve sin alterar
+`UpdatedAt`, para volver a intentar en el siguiente uso. Sin copia, se propaga el
+503 `catalog_unavailable`. Si el proveedor devuelve `null`, se lanza
+`GameNotFoundException`: 404 `game_not_found`, incluso si hay una copia vieja;
+no se borra esa fila. La cancelación del consumidor se propaga.
+
+La concurrencia se resuelve en la base: las peticiones leen y consultan al proveedor
+sin mantener una transacción abierta. Si dos intentan insertar la misma identidad,
+el índice único decide cuál guarda. La otra descarta su entidad pendiente y relee
+la ficha ganadora. Solo se recupera el fallo si realmente existe esa fila; si no,
+se propaga la excepción de persistencia. No se analizan mensajes de MySQL/SQLite
+ni se depende de un bloqueo en memoria que falle con varias instancias de API.
+Repositorio y servicio son scoped; cada petición tiene su propio DbContext.
+
+La migración `20261025065759_AddGames` crea únicamente `Games` y su índice. El
+[SQL generado](sql/20261025065759_AddGames.sql) está listo para revisar y **no se
+aplicó a la base local**. No hay aplicación automática al iniciar. Para regenerar
+el SQL sin credenciales, red ni seed:
+
+```powershell
+dotnet build backend/Playtrough.sln -c Release --disable-build-servers -m:1
+dotnet ef migrations script 20261018070349_AddRoleChangeLogs 20261025065759_AddGames --project backend/src/Playtrough.Api --startup-project backend/src/Playtrough.Api --configuration Release --no-build --output backend/sql/20261025065759_AddGames.sql -- --offline
+```
+
+`AppDbContextFactory` permite a EF trabajar sin ejecutar `Program` ni IdentitySeeder.
+Con `--offline` usa una conexión de diseño sin contraseña que **no abre**; se usa
+solo para generar migraciones/SQL. Los comandos explícitos de base sin esa opción
+usan la configuración normal (incluidos entorno y user-secrets en Development) y
+validan la conexión sin exponerla. La fábrica no valida JWT, correo ni RAWG porque
+no inicia la aplicación.
+
+Los tests usan el proveedor de catálogo simulado y SQLite aislado. La carrera
+usa ocho conexiones/peticiones independientes sobre una base temporal WAL,
+comprueba una sola fila y siete colisiones reales recuperadas del índice único.
+También cubren refresco, fallback, 404/503, límite temporal configurable, listas
+JSON y modificaciones en sus elementos. Una comprobación offline usa el modelo
+del proveedor Oracle y genera el SQL real sin abrir conexión. No se ejecutó esta
+migración contra un servidor MySQL: esa aplicación queda pendiente de la revisión
+del SQL. Los endpoints públicos `/api/games` están disponibles desde la fase 3; las
+sondas usadas aquí solo se registran en las pruebas de catálogo.
+
+## Endpoints del catálogo — fase 3 (US-20 y US-21)
+
+Ambos endpoints requieren un access token válido de cualquier rol y comparten la
+política `catalog`: 30 solicitudes por minuto **por usuario**, configurable. Un
+cambio de token o de IP no renueva el presupuesto; usuarios detrás de la misma IP
+tienen presupuestos independientes. Las solicitudes sin token o con JWT inválido
+devuelven 401 sin consumir el presupuesto de un usuario autenticado. El rechazo
+429 incluye `code=rate_limited` y `Retry-After` en segundos.
+
+| Endpoint | Contrato y efectos |
+|---|---|
+| `GET /api/games/search?q=...&page=1&pageSize=20` | q obligatorio, 2–100 caracteres tras recortar; page ≥ 1; pageSize 1–40. Devuelve `{ items, page, pageSize, hasMore }`; cada item contiene `externalId`, `name`, `slug`, `coverUrl`, `releaseYear` nullable y hasta cinco plataformas. No persiste juegos. |
+| `GET /api/games/{externalId}` | Entero positivo. Usa `GameService`; devuelve `id` **local**, `externalId`, `name`, `slug`, `summary` en texto plano, `coverUrl`, `coverUrlLarge`, `releaseDate` nullable, `platforms`, `genres`, `developers`. Puede guardar/refrescar una ficha, o servir la copia local ante una caída. |
+
+La validación de búsqueda o paginación usa 400 `invalid_query`. Un ID inválido,
+incluidos texto y overflow de `int`, devuelve 400 `invalid_game_id` (decisión de
+contrato donde solo se había especificado el estado). Juego inexistente: 404
+`game_not_found`. Proveedor caído/deshabilitado sin copia de detalle: 503
+`catalog_unavailable`. Si hay copia local, la caída del proveedor no impide abrir
+ese detalle; una búsqueda sigue necesitando el proveedor. `extensions.code` se
+serializa como `code` en la raíz del JSON. La API envía `Cache-Control: no-store`;
+la caché interna del proveedor sigue funcionando.
+
+Swagger agrupa ambas operaciones bajo **Games**, con Bearer, parámetros,
+respuestas tipadas y ejemplos ficticios. Documenta los códigos anteriores y
+`Retry-After`. El parámetro q aparece obligatorio y aclara que su longitud se
+valida después de recortar. No se agregan endpoints públicos de prueba.
+
+### Prueba manual con el proveedor falso
+
+La migración `AddGames` sigue **pendiente de aplicar**. Después de revisar el
+[SQL](sql/20261025065759_AddGames.sql), aplicala explícitamente con la conexión
+habitual de desarrollo; este paso modifica tu base:
+
+```powershell
+dotnet ef database update --project backend/src/Playtrough.Api --startup-project backend/src/Playtrough.Api --configuration Release -- --environment Development
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+$env:Catalog__UseFake = "true"
+$env:RawgSettings__Enabled = "false"
+dotnet run --project backend/src/Playtrough.Api
+```
+
+Usá una cuenta existente con email confirmado. Obtené un access token con
+`POST /api/auth/login` en Swagger y copialo en **Authorize**, o en la variable
+`accessToken` de [Games.http](Games.http). No versiones tokens reales. El archivo
+incluye búsqueda, paginación, detalle repetible, ID inexistente, validaciones,
+petición sin token y prueba de clave inválida.
+
+1. Buscá `witcher` con `pageSize=2`: dos elementos y `hasMore=true`; la página 2
+   devuelve uno y `hasMore=false`. La búsqueda no crea filas en `Games`.
+2. Abrí `/api/games/1`: devuelve un ID local y datos ficticios. Repetí: conserva el
+   mismo ID, sin duplicar filas. Las imágenes son null.
+3. Abrí `/api/games/2147483647`: con el falso, 404 `game_not_found`.
+4. Probá búsqueda `q=x`, detalle `/abc` y una solicitud sin JWT: 400
+   `invalid_query`, 400 `invalid_game_id` y 401, respectivamente.
+5. Para comprobar el 429 sin esperar 30 intentos, podés configurar temporalmente
+   `RateLimit__Catalog__PermitLimit=2` y reiniciar: una búsqueda y un detalle del
+   mismo usuario consumen el presupuesto; la siguiente petición devuelve 429 y
+   `Retry-After`. Quitá esa variable al terminar y reiniciá para volver al valor base.
+
+### Prueba manual con RAWG real
+
+Conservá la clave válida **solo** en user-secrets o `RawgSettings__ApiKey`. Usá una
+base de desarrollo sin fichas ficticias para los IDs elegidos: el falso utiliza
+IDs 1–20 en el mismo espacio `rawg`; una ficha fresca se sirve localmente aunque
+cambies de proveedor de desarrollo.
+
+```powershell
+$env:Catalog__UseFake = "false"
+$env:RawgSettings__Enabled = "true"
+# Configurá tu clave privada con user-secrets como se explica en la fase 1.
+dotnet run --project backend/src/Playtrough.Api
+```
+
+Buscá un título, tomá un `externalId` del resultado y pedí su detalle. Repetir el
+detalle conserva el ID local. Usá un ID que RAWG indique inexistente (por ejemplo,
+`2147483647`) para comprobar 404; la respuesta depende del proveedor real. Para la
+clave inválida, reemplazá temporalmente **la fuente de configuración activa** por
+una cadena deliberadamente inválida, reiniciá y ejecutá la búsqueda de prueba de
+`Games.http`: un 401/403 de RAWG se convierte en 503 `catalog_unavailable`, sin
+reintento ni exposición de la clave. No uses un detalle local para esa prueba,
+porque puede devolver 200 por fallback. Restaurá la clave válida y reiniciá.
+
+Los tests de esta fase usan `WebApplicationFactory`, SQLite aislado y un proveedor
+falso que registra llamadas. Conservan login, Identity y validación JWT reales.
+Cubren roles, parámetros, contratos JSON, ausencia de persistencia en búsquedas,
+detalle y concurrencia, fallback, errores, rate limiting por usuario y Swagger.
+No llaman a RAWG. Solo se adapta el test general existente de etiquetas Swagger
+para reconocer Games. En la línea de base se observó un fallo intermitente previo
+en `RawgResilienceTests.SharedLimiter_PacesConcurrentIndependentClients_AndRetries`;
+pasó al repetirlo aislado. No se modificó ese test ni el limitador del proveedor.
 
 ## Automated integration tests
 
@@ -166,7 +498,8 @@ responden 404 sin exigir JWT cuando está desactivado; HTTP en producción conse
 su redirección a HTTPS previa a ese control.
 
 Las operaciones se agrupan en **Auth** (registro, login, logout, refresh,
-recuperación y confirmación) y **Admin** (usuarios, roles y auditoría). Se excluyen
+recuperación y confirmación), **Admin** (usuarios, roles y auditoría) y **Games**
+(búsqueda y detalle del catálogo). Se excluyen
 `/api/test/*` y los controladores `/__tests/*` que registra únicamente la fixture.
 Los resúmenes, reglas y respuestas se documentan con comentarios XML y
 `ProducesResponseType`; el proyecto genera `Playtrough.Api.xml` y Swagger lo incluye.
@@ -201,10 +534,14 @@ documentan los códigos que ya emite cada flujo:
 | `rate_limited` | 429 | Presupuesto de solicitudes agotado |
 | `payload_too_large` | 413 | Body mayor al límite configurado |
 | `internal_error` | 500 | Excepción no controlada fuera de Development |
+| `invalid_query` | 400 | Búsqueda de juegos o paginación inválida |
+| `invalid_game_id` | 400 | ID externo de juego inválido |
+| `game_not_found` | 404 | El proveedor informa que el juego no existe |
+| `catalog_unavailable` | 503 | Catálogo caído/deshabilitado y sin copia local de detalle |
 
 Para probar desde Swagger en Development:
 
-1. Abrí `/swagger` y verificá las etiquetas Auth y Admin. `/swagger/v1/swagger.json`
+1. Abrí `/swagger` y verificá las etiquetas Auth, Admin y Games. `/swagger/v1/swagger.json`
    entrega el documento sin rutas de prueba.
 2. Usá login con una cuenta de prueba cuyo email esté confirmado. Copiá el access
    token en **Authorize** y usá logout o, con rol Admin, el listado de usuarios.
@@ -309,6 +646,7 @@ $env:PasswordReset__FrontendBaseUrl = 'https://frontend.example.com'
 | `RateLimit:PasswordRecovery:PermitLimit` / `RateLimit:PasswordRecovery:Window` | Presupuesto compartido de recuperación y reenvío por IP; 5 en `00:15:00`. | `RateLimit__PasswordRecovery__PermitLimit` / `RateLimit__PasswordRecovery__Window` |
 | `RateLimit:TokenActions:PermitLimit` / `RateLimit:TokenActions:Window` | Presupuesto compartido de reset y confirmación por IP; 10 en `00:15:00`. | `RateLimit__TokenActions__PermitLimit` / `RateLimit__TokenActions__Window` |
 | `RateLimit:Refresh:PermitLimit` / `RateLimit:Refresh:Window` | Renovaciones por IP; predeterminado 30 en `00:01:00`. | `RateLimit__Refresh__PermitLimit` / `RateLimit__Refresh__Window` |
+| `RateLimit:Catalog:PermitLimit` / `RateLimit:Catalog:Window` | Búsqueda y detalle compartidos por usuario; predeterminado 30 en `00:01:00`. | `RateLimit__Catalog__PermitLimit` / `RateLimit__Catalog__Window` |
 | `RateLimit:Global:PermitLimit` / `RateLimit:Global:Window` | Resto de solicitudes por usuario autenticado o IP anónima; 100 en `00:01:00`. | `RateLimit__Global__PermitLimit` / `RateLimit__Global__Window` |
 | `Swagger:Enabled` | Activa UI y documento únicamente en Development; `true` por defecto en ese entorno y `false` en la base. | `Swagger__Enabled` |
 | `RawgSettings:Enabled` | Habilita RAWG; predeterminado `false`, permite arrancar sin clave. | `RawgSettings__Enabled` |
@@ -319,6 +657,7 @@ $env:PasswordReset__FrontendBaseUrl = 'https://frontend.example.com'
 | `RawgSettings:SearchCacheMinutes` | Duración de búsquedas en memoria; predeterminado 10 (1–525600). | `RawgSettings__SearchCacheMinutes` |
 | `RawgSettings:DetailCacheMinutes` | Duración de detalles en memoria; predeterminado 1440, 24 horas (1–525600). | `RawgSettings__DetailCacheMinutes` |
 | `Catalog:UseFake` | Catálogo de ejemplo, predeterminado `false`. Solo Development; en otros entornos impide arrancar. | `Catalog__UseFake` |
+| `Catalog:RefreshAfterDays` | Refrescar fichas locales con más de N días; predeterminado 30, rango 1–3650. Si el proveedor falla, devolver la copia local sin cambiar su fecha. | `Catalog__RefreshAfterDays` |
 | `Logging:LogLevel:Default` | Nivel general de logs; predeterminado `Information`. | `Logging__LogLevel__Default` |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Nivel de ASP.NET Core; predeterminado `Warning`. | `Logging__LogLevel__Microsoft.AspNetCore` |
 | `AllowedHosts` | Filtro de hosts de ASP.NET Core; configurar los hosts del servicio según el despliegue. | `AllowedHosts` |
@@ -425,11 +764,13 @@ inmediato cuando se agotan los permisos, sin poner solicitudes en cola.
 | `password-recovery` | `POST /api/auth/forgot-password`, `POST /api/auth/resend-confirmation` | 5 cada 15 minutos, compartidos | IP |
 | `token-actions` | `POST /api/auth/reset-password`, `POST /api/auth/confirm-email` | 10 cada 15 minutos, compartidos | IP |
 | `refresh` | `POST /api/auth/refresh` | 30 por minuto | IP |
+| `catalog` | `GET /api/games/search`, `GET /api/games/{externalId}` | 30 por minuto, compartidos | ID de usuario autenticado |
 | `global` | Resto de endpoints, incluidos logout, Admin y `/health` | 100 por minuto, compartidos entre rutas | ID de usuario autenticado; IP para anónimos |
 
-Los endpoints con política propia no consumen el presupuesto global. Todas las
-solicitudes que llegan al limitador consumen un permiso, aunque después fallen por
-validación o autorización. El lockout de Identity permanece: sus respuestas 423 por
+Los endpoints con política propia no consumen el presupuesto global. Las
+solicitudes sujetas a un presupuesto consumen un permiso aunque después fallen por
+validación o autorización. En catalog, las solicitudes sin identidad autenticada
+no consumen permisos y reciben 401. El lockout de Identity permanece: sus respuestas 423 por
 cuenta conviven con el 429 por exceso de solicitudes. Los contadores residen en cada
 proceso y se reinician al reiniciar la API; las ventanas fijas se renuevan completas,
 no calculan una ventana móvil.
@@ -442,13 +783,13 @@ como el límite global. Los cambios requieren reiniciar la API. Se pueden cargar
 mediante user-secrets o variables de entorno como las demás claves de la tabla.
 
 El orden relevante del pipeline es ForwardedHeaders, routing, CORS, límite de body,
-resolución de identidad para el límite global, rate limiting, autenticación y
+resolución de identidad para los límites global y catalog, rate limiting, autenticación y
 autorización. Para respetar el limitador antes de `UseAuthentication` y particionar
-por usuario, un middleware consulta el handler Bearer existente únicamente para
-solicitudes sin política propia. Usa el `sub` solo después de validar el JWT; no
+por usuario, un middleware consulta el handler Bearer existente para
+solicitudes sin política propia o con política catalog. Usa el `sub` solo después de validar el JWT; no
 decodifica tokens sin verificar. El handler guarda el resultado por solicitud y
-`UseAuthentication` lo reutiliza. Los endpoints con política propia siempre se
-limitan por IP, incluso si reciben un JWT. CORS resuelve los preflight antes de
+`UseAuthentication` lo reutiliza. Las políticas de autenticación conservan su
+límite por IP, incluso si reciben un JWT. CORS resuelve los preflight antes de
 consumir permisos y conserva sus headers también en los rechazos 429.
 
 La IP procede de la conexión, con forwarding solo para los proxies/redes confiables
