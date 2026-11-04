@@ -3,22 +3,27 @@ using Playtrough.Api.Models;
 using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Services.Interfaces;
+using Playtrough.Api.Catalog;
 
 namespace Playtrough.Api.Services.Implementations;
 
 public sealed class GameService(IGameRepository repository, IGameDataProvider catalog,
     IOptions<CatalogSettings> settings, TimeProvider time, ILogger<GameService> logger) : IGameService
 {
-    public const string RawgProvider = "rawg";
+    public const string GameBrainProvider = "gamebrain";
 
     public async Task<Game> GetOrCreateAsync(string provider, int externalId, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(provider);
         provider = provider.Trim().ToLowerInvariant();
-        if (provider != RawgProvider) throw new ArgumentException("Only the rawg game provider is supported.", nameof(provider));
+        if (provider is not (GameBrainProvider or "fake")) throw new ArgumentException("Unsupported game provider.", nameof(provider));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(externalId);
         var existing = await repository.FindAsync(provider, externalId, cancellationToken);
-        if (existing is not null && time.GetUtcNow().UtcDateTime - existing.UpdatedAt <= TimeSpan.FromDays(settings.Value.RefreshAfterDays))
+        var now = time.GetUtcNow().UtcDateTime;
+        if (existing is not null && GameMetadata.Expire(existing, now)) await repository.UpdateAsync(existing, cancellationToken);
+        if (existing is not null && (provider == "fake"
+            ? now - existing.UpdatedAt <= TimeSpan.FromDays(settings.Value.RefreshAfterDays)
+            : existing.MetadataExpiresAt > now))
             return existing;
 
         GameDetails details;
@@ -33,9 +38,22 @@ public sealed class GameService(IGameRepository repository, IGameDataProvider ca
             logger.LogWarning("Game refresh unavailable; returning local copy. GameId: {GameId}.", existing.Id);
             return existing;
         }
+        catch (GameBrainQuotaException)
+        {
+            if (existing is not null) return existing;
+            // Persist only an identifier, allowing library/reviews even when metadata is unavailable.
+            return await repository.InsertOrGetExistingAsync(new Game { Provider = provider, ExternalId = externalId,
+                GameBrainId = externalId, Name = $"Juego #{externalId}", CreatedAt = now, UpdatedAt = now }, cancellationToken);
+        }
 
-        var now = time.GetUtcNow().UtcDateTime;
         var game = existing ?? new Game { Provider = provider, ExternalId = externalId, CreatedAt = now };
+        if (provider == GameBrainProvider)
+        {
+            GameMetadata.PreserveLegacy(game);
+            game.GameBrainId = externalId;
+            game.SourceUrl = details.SourceUrl;
+            game.MetadataExpiresAt = now.AddHours(24);
+        }
         game.Name = details.Name;
         game.Slug = details.Slug;
         game.Summary = details.Summary;

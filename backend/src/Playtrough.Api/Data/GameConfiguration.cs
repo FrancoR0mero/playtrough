@@ -24,6 +24,10 @@ internal sealed class GameConfiguration : IEntityTypeConfiguration<Game>
                 dateTime => DateOnly.FromDateTime(dateTime)))
             .HasColumnType("date");
         entity.HasIndex(game => new { game.Provider, game.ExternalId }).IsUnique();
+        entity.HasIndex(game => game.GameBrainId).IsUnique();
+        entity.Property(game => game.SourceUrl).HasMaxLength(2048);
+        entity.Property(game => game.LegacyMetadataJson).HasColumnType("json");
+        entity.HasIndex(game => game.MetadataExpiresAt);
         entity.Property(game => game.RatingCount).HasDefaultValue(0);
         // Supports the sum of up to int.MaxValue five-star ratings without floating point.
         entity.Property(game => game.RatingSum).HasPrecision(12, 1).HasDefaultValue(0m);

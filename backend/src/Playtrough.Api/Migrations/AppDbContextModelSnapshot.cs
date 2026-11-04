@@ -253,9 +253,21 @@ namespace Playtrough.Api.Migrations
                     b.Property<DateTime?>("FirstReleaseDate")
                         .HasColumnType("date");
 
+                    b.Property<int?>("GameBrainId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Genres")
                         .IsRequired()
                         .HasColumnType("json");
+
+                    b.Property<int?>("IgdbId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LegacyMetadataJson")
+                        .HasColumnType("json");
+
+                    b.Property<DateTime?>("MetadataExpiresAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -287,6 +299,13 @@ namespace Playtrough.Api.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("varchar(300)");
 
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("varchar(2048)");
+
+                    b.Property<int?>("SteamId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Summary")
                         .IsRequired()
                         .HasColumnType("text");
@@ -295,6 +314,11 @@ namespace Playtrough.Api.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GameBrainId")
+                        .IsUnique();
+
+                    b.HasIndex("MetadataExpiresAt");
 
                     b.HasIndex("Provider", "ExternalId")
                         .IsUnique();
@@ -462,7 +486,7 @@ namespace Playtrough.Api.Migrations
 
                     b.ToTable("Reviews", (string)null);
 
-                    b.HasAnnotation("MySQL:Charset", "utf8mb4");
+                    MySQLEntityTypeBuilderExtensions.HasCharSet(b, "utf8mb4");
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.RoleChangeLog", b =>
