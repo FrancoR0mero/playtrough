@@ -164,3 +164,7 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Catálogo GameBrain
+
+El buscador usa sugerencias con debounce de 400 ms y búsqueda completa al pulsar Enter o «Buscar en el catálogo». No configurar claves externas en Angular. El footer y el detalle incluyen la atribución [Video Games API](https://gamebrain.co/api). Ver [integración backend](../backend/docs/gamebrain.md).

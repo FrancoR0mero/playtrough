@@ -28,6 +28,7 @@ public static class GameMetadata
         game.Genres = old?.Genres ?? [];
         game.Developers = old?.Developers ?? [];
         game.MetadataExpiresAt = null;
+        game.ProviderDetailsJson = null;
         // SourceUrl is a provider URL identifier and may be retained indefinitely.
         return true;
     }

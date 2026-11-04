@@ -134,6 +134,39 @@ public sealed class GameBrainTests
     }
 
     private static HttpResponseMessage Json(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body) };
+
+    [Fact]
+    public async Task SharedClientGate_SerializesIndependentCalls_AndCacheCoalescesDuplicates()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var fixture = new Fixture(async (_, attempt) =>
+        {
+            if (attempt == 1) { entered.SetResult(); await release.Task; }
+            return Json(Full);
+        });
+        var first = fixture.Client.GetByExternalIdAsync(42);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var duplicate = fixture.Client.GetByExternalIdAsync(42);
+        var independent = fixture.Client.GetByExternalIdAsync(43);
+        Assert.Equal(1, fixture.Calls);
+        Assert.False(independent.IsCompleted);
+        release.SetResult();
+        await Task.WhenAll(first, duplicate, independent).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(2, fixture.Calls);
+    }
+
+    [Fact]
+    public async Task RetriesAreBounded_AndTransportMessagesCannotLeakCredentials()
+    {
+        using var quota = new Fixture((_, _) => new(HttpStatusCode.TooManyRequests));
+        await Assert.ThrowsAsync<GameCatalogUnavailableException>(() => quota.Client.GetByExternalIdAsync(42));
+        Assert.Equal(4, quota.Calls);
+        using var transport = new Fixture((Func<HttpRequestMessage, int, HttpResponseMessage>)((_, _) => throw new HttpRequestException("private-test-key")));
+        var error = await Assert.ThrowsAsync<GameCatalogUnavailableException>(() => transport.Client.GetByExternalIdAsync(42));
+        Assert.DoesNotContain("private-test-key", error.ToString());
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly MemoryCache memory;
@@ -142,12 +175,13 @@ public sealed class GameBrainTests
         public TestCacheClock CacheClock { get; } = new();
         public GameBrainClient Client { get; }
         public int Calls;
-        public Fixture(Func<HttpRequestMessage, int, HttpResponseMessage> respond)
+        public Fixture(Func<HttpRequestMessage, int, HttpResponseMessage> respond) : this((request, count) => Task.FromResult(respond(request, count))) { }
+        public Fixture(Func<HttpRequestMessage, int, Task<HttpResponseMessage>> respond)
         {
             memory = new MemoryCache(new MemoryCacheOptions { Clock = CacheClock });
             var time = new AdvancingCatalogTime();
             gate = new(time);
-            http = new HttpClient(new CatalogHttpHandler((request, _, _) => Task.FromResult(respond(request, ++Calls))))
+            http = new HttpClient(new CatalogHttpHandler((request, _, _) => respond(request, Interlocked.Increment(ref Calls))))
                 { BaseAddress = new Uri("https://api.gamebrain.co/v1/") };
             Client = new(http, Options.Create(new GameBrainOptions { ApiKey = "private-test-key" }), gate,
                 new GameCatalogCache(memory, Mock.Of<IHostApplicationLifetime>()), memory, time, NullLogger<GameBrainClient>.Instance);

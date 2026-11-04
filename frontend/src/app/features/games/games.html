@@ -20,7 +20,14 @@
       [attr.aria-errormessage]="invalidQuery() ? 'catalog-error' : null"
       class="ui-input w-full border text-white focus:outline-none"
     />
-    <p id="game-search-hint" class="mt-2 text-xs text-slate-400">Escribí al menos 2 caracteres.</p>
+    <p id="game-search-hint" class="mt-2 text-xs text-slate-400">Escribí al menos 2 caracteres para ver sugerencias.</p>
+    <button
+      type="button"
+      data-action="search-all"
+      (click)="searchAll()"
+      [disabled]="loading() || search.value.trim().length < 2 || cooldown.remaining() > 0"
+      class="ui-button mt-3 border border-slate-600 px-4 py-2 text-white disabled:opacity-50"
+    >Buscar en el catálogo</button>
   </div>
   <p aria-live="polite" aria-atomic="true" class="mt-6 text-sm text-slate-400">
     @if (loading()) {
@@ -31,8 +38,7 @@
   </p>
   @if (isLimited()) {
     <p data-search-limit role="status" class="mt-3 text-sm leading-relaxed text-slate-400">
-      Se revisó una parte del catálogo para esta búsqueda. Agregá más palabras al nombre para
-      encontrar otros juegos.
+      El catálogo está disponible de forma limitada. Probá con un nombre más preciso o volvé más tarde.
     </p>
   }
   @if (cooldown.message() || error()) {

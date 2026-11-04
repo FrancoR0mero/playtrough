@@ -15,8 +15,8 @@ public static class ConfigureGameCatalog
     public static IServiceCollection AddGameCatalog(this IServiceCollection services,
         IConfiguration configuration, IHostEnvironment environment)
     {
-        services.AddSingleton<IValidateOptions<RawgSettings>, RawgSettingsValidator>();
-        services.AddOptions<RawgSettings>().BindSafely(configuration.GetSection(RawgSettings.SectionName))
+        services.AddSingleton<IValidateOptions<GameBrainOptions>, GameBrainOptionsValidator>();
+        services.AddOptions<GameBrainOptions>().BindSafely(configuration.GetSection(GameBrainOptions.SectionName))
             .Configure(settings => settings.ApiKey = ReadPrivateApiKey(configuration))
             .ValidateOnStart();
         services.AddOptions<CatalogSettings>().BindSafely(configuration.GetSection(CatalogSettings.SectionName))
@@ -27,33 +27,33 @@ public static class ConfigureGameCatalog
             .ValidateOnStart();
         services.TryAddSingleton(TimeProvider.System);
         services.AddMemoryCache();
-        services.AddSingleton<RawgRequestLimiter>();
+        services.AddSingleton<GameBrainGate>();
+        services.AddHostedService<GameMetadataCleanup>();
         services.AddSingleton<GameCatalogCache>();
         services.AddScoped<IGameRepository, GameRepository>();
         services.AddScoped<IGameService, GameService>();
-        services.AddHttpClient<RawgClient>((provider, client) =>
+        services.AddHttpClient<GameBrainClient>((provider, client) =>
         {
-            var settings = provider.GetRequiredService<IOptions<RawgSettings>>().Value;
+            var settings = provider.GetRequiredService<IOptions<GameBrainOptions>>().Value;
             client.BaseAddress = new Uri(settings.BaseUrl.TrimEnd('/') + "/");
-            // RawgClient times each attempt including body reading; queue/backoff are separate.
+            // Each attempt includes body reading; queue/backoff are separate.
             client.Timeout = Timeout.InfiniteTimeSpan;
         })
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
         {
-            // Do not forward the query-string credential to a redirect target.
+            // Do not forward the credential to a redirect target.
             AllowAutoRedirect = false,
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
         })
         .RemoveAllLoggers();
-        services.AddTransient<RawgGameCatalogProvider>();
         services.AddSingleton<DisabledGameCatalogProvider>();
         if (environment.IsDevelopment()) services.AddSingleton<FakeGameCatalogProvider>();
         services.AddTransient<IGameDataProvider>(provider =>
         {
             var catalog = provider.GetRequiredService<IOptions<CatalogSettings>>().Value;
             if (catalog.UseFake) return provider.GetRequiredService<FakeGameCatalogProvider>();
-            return provider.GetRequiredService<IOptions<RawgSettings>>().Value.Enabled
-                ? provider.GetRequiredService<RawgGameCatalogProvider>()
+            return provider.GetRequiredService<IOptions<GameBrainOptions>>().Value.Enabled
+                ? provider.GetRequiredService<GameBrainClient>()
                 : provider.GetRequiredService<DisabledGameCatalogProvider>();
         });
         return services;
@@ -69,7 +69,7 @@ public static class ConfigureGameCatalog
                 var privateSource = provider is EnvironmentVariablesConfigurationProvider ||
                     provider is JsonConfigurationProvider json &&
                     string.Equals(Path.GetFileName(json.Source.Path), "secrets.json", StringComparison.OrdinalIgnoreCase);
-                if (privateSource && provider.TryGet("RawgSettings:ApiKey", out var key)) return key ?? string.Empty;
+                if (privateSource && provider.TryGet("GameBrain:ApiKey", out var key)) return key ?? string.Empty;
             }
         return string.Empty;
     }

@@ -13,45 +13,6 @@ using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Tests;
 
-internal sealed class RawgTestContext : IDisposable
-{
-    public const string Key = "test-rawg-secret-\"&injected=yes#á +";
-    public ServiceProvider Services { get; }
-    public CatalogHttpHandler Handler { get; }
-    public CatalogLogs Logs { get; } = new();
-    public TestCacheClock CacheClock { get; } = new();
-    public AdvancingCatalogTime Time { get; } = new();
-    public IGameDataProvider Provider => Services.GetRequiredService<IGameDataProvider>();
-
-    public RawgTestContext(Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>> respond,
-        Action<RawgSettings>? configure = null, TimeProvider? time = null)
-    {
-        Handler = new CatalogHttpHandler(respond);
-        var services = new ServiceCollection();
-        services.AddLogging(logging => logging.SetMinimumLevel(LogLevel.Trace).AddProvider(Logs));
-        services.AddSingleton(Mock.Of<IHostApplicationLifetime>());
-        var environment = new Mock<IHostEnvironment>();
-        environment.SetupGet(item => item.EnvironmentName).Returns("Testing");
-        services.AddGameCatalog(new ConfigurationBuilder().Build(), environment.Object);
-        services.AddSingleton(time ?? Time);
-        services.PostConfigure<RawgSettings>(settings =>
-        {
-            settings.Enabled = true;
-            settings.ApiKey = Key;
-            settings.MaxRequestsPerSecond = 1000;
-            configure?.Invoke(settings);
-        });
-        services.Configure<MemoryCacheOptions>(options => options.Clock = CacheClock);
-        services.AddHttpClient<RawgClient>().ConfigurePrimaryHttpMessageHandler(() => Handler);
-        Services = services.BuildServiceProvider();
-    }
-
-    public static HttpResponseMessage Json(string body, HttpStatusCode status = HttpStatusCode.OK)
-        => new(status) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
-
-    public void Dispose() { Services.Dispose(); Logs.Dispose(); }
-}
-
 internal sealed class CatalogHttpHandler(Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>> respond)
     : HttpMessageHandler
 {

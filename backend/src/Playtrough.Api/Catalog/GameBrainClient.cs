@@ -57,12 +57,14 @@ public sealed class GameBrainClient(HttpClient http, IOptions<GameBrainOptions> 
             var json = await CachedAsync($"games/{Number(externalId)}", Math.Min(options.Value.DetailCacheMinutes, options.Value.OffersCacheMinutes),
                 options.Value.OffersCacheMinutes, cancellationToken, true);
             if (json.ValueKind == JsonValueKind.Undefined) return null;
-            var details = GameBrainMapper.Map(json);
+            var details = GameBrainMapper.Map(json) with { MetadataFetchedAt = memory.Get<DateTime?>("gamebrain:games/" + externalId + ":received") };
             // Only set on the first retrieval of this response, never extend an existing metadata fallback.
-            if (!memory.TryGetValue(key, out _)) memory.Set(key, details with { Offers = [] }, TimeSpan.FromMinutes(options.Value.DetailCacheMinutes));
+            var remaining = (details.MetadataFetchedAt ?? time.GetUtcNow().UtcDateTime)
+                .AddMinutes(options.Value.DetailCacheMinutes) - time.GetUtcNow().UtcDateTime;
+            if (remaining > TimeSpan.Zero && !memory.TryGetValue(key, out _)) memory.Set(key, details with { Offers = [] }, remaining);
             return details;
         }
-        catch (GameBrainQuotaException) when (memory.TryGetValue<GameDetails>(key, out _)) { return memory.Get<GameDetails>(key); }
+        catch (GameBrainQuotaException) when (memory.TryGetValue<GameDetails>(key, out var fallback) && fallback is not null) { return fallback; }
     }
 
     public async Task<IReadOnlyList<GameSummary>> GetSimilarAsync(int externalId, int limit, CancellationToken cancellationToken = default)
@@ -93,23 +95,24 @@ public sealed class GameBrainClient(HttpClient http, IOptions<GameBrainOptions> 
         var key = "gamebrain:" + path;
         try
         {
-        var result = await cache.GetOrCreateAsync<CachedJson>(key, TimeSpan.FromMinutes(freshMinutes), async shared =>
-        {
-            try
+            var result = await cache.GetOrCreateAsync<CachedJson>(key, TimeSpan.FromMinutes(freshMinutes), async shared =>
             {
-                var value = await SendAsync(path, missing, shared);
-                if (value.ValueKind == JsonValueKind.Undefined) return null;
-                var entry = new CachedJson(value);
-                memory.Set(key + ":fallback", entry, TimeSpan.FromMinutes(fallbackMinutes));
-                return entry;
-            }
-            catch (GameBrainQuotaException) when (memory.TryGetValue<CachedJson>(key + ":fallback", out _))
-            {
-                // Do not promote the fallback to fresh cache: that would extend its original lifetime.
-                throw new CachedFallbackException(memory.Get<CachedJson>(key + ":fallback")!);
-            }
-        }, ct);
-        return result?.Value ?? default;
+                try
+                {
+                    var value = await SendAsync(path, missing, shared);
+                    if (value.ValueKind == JsonValueKind.Undefined) return null;
+                    var entry = new CachedJson(value);
+                    memory.Set(key + ":received", time.GetUtcNow().UtcDateTime, TimeSpan.FromHours(24));
+                    memory.Set(key + ":fallback", entry, TimeSpan.FromMinutes(fallbackMinutes));
+                    return entry;
+                }
+                catch (GameBrainQuotaException) when (memory.TryGetValue<CachedJson>(key + ":fallback", out var fallback) && fallback is not null)
+                {
+                    // Do not promote the fallback to fresh cache: that would extend its original lifetime.
+                    throw new CachedFallbackException(fallback);
+                }
+            }, ct);
+            return result?.Value ?? default;
         }
         catch (CachedFallbackException fallback) { return fallback.Entry.Value; }
     }

@@ -190,243 +190,17 @@ La [guía de prueba manual con curl y SQL](docs/reviews-manual.md) recorre alta,
 edición, repetición idéntica, los tres órdenes, baja y comprobación de contadores;
 incluye las decisiones de contrato y sus límites.
 
-## Catálogo de juegos — fase 1 (US-19)
+## Catálogo de juegos e integración externa
 
-La integración se consume mediante `IGameCatalogProvider`; los endpoints públicos
-de búsqueda y detalle están disponibles desde la fase 3. La integración del
-proveedor no persiste búsquedas. El proveedor real es un cliente tipado de
-`IHttpClientFactory`, sin paquetes adicionales de resiliencia.
+El catálogo usa **GameBrain** detrás de `IGameDataProvider`. Angular accede solo al backend.
+La guía de [configuración, migración, backfill, cuotas y pruebas](docs/gamebrain.md)
+es la referencia para esta integración. El plan free dispone de 50 tokens/día, es no comercial
+y requiere el enlace `Video Games API` a https://gamebrain.co/api.
 
-Sin configuración nueva, `RawgSettings:Enabled=false`: no exige clave y el
-proveedor deshabilitado produce 503 ProblemDetails con `code=catalog_unavailable`.
-El error tiene el mismo contrato en Development y Production; otras excepciones
-conservan el manejo existente. Siguen siendo necesarias las configuraciones
-habituales de base de datos, JWT y correo para arrancar la aplicación.
-
-Para usar datos de ejemplo, configurá `Catalog:UseFake=true` en Development.
-Devuelve 20 nombres conocidos con fechas, plataformas, géneros y estudios
-**ficticios**, sin imágenes; busca por nombre sin distinguir mayúsculas y pagina
-los resultados. El arranque falla si se activa fuera de Development. El modo falso
-tiene prioridad sobre el proveedor deshabilitado/real; si también se habilita RAWG,
-su configuración debe seguir siendo válida.
-
-```powershell
-$env:ASPNETCORE_ENVIRONMENT = "Development"
-$env:Catalog__UseFake = "true"
-dotnet run --project backend/src/Playtrough.Api
-```
-
-Para RAWG real, desactivá el falso y suministrá la clave privada desde user-secrets
-(disponible en Development) o `RawgSettings__ApiKey` en el entorno. No la pegues en
-appsettings, ejemplos, URLs de diagnóstico ni archivos `.http`. El binding de la
-clave ignora appsettings y argumentos de línea de comandos, incluso si contienen
-un valor. Los mensajes de validación muestran únicamente claves y reglas.
-
-```powershell
-# Sustituí el marcador localmente; nunca versiones la clave.
-dotnet user-secrets set "RawgSettings:ApiKey" "TU_CLAVE_PRIVADA" --project backend/src/Playtrough.Api
-dotnet user-secrets set "RawgSettings:Enabled" "true" --project backend/src/Playtrough.Api
-$env:Catalog__UseFake = "false"
-dotnet run --project backend/src/Playtrough.Api
-```
-
-Cada intento consume el limitador compartido: se encola y espacia, sin ráfagas de
-ventana. Se permiten tres reintentos ante 429 o 5xx, con esperas de 250/500/1000 ms
-o el `Retry-After` del proveedor si exige más (segundos o fecha HTTP). Otros estados,
-incluidos 401/403 y redirecciones, no se reintentan. El timeout configurable cubre
-cada petición y su cuerpo; las fallas de red, timeout o JSON se traducen a la
-excepción pública sin adjuntar la excepción original. Un 404 de detalle devuelve
-`null`, que `GameService` traduce a juego inexistente desde la fase 2.
-
-El cliente elimina todos sus loggers HTTP automáticos y deshabilita redirecciones.
-Los logs propios solo contienen estados y números de reintento, nunca URL,
-cabeceras, cuerpo, clave ni excepciones del transporte. No hay una librería de
-resiliencia que pueda registrar la URL por separado.
-
-La caché usa consulta recortada y en minúsculas, página y tamaño, o ID de detalle.
-Las llamadas idénticas simultáneas comparten una petición incluso entre distintas
-instancias del proveedor. Cancelar un consumidor no cancela a los demás; el cierre
-de la aplicación cancela el trabajo compartido. No se cachean errores ni detalles
-inexistentes. Los valores vencen a los 10 minutos/24 horas por defecto. Con varias
-instancias de aplicación harían falta caché y coordinación distribuidas.
-
-Referencia oficial consultada el 24/10/2026: la
-[documentación oficial de RAWG](https://api.rawg.io/docs/?trk=public_post-text)
-y su [guía de acceso](https://rawg.io/apidocs). Decisiones de esta integración:
-
-- La clave se envía como query `key`; todos los valores se escapan con `QueryHelpers`.
-- Se usan `search`, `page`, `page_size` y `exclude_additions=true`. Las adiciones
-  incluyen DLC, ediciones GOTY/otras y aplicaciones complementarias. No se usa
-  `exclude_parents`, porque excluiría juegos base con adiciones.
-- `next` determina `HasMore`; nunca se sigue esa URL. La referencia consultada
-  describe `page_size` sin un máximo numérico explícito: **40 es el tope de nuestro
-  contrato**, sin atribuirle una garantía oficial que no se pudo confirmar.
-- Solo se toma `description_raw`, con máximo 3000 caracteres; nunca `description`
-  HTML. Si falta el texto plano, el resumen queda vacío. La descripción y los
-  estudios se obtienen en detalle, no en la lista de búsqueda.
-- `background_image` se conserva como imagen principal normalmente horizontal.
-  No se encontró un contrato oficial de reescritura resize/crop del CDN: `CoverUrl`
-  y `CoverUrlLarge` usan la original, o `null` si falta.
-
-Los tests de catálogo usan un `HttpMessageHandler` simulado, reloj controlable,
-captura global de logs y sondas HTTP exclusivas del proyecto de pruebas. No hacen
-llamadas reales a RAWG. La fixture existente solo se amplía para no heredar la
-clave ni el modo falso del equipo de desarrollo.
-
-## Persistencia local de juegos — fase 2 (US-22)
-
-`IGameService.GetOrCreateAsync(provider, externalId)` crea una ficha local solo al
-usarla. Por ahora acepta `rawg` (normaliza espacios y mayúsculas), también cuando el
-proveedor de desarrollo es falso. La búsqueda sigue siendo una consulta al catálogo
-y no guarda resultados. No hay importaciones masivas, biblioteca ni reseñas.
-
-`Game` contiene un ID local `int`, proveedor e ID externo, nombre, slug, resumen,
-imagen original nullable, fecha nullable, tres listas y marcas UTC de creación y
-actualización. `Games` tiene un índice único `(Provider, ExternalId)`; ninguna
-relación nueva con usuarios. Plataformas, géneros y desarrolladoras se almacenan
-como columnas MySQL `json`, serializadas desde `List<string>` con un conversor y
-un comparador de valores de EF. Esto evita tablas auxiliares y funciones JSON
-específicas del proveedor; no se necesitan filtros SQL por esos valores en esta
-épica. El comparador detecta cambios dentro de las listas, como recomienda la
-[documentación de EF Core](https://learn.microsoft.com/en-us/ef/core/modeling/value-comparers).
-Se conserva **MySql.EntityFrameworkCore de Oracle**, que es el proveedor real del
-repositorio; no se incorpora Pomelo.
-
-Una copia con hasta `Catalog:RefreshAfterDays` días se devuelve sin llamar al
-proveedor; el valor predeterminado es 30 (rango 1–3650). Si está más vieja, se
-intenta refrescar conservando el ID local y `CreatedAt`. Ante
-`GameCatalogUnavailableException`, una copia existente se devuelve sin alterar
-`UpdatedAt`, para volver a intentar en el siguiente uso. Sin copia, se propaga el
-503 `catalog_unavailable`. Si el proveedor devuelve `null`, se lanza
-`GameNotFoundException`: 404 `game_not_found`, incluso si hay una copia vieja;
-no se borra esa fila. La cancelación del consumidor se propaga.
-
-La concurrencia se resuelve en la base: las peticiones leen y consultan al proveedor
-sin mantener una transacción abierta. Si dos intentan insertar la misma identidad,
-el índice único decide cuál guarda. La otra descarta su entidad pendiente y relee
-la ficha ganadora. Solo se recupera el fallo si realmente existe esa fila; si no,
-se propaga la excepción de persistencia. No se analizan mensajes de MySQL/SQLite
-ni se depende de un bloqueo en memoria que falle con varias instancias de API.
-Repositorio y servicio son scoped; cada petición tiene su propio DbContext.
-
-La migración `20261025065759_AddGames` crea únicamente `Games` y su índice. El
-[SQL generado](sql/20261025065759_AddGames.sql) está listo para revisar y **no se
-aplicó a la base local**. No hay aplicación automática al iniciar. Para regenerar
-el SQL sin credenciales, red ni seed:
-
-```powershell
-dotnet build backend/Playtrough.sln -c Release --disable-build-servers -m:1
-dotnet ef migrations script 20261018070349_AddRoleChangeLogs 20261025065759_AddGames --project backend/src/Playtrough.Api --startup-project backend/src/Playtrough.Api --configuration Release --no-build --output backend/sql/20261025065759_AddGames.sql -- --offline
-```
-
-`AppDbContextFactory` permite a EF trabajar sin ejecutar `Program` ni IdentitySeeder.
-Con `--offline` usa una conexión de diseño sin contraseña que **no abre**; se usa
-solo para generar migraciones/SQL. Los comandos explícitos de base sin esa opción
-usan la configuración normal (incluidos entorno y user-secrets en Development) y
-validan la conexión sin exponerla. La fábrica no valida JWT, correo ni RAWG porque
-no inicia la aplicación.
-
-Los tests usan el proveedor de catálogo simulado y SQLite aislado. La carrera
-usa ocho conexiones/peticiones independientes sobre una base temporal WAL,
-comprueba una sola fila y siete colisiones reales recuperadas del índice único.
-También cubren refresco, fallback, 404/503, límite temporal configurable, listas
-JSON y modificaciones en sus elementos. Una comprobación offline usa el modelo
-del proveedor Oracle y genera el SQL real sin abrir conexión. No se ejecutó esta
-migración contra un servidor MySQL: esa aplicación queda pendiente de la revisión
-del SQL. Los endpoints públicos `/api/games` están disponibles desde la fase 3; las
-sondas usadas aquí solo se registran en las pruebas de catálogo.
-
-## Endpoints del catálogo — fase 3 (US-20 y US-21)
-
-Ambos endpoints requieren un access token válido de cualquier rol y comparten la
-política `catalog`: 30 solicitudes por minuto **por usuario**, configurable. Un
-cambio de token o de IP no renueva el presupuesto; usuarios detrás de la misma IP
-tienen presupuestos independientes. Las solicitudes sin token o con JWT inválido
-devuelven 401 sin consumir el presupuesto de un usuario autenticado. El rechazo
-429 incluye `code=rate_limited` y `Retry-After` en segundos.
-
-| Endpoint | Contrato y efectos |
-|---|---|
-| `GET /api/games/search?q=...&page=1&pageSize=20` | q obligatorio, 2–100 caracteres tras recortar; page ≥ 1; pageSize 1–40. Devuelve `{ items, page, pageSize, hasMore }`; cada item contiene `externalId`, `name`, `slug`, `coverUrl`, `releaseYear` nullable y hasta cinco plataformas. No persiste juegos. |
-| `GET /api/games/{externalId}` | Entero positivo. Usa `GameService`; devuelve `id` **local**, `externalId`, `name`, `slug`, `summary` en texto plano, `coverUrl`, `coverUrlLarge`, `releaseDate` nullable, `platforms`, `genres`, `developers`. Puede guardar/refrescar una ficha, o servir la copia local ante una caída. |
-
-La validación de búsqueda o paginación usa 400 `invalid_query`. Un ID inválido,
-incluidos texto y overflow de `int`, devuelve 400 `invalid_game_id` (decisión de
-contrato donde solo se había especificado el estado). Juego inexistente: 404
-`game_not_found`. Proveedor caído/deshabilitado sin copia de detalle: 503
-`catalog_unavailable`. Si hay copia local, la caída del proveedor no impide abrir
-ese detalle; una búsqueda sigue necesitando el proveedor. `extensions.code` se
-serializa como `code` en la raíz del JSON. La API envía `Cache-Control: no-store`;
-la caché interna del proveedor sigue funcionando.
-
-Swagger agrupa ambas operaciones bajo **Games**, con Bearer, parámetros,
-respuestas tipadas y ejemplos ficticios. Documenta los códigos anteriores y
-`Retry-After`. El parámetro q aparece obligatorio y aclara que su longitud se
-valida después de recortar. No se agregan endpoints públicos de prueba.
-
-### Prueba manual con el proveedor falso
-
-La migración `AddGames` sigue **pendiente de aplicar**. Después de revisar el
-[SQL](sql/20261025065759_AddGames.sql), aplicala explícitamente con la conexión
-habitual de desarrollo; este paso modifica tu base:
-
-```powershell
-dotnet ef database update --project backend/src/Playtrough.Api --startup-project backend/src/Playtrough.Api --configuration Release -- --environment Development
-$env:ASPNETCORE_ENVIRONMENT = "Development"
-$env:Catalog__UseFake = "true"
-$env:RawgSettings__Enabled = "false"
-dotnet run --project backend/src/Playtrough.Api
-```
-
-Usá una cuenta existente con email confirmado. Obtené un access token con
-`POST /api/auth/login` en Swagger y copialo en **Authorize**, o en la variable
-`accessToken` de [Games.http](Games.http). No versiones tokens reales. El archivo
-incluye búsqueda, paginación, detalle repetible, ID inexistente, validaciones,
-petición sin token y prueba de clave inválida.
-
-1. Buscá `witcher` con `pageSize=2`: dos elementos y `hasMore=true`; la página 2
-   devuelve uno y `hasMore=false`. La búsqueda no crea filas en `Games`.
-2. Abrí `/api/games/1`: devuelve un ID local y datos ficticios. Repetí: conserva el
-   mismo ID, sin duplicar filas. Las imágenes son null.
-3. Abrí `/api/games/2147483647`: con el falso, 404 `game_not_found`.
-4. Probá búsqueda `q=x`, detalle `/abc` y una solicitud sin JWT: 400
-   `invalid_query`, 400 `invalid_game_id` y 401, respectivamente.
-5. Para comprobar el 429 sin esperar 30 intentos, podés configurar temporalmente
-   `RateLimit__Catalog__PermitLimit=2` y reiniciar: una búsqueda y un detalle del
-   mismo usuario consumen el presupuesto; la siguiente petición devuelve 429 y
-   `Retry-After`. Quitá esa variable al terminar y reiniciá para volver al valor base.
-
-### Prueba manual con RAWG real
-
-Conservá la clave válida **solo** en user-secrets o `RawgSettings__ApiKey`. Usá una
-base de desarrollo sin fichas ficticias para los IDs elegidos: el falso utiliza
-IDs 1–20 en el mismo espacio `rawg`; una ficha fresca se sirve localmente aunque
-cambies de proveedor de desarrollo.
-
-```powershell
-$env:Catalog__UseFake = "false"
-$env:RawgSettings__Enabled = "true"
-# Configurá tu clave privada con user-secrets como se explica en la fase 1.
-dotnet run --project backend/src/Playtrough.Api
-```
-
-Buscá un título, tomá un `externalId` del resultado y pedí su detalle. Repetir el
-detalle conserva el ID local. Usá un ID que RAWG indique inexistente (por ejemplo,
-`2147483647`) para comprobar 404; la respuesta depende del proveedor real. Para la
-clave inválida, reemplazá temporalmente **la fuente de configuración activa** por
-una cadena deliberadamente inválida, reiniciá y ejecutá la búsqueda de prueba de
-`Games.http`: un 401/403 de RAWG se convierte en 503 `catalog_unavailable`, sin
-reintento ni exposición de la clave. No uses un detalle local para esa prueba,
-porque puede devolver 200 por fallback. Restaurá la clave válida y reiniciá.
-
-Los tests de esta fase usan `WebApplicationFactory`, SQLite aislado y un proveedor
-falso que registra llamadas. Conservan login, Identity y validación JWT reales.
-Cubren roles, parámetros, contratos JSON, ausencia de persistencia en búsquedas,
-detalle y concurrencia, fallback, errores, rate limiting por usuario y Swagger.
-No llaman a RAWG. Solo se adapta el test general existente de etiquetas Swagger
-para reconocer Games. En la línea de base se observó un fallo intermitente previo
-en `RawgResilienceTests.SharedLimiter_PacesConcurrentIndependentClients_AndRetries`;
-pasó al repetirlo aislado. No se modificó ese test ni el limitador del proveedor.
+Se preservan los IDs locales de juegos y las relaciones de biblioteca/reseñas. Las migraciones
+son aditivas y el backfill es un comando explícito: no se ejecutan al iniciar la API.
+Los datos de GameBrain caducan en un máximo de 24 horas; los identificadores se guardan permanentemente.
+El modo `Catalog:UseFake=true` usa un espacio de IDs separado y funciona solo en Development.
 
 ## Automated integration tests
 
@@ -649,15 +423,14 @@ $env:PasswordReset__FrontendBaseUrl = 'https://frontend.example.com'
 | `RateLimit:Catalog:PermitLimit` / `RateLimit:Catalog:Window` | Búsqueda y detalle compartidos por usuario; predeterminado 30 en `00:01:00`. | `RateLimit__Catalog__PermitLimit` / `RateLimit__Catalog__Window` |
 | `RateLimit:Global:PermitLimit` / `RateLimit:Global:Window` | Resto de solicitudes por usuario autenticado o IP anónima; 100 en `00:01:00`. | `RateLimit__Global__PermitLimit` / `RateLimit__Global__Window` |
 | `Swagger:Enabled` | Activa UI y documento únicamente en Development; `true` por defecto en ese entorno y `false` en la base. | `Swagger__Enabled` |
-| `RawgSettings:Enabled` | Habilita RAWG; predeterminado `false`, permite arrancar sin clave. | `RawgSettings__Enabled` |
-| `RawgSettings:ApiKey` | Clave privada, obligatoria si RAWG está habilitado; solo user-secrets o entorno, nunca archivos versionados. | `RawgSettings__ApiKey` |
-| `RawgSettings:BaseUrl` | Base HTTPS sin credenciales, query ni fragmento; `https://api.rawg.io/api`. | `RawgSettings__BaseUrl` |
-| `RawgSettings:MaxRequestsPerSecond` | Máximo compartido por todas las llamadas y reintentos; predeterminado 5 (1–1000). | `RawgSettings__MaxRequestsPerSecond` |
-| `RawgSettings:RequestTimeoutSeconds` | Timeout por intento, incluido el cuerpo; predeterminado 10 (1–120). | `RawgSettings__RequestTimeoutSeconds` |
-| `RawgSettings:SearchCacheMinutes` | Duración de búsquedas en memoria; predeterminado 10 (1–525600). | `RawgSettings__SearchCacheMinutes` |
-| `RawgSettings:DetailCacheMinutes` | Duración de detalles en memoria; predeterminado 1440, 24 horas (1–525600). | `RawgSettings__DetailCacheMinutes` |
+| `GameBrain:Enabled` | Habilita GameBrain; predeterminado `false`, permite arrancar sin clave. | `GameBrain__Enabled` |
+| `GameBrain:ApiKey` | Clave privada, obligatoria si GameBrain está habilitado; solo user-secrets o entorno, nunca archivos versionados. | `GameBrain__ApiKey` |
+| `GameBrain:BaseUrl` | Base HTTPS sin credenciales, query ni fragmento; `https://api.gamebrain.co/v1`. | `GameBrain__BaseUrl` |
+| `GameBrain:RequestTimeoutSeconds` | Timeout por intento, incluido el cuerpo; predeterminado 10 (1–120). | `GameBrain__RequestTimeoutSeconds` |
+| `GameBrain:SearchCacheMinutes` | Duración de búsquedas en memoria; predeterminado 10 (1–1440). | `GameBrain__SearchCacheMinutes` |
+| `GameBrain:DetailCacheMinutes` | Duración de detalles en memoria; predeterminado 1440, 24 horas (1–1440). | `GameBrain__DetailCacheMinutes` |
 | `Catalog:UseFake` | Catálogo de ejemplo, predeterminado `false`. Solo Development; en otros entornos impide arrancar. | `Catalog__UseFake` |
-| `Catalog:RefreshAfterDays` | Refrescar fichas locales con más de N días; predeterminado 30, rango 1–3650. Si el proveedor falla, devolver la copia local sin cambiar su fecha. | `Catalog__RefreshAfterDays` |
+| `Catalog:RefreshAfterDays` | Solo para fichas ficticias; GameBrain tiene caducidad máxima de 24 h. | `Catalog__RefreshAfterDays` |
 | `Logging:LogLevel:Default` | Nivel general de logs; predeterminado `Information`. | `Logging__LogLevel__Default` |
 | `Logging:LogLevel:Microsoft.AspNetCore` | Nivel de ASP.NET Core; predeterminado `Warning`. | `Logging__LogLevel__Microsoft.AspNetCore` |
 | `AllowedHosts` | Filtro de hosts de ASP.NET Core; configurar los hosts del servicio según el despliegue. | `AllowedHosts` |

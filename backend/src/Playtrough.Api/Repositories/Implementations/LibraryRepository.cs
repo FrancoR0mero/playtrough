@@ -4,10 +4,11 @@ using Playtrough.Api.Dtos.Library;
 using Playtrough.Api.Models;
 using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Contracts;
+using Playtrough.Api.Catalog;
 
 namespace Playtrough.Api.Repositories.Implementations;
 
-public sealed class LibraryRepository(AppDbContext db) : ILibraryRepository
+public sealed class LibraryRepository(AppDbContext db, TimeProvider? clock = null) : ILibraryRepository
 {
     public Task<bool> GameExistsAsync(int gameId, CancellationToken ct = default)
         => db.Games.AnyAsync(game => game.Id == gameId, ct);
@@ -17,6 +18,7 @@ public sealed class LibraryRepository(AppDbContext db) : ILibraryRepository
 
     public async Task<LibraryEntryDto> DescribeAsync(LibraryEntry entry, CancellationToken ct = default)
     {
+        await ExpireMetadataAsync(ct);
         var game = await db.Games.AsNoTracking().SingleAsync(game => game.Id == entry.GameId, ct);
         // Preserve the mutation's result even if another request changes the entry before this read.
         return Describe(entry, game);
@@ -24,6 +26,7 @@ public sealed class LibraryRepository(AppDbContext db) : ILibraryRepository
 
     public async Task<LibraryListResponseDto> ListAsync(int userId, LibraryListRequest request, CancellationToken ct = default)
     {
+        await ExpireMetadataAsync(ct);
         // Both reads share a snapshot: counts are global to this user, never to the filters.
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         var own = db.LibraryEntries.AsNoTracking().Where(entry => entry.UserId == userId);
@@ -60,9 +63,17 @@ public sealed class LibraryRepository(AppDbContext db) : ILibraryRepository
         return new(items, counts, request.Page, request.PageSize, rows.Count > request.PageSize);
     }
 
-    private static LibraryEntryDto Describe(LibraryEntry entry, Game game) => new(game.Id, game.ExternalId,
+    private static LibraryEntryDto Describe(LibraryEntry entry, Game game) => new(game.Id, game.GameBrainId ?? game.ExternalId,
         game.Name, game.Slug, game.CoverImageUrl, game.FirstReleaseDate?.Year,
         LibraryValues.StatusValue(entry.Status), entry.StatusChangedOn, entry.AddedAt);
+
+    private async Task ExpireMetadataAsync(CancellationToken ct)
+    {
+        var now = (clock ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+        var expired = await db.Games.Where(game => game.MetadataExpiresAt <= now).ToListAsync(ct);
+        foreach (var game in expired) GameMetadata.Expire(game, now);
+        if (expired.Count > 0) await db.SaveChangesAsync(ct);
+    }
 
     public async Task<bool> TryAddAsync(LibraryEntry entry, LibraryEvent change, CancellationToken ct = default)
     {

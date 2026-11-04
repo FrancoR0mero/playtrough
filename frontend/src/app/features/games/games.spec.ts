@@ -136,6 +136,20 @@ describe('Game search screen', () => {
     fixture.detectChanges();
   }
 
+  it('uses suggestions while typing and full search only after the explicit action', () => {
+    search();
+    const suggestion = request();
+    expect(suggestion.request.url).toBe(`${environment.apiUrl}/games/suggestions`);
+    suggestion.flush({ items: GAMES, page: 1, pageSize: 10, hasMore: false });
+    fixture.detectChanges();
+    button('search-all')!.click();
+    vi.advanceTimersByTime(0);
+    const full = request();
+    expect(full.request.url).toBe(endpoint);
+    expect(full.request.params.get('page')).toBe('1');
+    full.flush({ items: GAMES, page: 1, pageSize: 20, hasMore: false });
+  });
+
   it('starts with an invitation and does not request queries shorter than two trimmed characters', () => {
     expect(fixture.nativeElement.textContent).toContain('¿Qué juego querés agregar?');
     for (const q of ['', ' ', 'a', ' a ']) {
@@ -277,7 +291,7 @@ describe('Game search screen', () => {
     request().flush({ items: GAMES, page: 1, pageSize: 20, hasMore: false, isLimited: true });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-search-limit]')?.textContent).toContain(
-      'Agregá más palabras',
+      'disponible de forma limitada',
     );
     expect(button('load-more')).toBeNull();
     type('Portal 2');

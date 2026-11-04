@@ -1,4 +1,5 @@
 using Playtrough.Api.Services.Contracts;
+using Playtrough.Api.Catalog;
 
 namespace Playtrough.Api.Middleware;
 
@@ -15,7 +16,7 @@ public sealed class GameCatalogExceptionMiddleware(RequestDelegate next, ILogger
                 title: "Juego no encontrado", detail: "No se encontró el juego solicitado.",
                 extensions: new Dictionary<string, object?> { ["code"] = "game_not_found" }).ExecuteAsync(context);
         }
-        catch (GameCatalogUnavailableException) when (!context.Response.HasStarted)
+        catch (Exception error) when (error is GameCatalogUnavailableException or GameBrainAuthenticationException && !context.Response.HasStarted)
         {
             logger.LogWarning("Game catalog unavailable. TraceId: {TraceId}.", context.TraceIdentifier);
             await Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable,

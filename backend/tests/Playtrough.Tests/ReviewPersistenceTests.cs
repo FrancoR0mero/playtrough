@@ -271,7 +271,7 @@ public class ReviewPersistenceTests
         using var context = new ReviewTestContext();
         await using var db = context.CreateDb();
         var repository = new GameRepository(db);
-        var stale = (await repository.FindAsync("rawg", 42))!;
+        var stale = (await repository.FindAsync("fake", 42))!;
         Assert.Equal(0, stale.RatingCount);
         await context.UpsertAsync(4.5m);
         stale.Name = "Refreshed metadata";

@@ -52,10 +52,11 @@ public sealed class GameService(IGameRepository repository, IGameDataProvider ca
             GameMetadata.PreserveLegacy(game);
             game.GameBrainId = externalId;
             game.SourceUrl = details.SourceUrl;
-            game.MetadataExpiresAt = now.AddHours(24);
+            game.MetadataExpiresAt = (details.MetadataFetchedAt ?? now).AddHours(24);
+            game.ProviderDetailsJson = System.Text.Json.JsonSerializer.Serialize(details with { Offers = [] });
         }
         game.Name = details.Name;
-        game.Slug = details.Slug;
+        if (game.Provider != "rawg") game.Slug = details.Slug;
         game.Summary = details.Summary;
         // Phase 1 uses the same original image for both cover sizes. Store the original.
         game.CoverImageUrl = details.CoverUrlLarge ?? details.CoverUrl;

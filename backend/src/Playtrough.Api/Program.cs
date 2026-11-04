@@ -36,7 +36,8 @@ if (args.Contains("--backfill-gamebrain", StringComparer.Ordinal))
     var connection = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Database connection required.");
     builder.Services.AddDbContext<AppDbContext>(options => options.UseMySQL(connection));
     builder.Services.AddScoped<GameBrainBackfill>();
-    using var commandServices = builder.Services.BuildServiceProvider();
+    using var commandApp = builder.Build();
+    var commandServices = commandApp.Services;
     using var commandScope = commandServices.CreateScope();
     var options = commandServices.GetRequiredService<IOptions<GameBrainOptions>>().Value;
     if (!options.Enabled || builder.Configuration.GetValue<bool>("Catalog:UseFake"))
@@ -86,7 +87,7 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
             gamesAction.ControllerTypeInfo.AsType() == typeof(GamesController) &&
             response is ObjectResult { Value: ProblemDetails gamesProblem })
         {
-            var search = gamesAction.ActionName == nameof(GamesController.Search);
+            var search = gamesAction.ActionName is nameof(GamesController.Search) or nameof(GamesController.Suggestions);
             gamesProblem.Extensions["code"] = search ? "invalid_query" : "invalid_game_id";
             gamesProblem.Title = search ? "Consulta inválida" : "ID de juego inválido";
             gamesProblem.Detail = search

@@ -52,3 +52,6 @@ appsettings.*.local.json
 /backend/scripts/Test-RateLimiting.ps1
 
 # Shared docker-compose.yml and appsettings JSON stay tracked; local overrides do not.
+
+# Local migration report
+gamebrain-backfill*.jsonl

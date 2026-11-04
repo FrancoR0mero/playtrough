@@ -4,7 +4,7 @@
 
 - Levantar el backend y el frontend (`npm start` desde `frontend`). Verificar `apiUrl` en el environment utilizado.
 - Disponer de dos usuarios autenticados y un juego del catálogo. Para probar «Cargar más», usar un juego con más de 20 reseñas públicas.
-- La URL usa el `externalId` de RAWG: `/games/:externalId/reviews`. Las consultas y escrituras de reseñas usan el `id` local devuelto por el detalle.
+- La navegación nueva usa el ID local: `/games/local/:gameId/reviews`. La ruta `/games/:externalId/reviews` admite IDs de GameBrain. Las consultas y escrituras de reseñas usan el `id` local devuelto por el detalle.
 
 ## Recorrido con el backend
 

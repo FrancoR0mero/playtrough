@@ -20,6 +20,7 @@ public sealed record GameDetails(int ExternalId, string Name, string Slug, strin
     public decimal? PlaytimeHours { get; init; }
     public bool? AdultOnly { get; init; }
     public IReadOnlyList<GameOffer> Offers { get; init; } = [];
+    public DateTime? MetadataFetchedAt { get; init; }
 }
 
 public sealed record GameOffer(string StoreName, decimal? Value, decimal? Initial, decimal? DiscountPercent, string? Currency);

@@ -81,7 +81,7 @@ internal sealed class GamesApiTestContext : IDisposable
     {
         using var scope = Factory.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<AppDbContext>().Games.ExecuteUpdateAsync(update =>
-            update.SetProperty(game => game.UpdatedAt, DateTime.UtcNow.AddDays(-31)));
+            update.SetProperty(game => game.UpdatedAt, DateTime.UtcNow.AddDays(-31)).SetProperty(game => game.MetadataExpiresAt, DateTime.UtcNow.AddDays(-1)));
     }
 
     public void Dispose() { Factory.Dispose(); _baseFactory.Dispose(); }

@@ -58,7 +58,7 @@ internal sealed class GamePersistenceTestContext : IDisposable
         scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
     }
 
-    public async Task<Game> GetAsync(int externalId = 42, string provider = "rawg", CancellationToken cancellationToken = default)
+    public async Task<Game> GetAsync(int externalId = 42, string provider = "fake", CancellationToken cancellationToken = default)
     {
         using var scope = Services.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<IGameService>().GetOrCreateAsync(provider, externalId, cancellationToken);
@@ -86,7 +86,7 @@ internal sealed class GamePersistenceTestContext : IDisposable
 
     public static Game LocalGame(DateTime now, int id = 42) => new()
     {
-        Provider = "rawg", ExternalId = id, Name = "Old name", Slug = "old-name", Summary = "Old summary",
+        Provider = "fake", ExternalId = id, Name = "Old name", Slug = "old-name", Summary = "Old summary",
         CoverImageUrl = null, FirstReleaseDate = null, Platforms = ["Old platform"], Genres = [], Developers = [],
         CreatedAt = now.AddDays(-1), UpdatedAt = now,
     };
