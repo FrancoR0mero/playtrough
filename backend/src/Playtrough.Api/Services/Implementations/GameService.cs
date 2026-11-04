@@ -6,7 +6,7 @@ using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Api.Services.Implementations;
 
-public sealed class GameService(IGameRepository repository, IGameCatalogProvider catalog,
+public sealed class GameService(IGameRepository repository, IGameDataProvider catalog,
     IOptions<CatalogSettings> settings, TimeProvider time, ILogger<GameService> logger) : IGameService
 {
     public const string RawgProvider = "rawg";

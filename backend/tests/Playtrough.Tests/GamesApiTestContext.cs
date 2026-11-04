@@ -31,8 +31,8 @@ internal sealed class GamesApiTestContext : IDisposable
         _baseFactory = new LoginApiFactory(useIndependentConnections: concurrent, environment: environment);
         Factory = _baseFactory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            services.RemoveAll<IGameCatalogProvider>();
-            services.AddSingleton<IGameCatalogProvider>(Provider);
+            services.RemoveAll<IGameDataProvider>();
+            services.AddSingleton<IGameDataProvider>(Provider);
             services.PostConfigure<RateLimitSettings>(settings =>
             {
                 settings.Enabled = enableLimits;
@@ -101,7 +101,7 @@ internal sealed class GamesRemoteIpFilter : IStartupFilter
     };
 }
 
-internal sealed class RecordingGameCatalog : IGameCatalogProvider
+internal sealed class RecordingGameCatalog : IGameDataProvider
 {
     private readonly FakeGameCatalogProvider _fake = new();
     private int _searches;

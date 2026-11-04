@@ -19,7 +19,7 @@ internal sealed class GamePersistenceTestContext : IDisposable
     private readonly SqliteConnection _connection;
     private readonly string? _databasePath;
     public ServiceProvider Services { get; }
-    public Mock<IGameCatalogProvider> Provider { get; } = new(MockBehavior.Strict);
+    public Mock<IGameDataProvider> Provider { get; } = new(MockBehavior.Strict);
     public CatalogPersistenceClock Clock { get; } = new();
     public GameInsertFailures InsertFailures { get; } = new();
 

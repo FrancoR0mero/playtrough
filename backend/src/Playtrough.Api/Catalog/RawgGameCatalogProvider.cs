@@ -7,7 +7,7 @@ using Playtrough.Api.Services.Interfaces;
 namespace Playtrough.Api.Catalog;
 
 public sealed class RawgGameCatalogProvider(RawgClient client, GameCatalogCache cache, IOptions<RawgSettings> settings)
-    : IGameCatalogProvider
+    : IGameDataProvider
 {
     // Bound upstream work and rank one shared candidate set before applying local pagination.
     internal const int CandidatePageSize = 40;

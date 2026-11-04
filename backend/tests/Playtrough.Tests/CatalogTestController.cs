@@ -13,7 +13,7 @@ namespace Playtrough.Tests;
 [AllowAnonymous]
 [ApiExplorerSettings(IgnoreApi = true)]
 [Route("__tests/catalog")]
-public sealed class CatalogTestController(IGameCatalogProvider provider) : ControllerBase
+public sealed class CatalogTestController(IGameDataProvider provider) : ControllerBase
 {
     [HttpGet("search")]
     public async Task<IActionResult> Search(string q = "witcher", int page = 1, int pageSize = 20)

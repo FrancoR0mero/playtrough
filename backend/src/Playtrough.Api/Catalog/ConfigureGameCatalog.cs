@@ -48,7 +48,7 @@ public static class ConfigureGameCatalog
         services.AddTransient<RawgGameCatalogProvider>();
         services.AddSingleton<DisabledGameCatalogProvider>();
         if (environment.IsDevelopment()) services.AddSingleton<FakeGameCatalogProvider>();
-        services.AddTransient<IGameCatalogProvider>(provider =>
+        services.AddTransient<IGameDataProvider>(provider =>
         {
             var catalog = provider.GetRequiredService<IOptions<CatalogSettings>>().Value;
             if (catalog.UseFake) return provider.GetRequiredService<FakeGameCatalogProvider>();

@@ -4,7 +4,7 @@ using Playtrough.Api.Services.Interfaces;
 namespace Playtrough.Api.Catalog;
 
 /// <summary>Development examples only. Dates, platforms, genres and studios are invented.</summary>
-public sealed class FakeGameCatalogProvider : IGameCatalogProvider
+public sealed class FakeGameCatalogProvider : IGameDataProvider
 {
     private static readonly IReadOnlyList<GameDetails> Games = CreateGames();
 

@@ -103,7 +103,7 @@ public class GameCatalogConfigurationTests
             .ConfigureLogging(logging => logging.AddProvider(logs))
             .ConfigureTestServices(AddProbeController));
         using var client = configured.CreateClient();
-        Assert.IsType<DisabledGameCatalogProvider>(configured.Services.GetRequiredService<IGameCatalogProvider>());
+        Assert.IsType<DisabledGameCatalogProvider>(configured.Services.GetRequiredService<IGameDataProvider>());
         using var response = await client.GetAsync($"/__tests/catalog/{endpoint}");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -126,7 +126,7 @@ public class GameCatalogConfigurationTests
             services.PostConfigure<CatalogSettings>(settings => settings.UseFake = true);
         }));
         using var client = configured.CreateClient();
-        Assert.IsType<FakeGameCatalogProvider>(configured.Services.GetRequiredService<IGameCatalogProvider>());
+        Assert.IsType<FakeGameCatalogProvider>(configured.Services.GetRequiredService<IGameDataProvider>());
         using var response = await client.GetAsync("/__tests/catalog/search?q=WiTcHeR&page=1&pageSize=2");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync());

@@ -19,7 +19,7 @@ namespace Playtrough.Api.Controllers;
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-public sealed class GamesController(IGameCatalogProvider catalog, IGameService games, IReviewService reviews) : ControllerBase
+public sealed class GamesController(IGameDataProvider catalog, IGameService games, IReviewService reviews) : ControllerBase
 {
     /// <summary>Buscar juegos por nombre sin persistir resultados.</summary>
     /// <remarks>Requiere un usuario autenticado, con cualquier rol. q debe tener de 2 a 100 caracteres tras recortar; page comienza en 1 y pageSize admite de 1 a 40 (predeterminado 20). Devuelve hasta cinco plataformas por juego y hasMore indica si existe otra página. Las imágenes son arte o capturas normalmente horizontales.</remarks>

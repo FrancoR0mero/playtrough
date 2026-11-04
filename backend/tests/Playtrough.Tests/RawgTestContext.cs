@@ -21,7 +21,7 @@ internal sealed class RawgTestContext : IDisposable
     public CatalogLogs Logs { get; } = new();
     public TestCacheClock CacheClock { get; } = new();
     public AdvancingCatalogTime Time { get; } = new();
-    public IGameCatalogProvider Provider => Services.GetRequiredService<IGameCatalogProvider>();
+    public IGameDataProvider Provider => Services.GetRequiredService<IGameDataProvider>();
 
     public RawgTestContext(Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>> respond,
         Action<RawgSettings>? configure = null, TimeProvider? time = null)
