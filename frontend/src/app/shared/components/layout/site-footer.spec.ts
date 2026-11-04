@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import { SiteFooterComponent } from './site-footer';
 
 describe('Site footer', () => {
-  it('credits RAWG with a safe active link and preserves the existing footer', () => {
+  it('credits GameBrain with a safe active link and preserves the existing footer', () => {
     TestBed.configureTestingModule({
       imports: [SiteFooterComponent],
       providers: [provideRouter([])],
@@ -13,8 +13,8 @@ describe('Site footer', () => {
     const footer = fixture.nativeElement.querySelector('footer') as HTMLElement;
     expect(footer.textContent).toContain('Cada juego, una historia.');
     expect(footer.textContent).toContain('Datos e imágenes de videojuegos provistos por');
-    const link = footer.querySelector('a[href="https://rawg.io"]')!;
-    expect(link.textContent?.trim()).toBe('RAWG');
+    const link = footer.querySelector('a[href="https://gamebrain.co/api"]')!;
+    expect(link.textContent?.trim()).toBe('Video Games API');
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toBe('noopener noreferrer');
   });

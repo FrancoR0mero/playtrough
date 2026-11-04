@@ -522,7 +522,7 @@ describe('Personal library screen', () => {
     origin.focus();
     origin.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
     fixture.detectChanges();
-    http.expectOne(`${environment.apiUrl}/games/4200`).flush({
+    http.expectOne(`${environment.apiUrl}/games/local/17`).flush({
       ...LIBRARY_GAMES[0],
       id: 17,
       coverUrlLarge: null,
@@ -619,7 +619,7 @@ describe('Personal library screen', () => {
     vi.useRealTimers();
     cards()[0].click();
     fixture.detectChanges();
-    http.expectOne(`${environment.apiUrl}/games/4200`).flush({
+    http.expectOne(`${environment.apiUrl}/games/local/17`).flush({
       ...LIBRARY_GAMES[0],
       id: 17,
       coverUrlLarge: null,
@@ -659,7 +659,7 @@ describe('Personal library screen', () => {
     vi.useRealTimers();
     cards()[0].click();
     fixture.detectChanges();
-    http.expectOne(`${environment.apiUrl}/games/4200`).flush({
+    http.expectOne(`${environment.apiUrl}/games/local/17`).flush({
       ...LIBRARY_GAMES[0],
       id: 17,
       coverUrlLarge: null,

@@ -40,6 +40,9 @@
   </div>
 
   @if (detail()) {
+    @if (detail()?.metadataUnavailable) {
+      <p role="status" class="px-5 pt-5 text-sm text-slate-300 sm:px-8">La ficha no está actualizada por ahora. Tu biblioteca y tus reseñas siguen disponibles.</p>
+    }
     <div data-rating-summary class="px-5 pt-5 sm:px-8" [hidden]="editing()">
       <app-rating-summary [summary]="rating()" />
       <button
@@ -185,5 +188,5 @@
       (summaryInvalidated)="refreshSummary()"
     />
   }
-  <div class="mt-auto border-t border-white/10 p-5 sm:px-8"><app-rawg-attribution /></div>
+  <div class="mt-auto border-t border-white/10 p-5 sm:px-8"><app-gamebrain-attribution /></div>
 </article>

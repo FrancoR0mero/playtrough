@@ -132,6 +132,6 @@ describe('Reviews routing and navigation', () => {
     const nav = fixture.nativeElement.querySelector('nav[aria-label="Navegación móvil"]');
     expect(nav.querySelector('a[href="/games"]').getAttribute('aria-current')).toBe('page');
     expect(nav.querySelector('a[href*="/reviews"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('footer a[href="https://rawg.io"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('footer a[href="https://gamebrain.co/api"]')).not.toBeNull();
   });
 });

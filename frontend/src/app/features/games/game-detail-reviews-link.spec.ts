@@ -11,7 +11,7 @@ import { GameDetailComponent } from './game-detail';
 
 describe('Game detail reviews navigation', () => {
   it.each([0, 1, 12])(
-    'labels count %s, closes then navigates using external ID without restoring card focus',
+    'labels count %s, closes then navigates using local ID without restoring card focus',
     async (count) => {
       TestBed.configureTestingModule({
         providers: [
@@ -62,7 +62,7 @@ describe('Game detail reviews navigation', () => {
           .spyOn(TestBed.inject(Router), 'navigate')
           .mockImplementation(async (commands) => {
             expect(dialogs.openDialogs).toHaveLength(0);
-            expect(commands).toEqual(['/games', 4200, 'reviews']);
+            expect(commands).toEqual(['/games/local', 17, 'reviews']);
             return true;
           });
         const button = document.querySelector<HTMLButtonElement>('[data-action="view-reviews"]')!;

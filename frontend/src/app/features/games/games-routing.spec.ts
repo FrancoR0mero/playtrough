@@ -44,7 +44,7 @@ describe('Game catalog routing and layout', () => {
   async function flushSearch(q: string): Promise<void> {
     let request!: TestRequest;
     await vi.waitFor(() => {
-      request = http.expectOne((req) => req.url === `${environment.apiUrl}/games/search`);
+      request = http.expectOne((req) => req.url === `${environment.apiUrl}/games/suggestions`);
     });
     expect(request.request.params.get('q')).toBe(q);
     request.flush({ items: [], page: 1, pageSize: 20, hasMore: false });
@@ -76,11 +76,11 @@ describe('Game catalog routing and layout', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await harness.fixture.whenStable();
     expect(router.url).toBe('/games');
-    http.expectNone((req) => req.url.includes('/games/search'));
+    http.expectNone((req) => req.url.includes('/games/suggestions'));
   });
 
   it.each(['User', 'Moderator', 'Admin'])(
-    'shows Juegos and RAWG attribution on the search page for %s',
+    'shows Juegos and GameBrain attribution on the search page for %s',
     async (role) => {
       storage.save({ ...createSession(), user: { ...createSession().user, role } });
       const fixture = TestBed.createComponent(LayoutComponent);
@@ -93,7 +93,7 @@ describe('Game catalog routing and layout', () => {
       expect(nav.textContent?.trim()).toBe('Juegos');
       expect(nav.getAttribute('aria-current')).toBe('page');
       const credit = fixture.nativeElement.querySelector(
-        'footer a[href="https://rawg.io"]',
+        'footer a[href="https://gamebrain.co/api"]',
       ) as HTMLAnchorElement;
       expect(credit).not.toBeNull();
       expect(credit.getAttribute('rel')).toBe('noopener noreferrer');
@@ -101,7 +101,7 @@ describe('Game catalog routing and layout', () => {
     },
   );
 
-  it('keeps RAWG attribution when navigating between authenticated screens', async () => {
+  it('keeps GameBrain attribution when navigating between authenticated screens', async () => {
     storage.save(createSession());
     const fixture = TestBed.createComponent(LayoutComponent);
     fixture.detectChanges();
@@ -111,7 +111,7 @@ describe('Game catalog routing and layout', () => {
       await fixture.whenStable();
       fixture.detectChanges();
       expect(
-        fixture.nativeElement.querySelectorAll('footer a[href="https://rawg.io"]'),
+        fixture.nativeElement.querySelectorAll('footer a[href="https://gamebrain.co/api"]'),
       ).toHaveLength(1);
     }
   });
@@ -128,7 +128,7 @@ describe('Game catalog routing and layout', () => {
     harness.detectChanges();
     expect(TestBed.inject(Router).url).toBe('/games?focus=search');
     expect(document.activeElement?.id).toBe('game-search');
-    http.expectNone((req) => req.url.includes('/games/search'));
+    http.expectNone((req) => req.url.includes('/games/suggestions'));
   });
 
   it('hides the game navigation without a session', () => {
