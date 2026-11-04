@@ -29,6 +29,26 @@ using Playtrough.Api.Catalog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// One-off command: bypass web startup, Identity seeding, JWT/email validation and hosted workers.
+if (args.Contains("--backfill-gamebrain", StringComparer.Ordinal))
+{
+    builder.Services.AddGameCatalog(builder.Configuration, builder.Environment);
+    var connection = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Database connection required.");
+    builder.Services.AddDbContext<AppDbContext>(options => options.UseMySQL(connection));
+    builder.Services.AddScoped<GameBrainBackfill>();
+    using var commandServices = builder.Services.BuildServiceProvider();
+    using var commandScope = commandServices.CreateScope();
+    var options = commandServices.GetRequiredService<IOptions<GameBrainOptions>>().Value;
+    if (!options.Enabled || builder.Configuration.GetValue<bool>("Catalog:UseFake"))
+        throw new InvalidOperationException("Backfill requires GameBrain:Enabled=true and Catalog:UseFake=false.");
+    using var cancellation = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancellation.Cancel(); };
+    var path = builder.Configuration["report"] ?? "gamebrain-backfill.jsonl";
+    await using var report = new StreamWriter(path, append: true);
+    Environment.ExitCode = await commandScope.ServiceProvider.GetRequiredService<GameBrainBackfill>().RunAsync(report, cancellation.Token);
+    return;
+}
+
 // Controllers
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 {
