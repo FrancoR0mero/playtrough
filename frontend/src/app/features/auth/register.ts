@@ -24,6 +24,7 @@ import { AuthService, LoginError, RegisterError } from './services/auth';
 import { authDestination } from './auth-navigation';
 import { passwordComplexityValidator } from './password-validation';
 import { ResendConfirmationComponent } from './resend-confirmation';
+import { createRateLimitCooldown } from './rate-limit-cooldown';
 
 type RegisterField = 'email' | 'username' | 'password';
 
@@ -48,6 +49,11 @@ export class RegisterComponent implements OnInit {
   });
 
   protected readonly isLogin = computed(() => this.routeData()['mode'] === 'login');
+  private readonly loginRateLimit = createRateLimitCooldown();
+  private readonly registerRateLimit = createRateLimitCooldown();
+  protected readonly rateLimit = computed(() =>
+    this.isLogin() ? this.loginRateLimit : this.registerRateLimit,
+  );
   protected readonly showPassword = signal(false);
   protected readonly registeredEmail = signal<string | null>(null);
   protected readonly needsConfirmation = signal(false);
@@ -140,7 +146,7 @@ export class RegisterComponent implements OnInit {
   });
 
   protected onSubmit(): void {
-    if (this.submitting()) return;
+    if (this.submitting() || this.rateLimit().remaining() > 0) return;
     if (!this.isLogin() && this.registeredEmail()) return;
     this.expirationNoticeDismissed.set(true);
     if (this.isLogin()) {
@@ -171,6 +177,7 @@ export class RegisterComponent implements OnInit {
         },
         error: (error: unknown) => {
           this.submitting.set(false);
+          if (this.registerRateLimit.handle(error)) return;
 
           if (error instanceof RegisterError) {
             this.fieldErrors.set(error.fieldErrors);
@@ -203,6 +210,10 @@ export class RegisterComponent implements OnInit {
       .subscribe({
         next: () => this.redirectAfterLogin(),
         error: (error: unknown) => {
+          if (this.loginRateLimit.handle(error)) {
+            this.needsConfirmation.set(false);
+            return;
+          }
           if (error instanceof LoginError) {
             this.needsConfirmation.set(error.code === 'email_not_confirmed');
             const email = identifier.trim();

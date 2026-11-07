@@ -25,6 +25,7 @@ public sealed class LoginEndpointExamplesFilter : IOperationFilter
 
             - Si `identifier` contiene `@`, se busca por email; en caso contrario, por nombre de usuario.
             - Usuario inexistente y contraseña incorrecta devuelven el mismo error genérico **401**.
+            - Email sin confirmar devuelve **403**, con `extensions.code: email_not_confirmed` (serializado como `code`).
             - El quinto intento fallido bloquea la cuenta durante **15 minutos** y devuelve **423**.
               Mientras dure el bloqueo, tampoco se acepta la contraseña correcta.
             - Un login exitoso resetea el contador de intentos fallidos.
@@ -77,6 +78,9 @@ public sealed class LoginEndpointExamplesFilter : IOperationFilter
             """);
         SetResponseExample(responses, "401", "Credenciales inválidas; mismo mensaje para usuario inexistente o contraseña incorrecta.", """
             { "title": "Invalid credentials", "status": 401, "detail": "The email/username or password is incorrect." }
+            """);
+        SetResponseExample(responses, "403", "Email sin confirmar; extensions.code: email_not_confirmed.", """
+            { "title": "Email not confirmed", "status": 403, "detail": "Confirm your email before logging in.", "code": "email_not_confirmed" }
             """);
         SetResponseExample(responses, "423", "Cuenta bloqueada temporalmente por cinco intentos fallidos. Reintentar después de 15 minutos.", """
             { "title": "Account locked", "status": 423, "detail": "This account is temporarily locked after too many failed login attempts. Try again in 15 minutes." }

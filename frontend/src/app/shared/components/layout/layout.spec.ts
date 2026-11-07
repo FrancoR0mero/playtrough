@@ -10,6 +10,7 @@ import { AuthService } from '../../../features/auth/services/auth';
 import { TokenStorageService } from '../../../features/auth/services/token-storage';
 import { LayoutComponent } from './layout';
 import { NAVIGATION_ITEMS } from './layout-navigation';
+import { RateLimitNoticeService } from '../../services/rate-limit-notice';
 
 describe('Layout navigation and logout', () => {
   let fixture: ComponentFixture<LayoutComponent>;
@@ -48,6 +49,23 @@ describe('Layout navigation and logout', () => {
     return fixture.nativeElement.querySelector('button[data-action="logout"]') as HTMLButtonElement;
   }
 
+  it('shows and dismisses the shared guard 429 alert without logout or navigation', () => {
+    renderAuthenticated();
+    TestBed.inject(RateLimitNoticeService).show(90);
+    fixture.detectChanges();
+    const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toContain(
+      'Demasiados intentos. Probá de nuevo en 1 minuto y 30 segundos',
+    );
+    (alert.querySelector('button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+    expect(auth.isAuthenticated()).toBe(true);
+    expect(auth.logout).not.toHaveBeenCalled();
+    expect(auth.clearSession).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('hides the logout button without an active session', () => {
     // Arrange / Act
     fixture.detectChanges();
@@ -55,6 +73,25 @@ describe('Layout navigation and logout', () => {
     // Assert
     expect(fixture.nativeElement.querySelector('button[data-action="logout"]')).toBeNull();
     expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('provides three mobile destinations without a separate reviews item when signed in', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.mobile-game-navigation')).toBeNull();
+    renderAuthenticated();
+    const nav = fixture.nativeElement.querySelector('.mobile-game-navigation') as HTMLElement;
+    expect(Array.from(nav.querySelectorAll('a')).map((link) => link.getAttribute('href'))).toEqual([
+      '/games',
+      '/library',
+      '/profile',
+    ]);
+    expect(nav.querySelector('button')).toBeNull();
+    expect(nav.textContent).not.toContain('Reseñas');
+    expect(
+      fixture.nativeElement
+        .querySelector('[aria-controls="primary-navigation"]')
+        .classList.contains('hidden'),
+    ).toBe(true);
   });
 
   it('shows login and registration links without a session', () => {
@@ -74,8 +111,10 @@ describe('Layout navigation and logout', () => {
       fixture.detectChanges();
       const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
       expect(nav.textContent).toContain('franco');
-      expect(nav.querySelector('[aria-label="Rol de la cuenta"]')?.textContent?.trim()).toBe(role);
-      expect(nav.querySelector('a[href="/library"]')?.textContent).toContain('Biblioteca');
+      expect(nav.querySelector('[aria-label="Rol de la cuenta"]')?.textContent?.trim()).toBe(
+        role === 'User' ? undefined : role,
+      );
+      expect(nav.querySelector('a[href="/library"]')?.textContent).toContain('Mi biblioteca');
       expect(nav.querySelector('button[data-action="logout"]')).not.toBeNull();
       expect(nav.querySelector('a[href="/auth/login"]')).toBeNull();
       expect(nav.querySelector('a[href="/auth/register"]')).toBeNull();

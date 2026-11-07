@@ -1,0 +1,46 @@
+using Microsoft.EntityFrameworkCore;
+using Playtrough.Api.Data;
+using Playtrough.Api.Models;
+using Playtrough.Api.Repositories.Interfaces;
+
+namespace Playtrough.Api.Repositories.Implementations;
+
+public sealed class GameRepository(AppDbContext db) : IGameRepository
+{
+    public Task<Game?> FindAsync(string provider, int externalId, CancellationToken cancellationToken = default)
+        => provider == "gamebrain"
+            ? db.Games.SingleOrDefaultAsync(game => game.GameBrainId == externalId, cancellationToken)
+            : db.Games.SingleOrDefaultAsync(game => game.Provider == provider && game.ExternalId == externalId, cancellationToken);
+
+    public async Task<Game> InsertOrGetExistingAsync(Game game, CancellationToken cancellationToken = default)
+    {
+        db.Games.Add(game);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return game;
+        }
+        catch (DbUpdateException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // The unique index arbitrates races across API instances. No transaction
+            // spans the preceding read/provider call, so this reread sees the winner.
+            // Detach only our failed insert; never leave it pending for a later save.
+            db.Entry(game).State = EntityState.Detached;
+            var existing = await FindAsync(game.GameBrainId is null ? game.Provider : "gamebrain", game.GameBrainId ?? game.ExternalId, cancellationToken);
+            if (existing is not null) return existing;
+            // No matching persisted row: this was not a recoverable insertion race.
+            // Preserve the original failure, without parsing provider-specific messages.
+            throw;
+        }
+    }
+
+    public async Task UpdateAsync(Game game, CancellationToken cancellationToken = default)
+    {
+        db.Games.Update(game);
+        // A catalog refresh owns metadata only. Atomic review counters may have changed
+        // since this entity was loaded, including in a different request/DbContext.
+        db.Entry(game).Property(value => value.RatingCount).IsModified = false;
+        db.Entry(game).Property(value => value.RatingSum).IsModified = false;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+}

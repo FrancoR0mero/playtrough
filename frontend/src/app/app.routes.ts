@@ -36,9 +36,31 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/register').then((m) => m.RegisterComponent),
   },
   {
+    path: 'games/local/:gameId/reviews',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/reviews/game-reviews').then((m) => m.GameReviewsComponent),
+  },
+  {
+    path: 'games/:externalId/reviews',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/reviews/game-reviews').then((m) => m.GameReviewsComponent),
+  },
+  {
+    path: 'games',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/games/games').then((m) => m.GamesComponent),
+  },
+  {
     path: 'library',
     canActivate: [authGuard],
     loadComponent: () => import('./features/library/library').then((m) => m.LibraryComponent),
+  },
+  {
+    path: 'profile',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/profile/profile').then((m) => m.ProfileComponent),
   },
   {
     path: 'admin/roles',

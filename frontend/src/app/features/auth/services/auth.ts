@@ -25,6 +25,7 @@ import { TokenStorageService } from './token-storage';
 import { environment } from '../../../../environments/environment';
 import { authDestination } from '../auth-navigation';
 import { AppRole, hasMinRole as roleMeetsMinimum } from '../../../core/authorization/roles';
+import { RateLimitError } from '../../../core/http/rate-limit-error';
 import type {
   ProblemDetails,
   RegisterRequest,
@@ -116,7 +117,15 @@ export class AuthService {
         this.sessionVersion++;
         this.setSession(response);
       }),
-      catchError((error: unknown) => throwError(() => this.toLoginError(error))),
+      catchError((error: unknown) =>
+        throwError(() =>
+          error instanceof HttpErrorResponse && error.status === 429
+            ? error instanceof RateLimitError
+              ? error
+              : new RateLimitError(error)
+            : this.toLoginError(error),
+        ),
+      ),
     );
   }
 
@@ -179,7 +188,8 @@ export class AuthService {
         catchError((error: unknown) => {
           // Transient HTTP failures retain the session for a later explicit retry.
           const transientFailure =
-            error instanceof HttpErrorResponse && (error.status === 0 || error.status >= 500);
+            error instanceof HttpErrorResponse &&
+            (error.status === 0 || error.status === 429 || error.status >= 500);
           if (version === this.sessionVersion && !transientFailure) {
             this.clearSession();
             request.failureVersion = this.sessionVersion;
@@ -288,7 +298,15 @@ export class AuthService {
     return this.http
       .post<RegisterResponse>(`${environment.apiUrl}/auth/register`, payload)
       .pipe(
-        catchError((error: HttpErrorResponse) => throwError(() => this.toRegisterError(error))),
+        catchError((error: HttpErrorResponse) =>
+          throwError(() =>
+            error.status === 429
+              ? error instanceof RateLimitError
+                ? error
+                : new RateLimitError(error)
+              : this.toRegisterError(error),
+          ),
+        ),
       );
   }
 

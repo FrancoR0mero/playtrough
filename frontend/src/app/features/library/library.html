@@ -1,15 +1,202 @@
-<section class="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-  @if (auth.currentUser(); as user) {
-    <h1 class="text-3xl font-semibold text-white">Tu biblioteca</h1>
-    <p class="mt-4 text-slate-300">
-      Bienvenido, {{ user.username }}. Este es tu espacio para organizar tus juegos.
-    </p>
-  } @else {
-    <p role="alert" class="text-slate-200">Tu sesión venció. Volvé a iniciar sesión.</p>
+<section class="page-container library-page" aria-labelledby="library-title">
+  <div class="library-heading">
+    <div>
+      <h1 id="library-title" class="page-heading text-white">Tu biblioteca</h1>
+      <p class="mt-2 hidden text-sm text-slate-400 sm:block">Solo vos podés ver esta biblioteca.</p>
+    </div>
     <a
-      routerLink="/auth/login"
-      class="mt-4 inline-block rounded text-indigo-300 underline focus-visible:outline-2 focus-visible:outline-accent"
-      >Iniciar sesión</a
+      routerLink="/games"
+      [queryParams]="{ focus: 'search' }"
+      class="ui-button inline-flex items-center justify-center bg-accent px-4 py-2 text-white"
+      >Agregar juego</a
     >
+  </div>
+  <div class="library-toolbar">
+    <div class="min-w-0 flex-1">
+      <label for="library-search" class="mb-2 block text-sm text-slate-200"
+        >Buscar en tu biblioteca</label
+      >
+      <input
+        id="library-search"
+        type="search"
+        [formControl]="search"
+        autocomplete="off"
+        placeholder="Nombre de un juego…"
+        [attr.aria-invalid]="invalidQuery()"
+        [attr.aria-errormessage]="invalidQuery() ? 'library-error' : null"
+        class="ui-input w-full border text-white focus:outline-none"
+      />
+    </div>
+    <div>
+      <label for="library-sort" class="mb-2 block text-sm text-slate-200">Ordenar por</label>
+      <select
+        id="library-sort"
+        [formControl]="sort"
+        class="ui-input w-full border text-white sm:w-auto"
+      >
+        @for (option of sorts; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+  </div>
+  <div role="tablist" aria-label="Estado de los juegos" class="library-tabs">
+    @for (tab of tabs; track tab.value; let i = $index) {
+      <button
+        type="button"
+        role="tab"
+        [id]="'library-tab-' + (tab.value || 'all')"
+        aria-controls="library-panel"
+        [attr.aria-selected]="filters().status === tab.value"
+        [attr.tabindex]="filters().status === tab.value ? 0 : -1"
+        [attr.data-tab]="tab.value || 'all'"
+        (click)="chooseTab(tab.value)"
+        (keydown)="tabKey($event, i)"
+        class="ui-button flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-200"
+      >
+        {{ tab.label }}
+        <span class="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-white">{{
+          counts()[tab.count]
+        }}</span>
+      </button>
+    }
+  </div>
+  <p
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+    data-action-notice
+    class="mt-3 text-sm text-emerald-200"
+  >
+    {{ saving() !== null ? 'Guardando…' : notice() }}
+  </p>
+  @if (cooldown.message() || actionError()) {
+    <p
+      role="alert"
+      data-action-error
+      class="mt-3 rounded-xl border border-red-500/40 bg-red-950/30 p-4 text-sm text-red-200"
+    >
+      {{ cooldown.message() || actionError() }}
+    </p>
   }
+  <div
+    id="library-panel"
+    role="tabpanel"
+    tabindex="0"
+    [attr.aria-labelledby]="'library-tab-' + (filters().status || 'all')"
+  >
+    <p
+      aria-live="polite"
+      aria-atomic="true"
+      data-library-results
+      class="mt-4 text-sm text-slate-400"
+    >
+      {{
+        loading()
+          ? 'Cargando juegos…'
+          : loaded()
+            ? items().length + (items().length === 1 ? ' juego' : ' juegos')
+            : ''
+      }}
+    </p>
+    @if (error()) {
+      <div
+        id="library-error"
+        role="alert"
+        class="mt-4 rounded-xl border border-red-500/40 bg-red-950/30 p-5 text-sm text-red-200"
+      >
+        <p>{{ cooldown.message() || error() }}</p>
+        @if (retryable()) {
+          <button
+            type="button"
+            data-action="retry-library-list"
+            (click)="retry()"
+            [disabled]="loading() || cooldown.remaining() > 0"
+            class="ui-button mt-4 border border-red-300/50 px-4 py-2 disabled:opacity-50"
+          >
+            {{
+              cooldown.remaining() ? 'Reintentar en ' + cooldown.remaining() + ' s' : 'Reintentar'
+            }}
+          </button>
+        }
+      </div>
+    }
+    @if (items().length || loading()) {
+      <div
+        class="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5"
+        [attr.aria-busy]="loading()"
+      >
+        @for (entry of items(); track entry.gameId) {
+          <app-game-card
+            [game]="entry"
+            [attr.data-library-game-id]="entry.gameId"
+            (opened)="openGame(entry, $event)"
+          >
+            <span game-card-badge class="mb-3 inline-block rounded-full bg-slate-950">
+              <span
+                data-library-badge
+                class="block rounded-full border px-2 py-1 text-xs {{ state(entry.status).style }}"
+                >{{ state(entry.status).label }}</span
+              >
+            </span>
+            <app-library-card-menu
+              game-card-actions
+              [gameId]="entry.gameId"
+              [gameName]="entry.name"
+              [status]="entry.status"
+              [disabled]="loading() || saving() !== null || cooldown.remaining() > 0"
+              (chosen)="menuAction(entry, $event)"
+            />
+          </app-game-card>
+        }
+        @if (loading()) {
+          @for (skeleton of skeletons; track skeleton) {
+            <div
+              data-library-skeleton
+              aria-hidden="true"
+              [style.aspect-ratio]="aspectRatio"
+              class="rounded-xl border border-white/5 bg-slate-800 motion-safe:animate-pulse"
+            ></div>
+          }
+        }
+      </div>
+    } @else if (loaded() && !error()) {
+      <div
+        data-library-empty
+        class="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-8 text-center sm:py-16"
+      >
+        @if (counts().total === 0) {
+          <h2 class="text-xl font-semibold text-white">Todavía no agregaste juegos</h2>
+          <p class="mt-3 text-sm text-slate-400">Explorá el catálogo y empezá tu colección.</p>
+          <a
+            routerLink="/games"
+            [queryParams]="{ focus: 'search' }"
+            class="ui-button mt-6 inline-flex min-h-11 items-center bg-accent px-5 py-3 font-semibold text-white"
+            >Agregar juego</a
+          >
+        } @else if (filters().q) {
+          <h2 class="text-xl font-semibold text-white">No encontramos juegos para esta búsqueda</h2>
+          <p class="mt-3 text-sm text-slate-400">Probá con otro nombre o cambiá de pestaña.</p>
+        } @else {
+          <h2 class="text-xl font-semibold text-white">No tenés juegos en este estado</h2>
+          <p class="mt-3 text-sm text-slate-400">
+            Podés cambiar el estado de tus juegos desde su detalle.
+          </p>
+        }
+      </div>
+    }
+    @if (hasMore() && !error()) {
+      <div class="mt-8 text-center">
+        <button
+          type="button"
+          data-action="load-more"
+          (click)="loadMore()"
+          [disabled]="loading() || saving() !== null || cooldown.remaining() > 0"
+          class="ui-button border border-slate-600 bg-slate-800 px-6 py-3 text-white hover:bg-slate-700 disabled:opacity-50"
+        >
+          {{ loading() ? 'Cargando…' : 'Cargar más' }}
+        </button>
+      </div>
+    }
+  </div>
 </section>

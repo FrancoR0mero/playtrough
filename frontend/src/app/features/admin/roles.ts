@@ -32,6 +32,8 @@ import {
   UserListQuery,
 } from './models/admin-users';
 import { AdminUsersService } from './services/admin-users';
+import { RateLimitError } from '../../core/http/rate-limit-error';
+import { rateLimitMessage } from '../../shared/rate-limit-message';
 
 interface Notice {
   kind: 'success' | 'error';
@@ -79,9 +81,11 @@ export class AdminRolesComponent implements OnInit {
             catchError((error: unknown) => {
               if (!(error instanceof HttpErrorResponse && error.status === 401))
                 this.loadError.set(
-                  error instanceof HttpErrorResponse && error.status === 403
-                    ? 'No tenés permisos para esta acción'
-                    : 'No pudimos cargar los usuarios. Intentá de nuevo.',
+                  error instanceof RateLimitError
+                    ? rateLimitMessage(error.retryAfterSeconds)
+                    : error instanceof HttpErrorResponse && error.status === 403
+                      ? 'No tenés permisos para esta acción'
+                      : 'No pudimos cargar los usuarios. Intentá de nuevo.',
                 );
               return EMPTY;
             }),
@@ -217,6 +221,10 @@ export class AdminRolesComponent implements OnInit {
             this.reload();
         },
         error: (error: unknown) => {
+          if (error instanceof RateLimitError) {
+            this.notice.set({ kind: 'error', text: rateLimitMessage(error.retryAfterSeconds) });
+            return;
+          }
           if (error instanceof HttpErrorResponse && error.status === 401) return; // The interceptor owns session expiry.
           const status = error instanceof HttpErrorResponse ? error.status : 0;
           const problem =

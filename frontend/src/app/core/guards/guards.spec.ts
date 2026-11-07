@@ -18,6 +18,7 @@ import { TokenStorageService } from '../../features/auth/services/token-storage'
 import { authGuard } from './auth-guard';
 import { guestGuard } from './guest-guard';
 import { roleGuard } from './role-guard';
+import { RateLimitNoticeService } from '../../shared/services/rate-limit-notice';
 
 describe('Functional route guards', () => {
   let router: Router;
@@ -79,6 +80,30 @@ describe('Functional route guards', () => {
     expect(router.serializeUrl(tree).split('?')[0]).toBe('/auth/login');
     return tree.queryParams['returnUrl'];
   }
+
+  it.each([authGuard, roleGuard])(
+    'cancels navigation on refresh 429 without clearing credentials or redirecting',
+    async (guard) => {
+      expiredSession('Admin');
+      const original = storage.readTokens();
+      const auth = TestBed.inject(AuthService);
+      const clear = vi.spyOn(auth, 'clearSession');
+      const result = runGuard(guard, '/admin/roles', { minRole: 'Admin' });
+      httpMock.expectOne(refreshUrl).flush(null, {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: { 'Retry-After': '90' },
+      });
+      expect(await result).toBe(false);
+      expect(storage.readTokens()).toEqual(original);
+      expect(clear).not.toHaveBeenCalled();
+      expect(router.navigateByUrl).not.toHaveBeenCalled();
+      expect(TestBed.inject(RateLimitNoticeService).message()).toBe(
+        'Demasiados intentos. Probá de nuevo en 1 minuto y 30 segundos',
+      );
+      httpMock.expectNone(refreshUrl);
+    },
+  );
 
   it('authGuard allows a restored valid session without refreshing', async () => {
     storage.save(createSession());

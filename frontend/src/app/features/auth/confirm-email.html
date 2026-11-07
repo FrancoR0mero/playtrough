@@ -1,6 +1,5 @@
-<section
-  class="mx-4 my-8 max-w-md rounded-lg border border-slate-700 bg-slate-900/60 p-5 sm:mx-auto sm:my-16 sm:p-8"
->
+<section class="auth-card auth-card-standalone">
+  <p class="eyebrow mb-3">TU CUENTA, UN PASO MÁS CERCA</p>
   @switch (state()) {
     @case ('loading') {
       <h1 class="mb-4 text-2xl font-semibold text-white">Confirmando tu email</h1>
@@ -27,7 +26,7 @@
       </p>
       <a
         routerLink="/auth/login"
-        class="inline-block rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        class="ui-button inline-flex items-center rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >Iniciar sesión</a
       >
     }
@@ -48,14 +47,17 @@
         role="alert"
         class="mb-6 rounded-md border border-red-500/60 bg-red-950/40 p-4 text-red-200"
       >
-        No pudimos confirmar tu email. Intentá de nuevo.
+        {{ rateLimit.message() ?? 'No pudimos confirmar tu email. Intentá de nuevo.' }}
       </p>
       <button
         type="button"
         (click)="retry()"
-        class="w-full rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        [disabled]="rateLimit.remaining() > 0"
+        class="ui-button w-full rounded-md bg-accent px-4 py-2 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Reintentar
+        {{
+          rateLimit.remaining() > 0 ? 'Reintentar en ' + rateLimit.remaining() + ' s' : 'Reintentar'
+        }}
       </button>
     }
   }

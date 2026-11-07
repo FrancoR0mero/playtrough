@@ -14,6 +14,9 @@ import { guestGuard } from './core/guards/guest-guard';
 import { roleGuard } from './core/guards/role-guard';
 import { createSession } from './features/auth/auth-test-helpers';
 import { TokenStorageService } from './features/auth/services/token-storage';
+import { of } from 'rxjs';
+import { LibraryService } from './features/library/services/library';
+import { EMPTY_LIBRARY } from './features/library/library-test-helpers';
 
 describe('Application route access', () => {
   let storage: TokenStorageService;
@@ -26,6 +29,7 @@ describe('Application route access', () => {
     storage = TestBed.inject(TokenStorageService);
     storage.clear();
     httpMock = TestBed.inject(HttpTestingController);
+    vi.spyOn(TestBed.inject(LibraryService), 'list').mockReturnValue(of(EMPTY_LIBRARY));
   });
 
   afterEach(() => {
@@ -40,6 +44,22 @@ describe('Application route access', () => {
   it('protects the private library route and keeps the wildcard last', () => {
     expect(routes.find((route) => route.path === 'library')?.canActivate).toEqual([authGuard]);
     expect(routes.at(-1)?.path).toBe('**');
+  });
+
+  it('protects profile and redirects guests to login', async () => {
+    expect(routes.find((route) => route.path === 'profile')?.canActivate).toEqual([authGuard]);
+    await RouterTestingHarness.create('/profile');
+    const router = TestBed.inject(Router);
+    expect(router.url.split('?')[0]).toBe('/auth/login');
+    expect(router.parseUrl(router.url).queryParams['returnUrl']).toBe('/profile');
+  });
+
+  it('shows the current account in profile without requesting a new backend endpoint', async () => {
+    storage.save(createSession());
+    const harness = await RouterTestingHarness.create('/profile');
+    expect(harness.routeNativeElement?.textContent).toContain(createSession().user.email);
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Mi perfil');
+    httpMock.expectNone(() => true);
   });
 
   it('protects role administration with both guards and Admin as the minimum role', () => {

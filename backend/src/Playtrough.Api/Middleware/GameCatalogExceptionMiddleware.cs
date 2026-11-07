@@ -1,0 +1,28 @@
+using Playtrough.Api.Services.Contracts;
+using Playtrough.Api.Catalog;
+
+namespace Playtrough.Api.Middleware;
+
+// Runs inside the existing exception handler/developer page. Known catalog errors
+// keep their public JSON contract in every environment; unrelated errors keep theirs.
+public sealed class GameCatalogExceptionMiddleware(RequestDelegate next, ILogger<GameCatalogExceptionMiddleware> logger)
+{
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try { await next(context); }
+        catch (GameNotFoundException) when (!context.Response.HasStarted)
+        {
+            await Results.Problem(statusCode: StatusCodes.Status404NotFound,
+                title: "Juego no encontrado", detail: "No se encontró el juego solicitado.",
+                extensions: new Dictionary<string, object?> { ["code"] = "game_not_found" }).ExecuteAsync(context);
+        }
+        catch (Exception error) when (error is GameCatalogUnavailableException or GameBrainAuthenticationException && !context.Response.HasStarted)
+        {
+            logger.LogWarning("Game catalog unavailable. TraceId: {TraceId}.", context.TraceIdentifier);
+            await Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "Catálogo no disponible",
+                detail: "El catálogo de juegos no está disponible. Intentá nuevamente más tarde.",
+                extensions: new Dictionary<string, object?> { ["code"] = "catalog_unavailable" }).ExecuteAsync(context);
+        }
+    }
+}

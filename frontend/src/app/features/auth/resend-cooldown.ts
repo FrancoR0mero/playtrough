@@ -8,9 +8,10 @@ export function createResendCooldown(seconds: number) {
 
   return {
     remaining: remaining.asReadonly(),
-    start: () => {
+    start: (duration = seconds) => {
       clearInterval(timer);
-      remaining.set(seconds);
+      remaining.set(duration);
+      if (duration <= 0) return;
       timer = setInterval(() => {
         remaining.update((value) => Math.max(0, value - 1));
         if (remaining() === 0) clearInterval(timer);

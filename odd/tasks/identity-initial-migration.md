@@ -76,7 +76,7 @@ Prepare the MySQL database with the ASP.NET Identity schema through an initial m
 
 - `git check-ignore -v backend/.env`: `.gitignore:45:.env	backend/.env` (matches; .env is untracked)
 - `docker compose -f backend/docker-compose.yml config`: exit 0; published port 3307:3306; healthcheck configured; utf8mb4/utf8mb4_unicode_ci
-- `dotnet user-secrets list --project backend/src/Playtrough.Api`: `ConnectionStrings:DefaultConnection = Server=127.0.0.1;Port=3307;Database=playtrought_dev;User=playtrought_dev;Password=playtrought_dev;`
+- Configuracion local de `ConnectionStrings:DefaultConnection` verificada; valor omitido por seguridad.
 - `dotnet build backend/Playtrough.sln`: succeeded; 0 errors, 0 warnings
 - Migration `20261009230408_InitialIdentity`: all Identity key columns are `int` with `MySQLValueGenerationStrategy.IdentityColumn` (AutoIncrement); unique indexes on `NormalizedEmail` (EmailIndex) and `NormalizedUserName` (UserNameIndex); InsertData for roles {1, "User","USER","6f1e6b2a-0000-4000-8000-000000000001"}, {2, "Admin","ADMIN","6f1e6b2a-0000-4000-8000-000000000002"}; tables use `Annotation("MySQL:Charset", "utf8mb4")` (MySQL 8.4 uses utf8mb4 by default; charset annotations are emitted by Oracle provider)
 - Container: `playtrought-mysql` healthy
