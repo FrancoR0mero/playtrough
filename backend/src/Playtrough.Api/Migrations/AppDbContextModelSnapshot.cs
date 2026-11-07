@@ -170,6 +170,11 @@ namespace Playtrough.Api.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
+                    b.Property<string>("Bio")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("longtext");
@@ -216,6 +221,9 @@ namespace Playtrough.Api.Migrations
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("UsernameChangedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 

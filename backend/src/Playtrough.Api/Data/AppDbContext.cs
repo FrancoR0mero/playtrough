@@ -60,6 +60,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         // Identity makes NormalizedUserName unique but not NormalizedEmail.
         builder.Entity<ApplicationUser>(entity =>
         {
+            entity.Property(u => u.Bio).HasMaxLength(300).HasAnnotation("MySQL:Charset", "utf8mb4");
+            entity.Property(u => u.UsernameChangedAt).HasConversion(
+                value => value, value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value);
+            entity.Property(u => u.CreatedAt).HasConversion(
+                value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
             entity.HasIndex(u => u.NormalizedUserName).IsUnique();
             entity.HasIndex(u => u.NormalizedEmail).IsUnique();
         });
