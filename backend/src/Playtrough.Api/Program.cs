@@ -29,6 +29,27 @@ using Playtrough.Api.Catalog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// One-off command: bypass web startup, Identity seeding, JWT/email validation and hosted workers.
+if (args.Contains("--backfill-gamebrain", StringComparer.Ordinal))
+{
+    builder.Services.AddGameCatalog(builder.Configuration, builder.Environment);
+    var connection = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Database connection required.");
+    builder.Services.AddDbContext<AppDbContext>(options => options.UseMySQL(connection));
+    builder.Services.AddScoped<GameBrainBackfill>();
+    using var commandApp = builder.Build();
+    var commandServices = commandApp.Services;
+    using var commandScope = commandServices.CreateScope();
+    var options = commandServices.GetRequiredService<IOptions<GameBrainOptions>>().Value;
+    if (!options.Enabled || builder.Configuration.GetValue<bool>("Catalog:UseFake"))
+        throw new InvalidOperationException("Backfill requires GameBrain:Enabled=true and Catalog:UseFake=false.");
+    using var cancellation = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancellation.Cancel(); };
+    var path = builder.Configuration["report"] ?? "gamebrain-backfill.jsonl";
+    await using var report = new StreamWriter(path, append: true);
+    Environment.ExitCode = await commandScope.ServiceProvider.GetRequiredService<GameBrainBackfill>().RunAsync(report, cancellation.Token);
+    return;
+}
+
 // Controllers
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 {
@@ -66,7 +87,7 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
             gamesAction.ControllerTypeInfo.AsType() == typeof(GamesController) &&
             response is ObjectResult { Value: ProblemDetails gamesProblem })
         {
-            var search = gamesAction.ActionName == nameof(GamesController.Search);
+            var search = gamesAction.ActionName is nameof(GamesController.Search) or nameof(GamesController.Suggestions);
             gamesProblem.Extensions["code"] = search ? "invalid_query" : "invalid_game_id";
             gamesProblem.Title = search ? "Consulta inválida" : "ID de juego inválido";
             gamesProblem.Detail = search

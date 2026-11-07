@@ -102,10 +102,10 @@ describe('Game search screen', () => {
     fixture.detectChanges();
   }
   function request() {
-    return http.expectOne((req) => req.url === endpoint);
+    return http.expectOne((req) => (req.url === endpoint || req.url === `${environment.apiUrl}/games/suggestions`));
   }
   function noRequest(): void {
-    http.expectNone((req) => req.url === endpoint);
+    http.expectNone((req) => (req.url === endpoint || req.url === `${environment.apiUrl}/games/suggestions`));
   }
   function cards(): HTMLButtonElement[] {
     return Array.from(fixture.nativeElement.querySelectorAll('[data-game-card]'));
@@ -136,6 +136,20 @@ describe('Game search screen', () => {
     fixture.detectChanges();
   }
 
+  it('uses suggestions while typing and full search only after the explicit action', () => {
+    search();
+    const suggestion = request();
+    expect(suggestion.request.url).toBe(`${environment.apiUrl}/games/suggestions`);
+    suggestion.flush({ items: GAMES, page: 1, pageSize: 10, hasMore: false });
+    fixture.detectChanges();
+    button('search-all')!.click();
+    vi.advanceTimersByTime(0);
+    const full = request();
+    expect(full.request.url).toBe(endpoint);
+    expect(full.request.params.get('page')).toBe('1');
+    full.flush({ items: GAMES, page: 1, pageSize: 20, hasMore: false });
+  });
+
   it('starts with an invitation and does not request queries shorter than two trimmed characters', () => {
     expect(fixture.nativeElement.textContent).toContain('¿Qué juego querés agregar?');
     for (const q of ['', ' ', 'a', ' a ']) {
@@ -157,8 +171,8 @@ describe('Game search screen', () => {
     vi.advanceTimersByTime(1);
     const pending = request();
     expect(pending.request.params.get('q')).toBe('Portal');
-    expect(pending.request.params.get('page')).toBe('1');
-    expect(pending.request.params.get('pageSize')).toBe('20');
+    expect(pending.request.params.get('limit')).toBe('10');
+    expect(pending.request.url).toBe(`${environment.apiUrl}/games/suggestions`);
     pending.flush({ items: GAMES, page: 1, pageSize: 20, hasMore: false });
     type('Portal  ');
     vi.advanceTimersByTime(500);
@@ -250,7 +264,7 @@ describe('Game search screen', () => {
     flush();
     expect(fixture.nativeElement.querySelector('[data-skeleton]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[aria-live="polite"]').textContent).toContain(
-      '2 resultados',
+      '2 sugerencias',
     );
     const card = cards()[0];
     expect(card.textContent).toContain('Portal');
@@ -267,7 +281,7 @@ describe('Game search screen', () => {
     flush([]);
     expect(fixture.nativeElement.textContent).toContain('No encontramos juegos');
     expect(fixture.nativeElement.querySelector('[aria-live="polite"]').textContent).toContain(
-      '0 resultados',
+      '0 sugerencias',
     );
     expect(button('load-more')).toBeNull();
   });
@@ -277,7 +291,7 @@ describe('Game search screen', () => {
     request().flush({ items: GAMES, page: 1, pageSize: 20, hasMore: false, isLimited: true });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-search-limit]')?.textContent).toContain(
-      'Agregá más palabras',
+      'disponible de forma limitada',
     );
     expect(button('load-more')).toBeNull();
     type('Portal 2');
@@ -298,6 +312,9 @@ describe('Game search screen', () => {
 
   it('appends pages without duplicates, prevents double requests and hides load more at the end', () => {
     search();
+    flush([]);
+    input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    vi.advanceTimersByTime(0);
     flush([GAMES[0], GAMES[0]], true);
     expect(cards()).toHaveLength(1);
     button('load-more')!.click();
@@ -316,6 +333,9 @@ describe('Game search screen', () => {
 
   it('cancels load more and resets pagination and cards on a new query', () => {
     search();
+    flush([]);
+    input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    vi.advanceTimersByTime(0);
     flush([GAMES[0]], true);
     button('load-more')!.click();
     const next = request();
@@ -325,7 +345,7 @@ describe('Game search screen', () => {
     expect(button('load-more')).toBeNull();
     vi.advanceTimersByTime(400);
     const fresh = request();
-    expect(fresh.request.params.get('page')).toBe('1');
+    expect(fresh.request.params.get('limit')).toBe('10');
     fresh.flush({ items: [], page: 1, pageSize: 20, hasMore: false });
   });
 
@@ -367,6 +387,9 @@ describe('Game search screen', () => {
 
   it('preserves existing cards after a page failure and retries that page instead of skipping it', () => {
     search();
+    flush([]);
+    input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    vi.advanceTimersByTime(0);
     flush([GAMES[0]], true);
     button('load-more')!.click();
     request().error(new ProgressEvent('error'));
@@ -506,7 +529,7 @@ describe('Game search screen', () => {
     const dialog = document.querySelector('[role="dialog"]')!;
     expect(dialog.textContent).toContain('Portal');
     expect(dialog.querySelector('img')?.getAttribute('src')).toBe(GAMES[0].coverUrl);
-    expect(dialog.querySelector('a[href="https://rawg.io"]')).not.toBeNull();
+    expect(dialog.querySelector('a[href="https://gamebrain.co/api"]')).not.toBeNull();
     http.expectNone((req) => req.url.includes('/games/'));
   });
 

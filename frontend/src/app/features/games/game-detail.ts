@@ -16,7 +16,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { Router } from '@angular/router';
-import { RawgAttributionComponent } from '../../shared/components/layout/rawg-attribution';
+import { GameBrainAttributionComponent } from '../../shared/components/layout/gamebrain-attribution';
 import { ProblemDetails } from '../auth/models/register';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { LibraryEntryComponent } from '../library/library-entry';
@@ -33,7 +33,7 @@ export const GAME_SUMMARY_PREVIEW_LENGTH = 500;
   selector: 'app-game-detail',
   imports: [
     GameImageComponent,
-    RawgAttributionComponent,
+    GameBrainAttributionComponent,
     LibraryEntryComponent,
     RatingSummaryComponent,
     MyReviewComponent,
@@ -129,7 +129,7 @@ export class GameDetailComponent implements OnInit {
     if (this.editing() || !this.detail()) return;
     this.dialog.config.restoreFocus = false;
     this.dialog.close();
-    void this.router.navigate(['/games', this.game.externalId, 'reviews']);
+    void this.router.navigate(['/games/local', this.detail()!.id, 'reviews']);
   }
 
   protected retry(): void {
@@ -141,8 +141,7 @@ export class GameDetailComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     this.retryable.set(false);
-    this.catalog
-      .getDetail(this.game.externalId)
+    (this.game.gameId ? this.catalog.getLocalDetail(this.game.gameId) : this.catalog.getDetail(this.game.externalId))
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.set(false)),

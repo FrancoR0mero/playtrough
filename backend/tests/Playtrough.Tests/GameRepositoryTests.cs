@@ -108,7 +108,7 @@ public class GameRepositoryTests
         Assert.Equal("json", game.FindProperty(nameof(Game.Genres))!.GetColumnType());
         Assert.Equal("json", game.FindProperty(nameof(Game.Developers))!.GetColumnType());
         Assert.Equal("date", game.FindProperty(nameof(Game.FirstReleaseDate))!.GetColumnType());
-        Assert.True(Assert.Single(game.GetIndexes()).IsUnique);
+        Assert.True(Assert.Single(game.GetIndexes(), index => index.Properties.Select(property => property.Name).SequenceEqual(new[] { "Provider", "ExternalId" })).IsUnique);
         var script = db.GetService<IMigrator>().GenerateScript("20261018070349_AddRoleChangeLogs", "20261025065759_AddGames");
         Assert.Contains("CREATE TABLE `Games`", script);
         Assert.Contains("CREATE UNIQUE INDEX `IX_Games_Provider_ExternalId`", script);

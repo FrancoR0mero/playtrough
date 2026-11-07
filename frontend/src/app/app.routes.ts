@@ -36,6 +36,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/register').then((m) => m.RegisterComponent),
   },
   {
+    path: 'games/local/:gameId/reviews',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/reviews/game-reviews').then((m) => m.GameReviewsComponent),
+  },
+  {
     path: 'games/:externalId/reviews',
     canActivate: [authGuard],
     loadComponent: () =>

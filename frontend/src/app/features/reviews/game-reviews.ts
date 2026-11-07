@@ -60,6 +60,7 @@ export class GameReviewsComponent implements OnInit {
   private mineRequest?: Subscription;
   private listRequest?: Subscription;
   private externalId = '';
+  private localIdentity = false;
   private page = 0;
   private failedPage = 1;
   protected readonly detail = signal<GameDetail | null>(null);
@@ -88,12 +89,14 @@ export class GameReviewsComponent implements OnInit {
     combineLatest([this.route.paramMap, this.route.queryParamMap])
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(([params, query]) => {
-        const externalId = params.get('externalId') ?? '';
+        const localIdentity = params.has('gameId');
+        const externalId = params.get('gameId') ?? params.get('externalId') ?? '';
         const sort = SORTS.find((option) => option.value === query.get('sort'))?.value ?? 'recent';
         const changedSort = this.selectedSort !== sort;
         this.selectedSort = sort;
         this.sort.setValue(sort, { emitEvent: false });
-        if (this.externalId !== externalId) {
+        if (this.externalId !== externalId || this.localIdentity !== localIdentity) {
+          this.localIdentity = localIdentity;
           this.externalId = externalId;
           this.loadDetail();
         } else if (changedSort && this.detail()) this.resetList();
@@ -147,8 +150,7 @@ export class GameReviewsComponent implements OnInit {
       return;
     }
     this.loading.detail.set(true);
-    this.detailRequest = this.catalog
-      .getDetail(Number(this.externalId))
+    this.detailRequest = (this.localIdentity ? this.catalog.getLocalDetail(Number(this.externalId)) : this.catalog.getDetail(Number(this.externalId)))
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.detail.set(false)),

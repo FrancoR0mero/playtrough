@@ -100,7 +100,7 @@ public class GamesEndpointsTests
         Assert.Equal(2, page.GetProperty("pageSize").GetInt32());
         Assert.True(page.GetProperty("hasMore").GetBoolean());
         Assert.Equal(2, page.GetProperty("items").GetArrayLength());
-        Assert.Equal(new[] { "coverUrl", "externalId", "name", "platforms", "releaseYear", "slug" },
+        Assert.Equal(new[] { "coverUrl", "externalId", "name", "platforms", "releaseYear", "slug", "sourceUrl" },
             page.GetProperty("items")[0].EnumerateObject().Select(property => property.Name).Order().ToArray());
         using var last = (await client.GetFromJsonAsync<JsonDocument>("/api/games/search?q=witcher&page=2&pageSize=2"))!;
         Assert.False(last.RootElement.GetProperty("hasMore").GetBoolean());
@@ -160,7 +160,7 @@ public class GamesEndpointsTests
         Assert.Equal("2018-01-01", game.GetProperty("releaseDate").GetString());
         Assert.Equal(JsonValueKind.Null, game.GetProperty("coverUrl").ValueKind);
         Assert.Equal(JsonValueKind.Null, game.GetProperty("coverUrlLarge").ValueKind);
-        Assert.Equal(new[] { "coverUrl", "coverUrlLarge", "developers", "externalId", "genres", "id", "name", "platforms", "ratingSummary", "releaseDate", "slug", "summary" },
+        Assert.Equal(new[] { "coverUrl", "coverUrlLarge", "criticScore", "developers", "externalId", "genres", "id", "metadataUnavailable", "name", "platforms", "providerRating", "providerRatingCount", "ratingSummary", "releaseDate", "screenshots", "slug", "sourceUrl", "summary" },
             game.EnumerateObject().Select(property => property.Name).Order().ToArray());
         Assert.Equal(1, context.Provider.DetailCalls);
     }

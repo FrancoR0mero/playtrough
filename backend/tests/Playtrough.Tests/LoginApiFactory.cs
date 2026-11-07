@@ -91,8 +91,8 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
             // Existing integration suites exercise business behavior without sharing
             // rate budgets. Rate-limiting tests explicitly enable their own limits.
             services.PostConfigure<RateLimitSettings>(settings => settings.Enabled = false);
-            // Never inherit a developer's real RAWG credential or fake-mode selection.
-            services.PostConfigure<RawgSettings>(settings =>
+            // Never inherit a developer's real GameBrain credential or fake-mode selection.
+            services.PostConfigure<GameBrainOptions>(settings =>
             {
                 settings.Enabled = false;
                 settings.ApiKey = string.Empty;

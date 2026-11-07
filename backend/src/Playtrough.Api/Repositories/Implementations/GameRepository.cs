@@ -8,7 +8,9 @@ namespace Playtrough.Api.Repositories.Implementations;
 public sealed class GameRepository(AppDbContext db) : IGameRepository
 {
     public Task<Game?> FindAsync(string provider, int externalId, CancellationToken cancellationToken = default)
-        => db.Games.SingleOrDefaultAsync(game => game.Provider == provider && game.ExternalId == externalId, cancellationToken);
+        => provider == "gamebrain"
+            ? db.Games.SingleOrDefaultAsync(game => game.GameBrainId == externalId, cancellationToken)
+            : db.Games.SingleOrDefaultAsync(game => game.Provider == provider && game.ExternalId == externalId, cancellationToken);
 
     public async Task<Game> InsertOrGetExistingAsync(Game game, CancellationToken cancellationToken = default)
     {
@@ -24,7 +26,7 @@ public sealed class GameRepository(AppDbContext db) : IGameRepository
             // spans the preceding read/provider call, so this reread sees the winner.
             // Detach only our failed insert; never leave it pending for a later save.
             db.Entry(game).State = EntityState.Detached;
-            var existing = await FindAsync(game.Provider, game.ExternalId, cancellationToken);
+            var existing = await FindAsync(game.GameBrainId is null ? game.Provider : "gamebrain", game.GameBrainId ?? game.ExternalId, cancellationToken);
             if (existing is not null) return existing;
             // No matching persisted row: this was not a recoverable insertion race.
             // Preserve the original failure, without parsing provider-specific messages.

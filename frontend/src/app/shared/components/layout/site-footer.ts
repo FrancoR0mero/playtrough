@@ -1,17 +1,17 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { RawgAttributionComponent } from './rawg-attribution';
+import { GameBrainAttributionComponent } from './gamebrain-attribution';
 
 @Component({
   selector: 'app-site-footer',
-  imports: [RouterLink, RawgAttributionComponent],
+  imports: [RouterLink, GameBrainAttributionComponent],
   template: `
     <footer class="site-footer">
       <a routerLink="/" class="font-semibold text-slate-300">
         Playtrough<span class="text-indigo-400">.</span>
       </a>
       <p>Cada juego, una historia. Cada partida, tu recorrido.</p>
-      <app-rawg-attribution />
+      <app-gamebrain-attribution />
     </footer>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -13,6 +13,15 @@ export class GameCatalogService {
     return this.http.get<GameSearchResponse>(`${environment.apiUrl}/games/search`, { params });
   }
 
+  suggest(q: string, limit = 10): Observable<GameSearchResponse> {
+    const params = new HttpParams().set('q', q).set('limit', limit);
+    return this.http.get<GameSearchResponse>(`${environment.apiUrl}/games/suggestions`, { params });
+  }
+
+  getLocalDetail(gameId: number): Observable<GameDetail> {
+    return this.http.get<GameDetail>(`${environment.apiUrl}/games/local/${gameId}`);
+  }
+
   getDetail(externalId: number): Observable<GameDetail> {
     return this.http.get<GameDetail>(`${environment.apiUrl}/games/${externalId}`);
   }

@@ -324,9 +324,9 @@ describe('Game detail modal content', () => {
     expect(clear).toHaveBeenCalledWith(countdown);
   });
 
-  it('keeps an active RAWG credit inside the modal', () => {
+  it('keeps an active GameBrain credit inside the modal', () => {
     flush();
-    const link = element('a[href="https://rawg.io"]')!;
+    const link = element('a[href="https://gamebrain.co/api"]')!;
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toBe('noopener noreferrer');
   });

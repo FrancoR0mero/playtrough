@@ -13,7 +13,7 @@ namespace Playtrough.Tests;
 [AllowAnonymous]
 [ApiExplorerSettings(IgnoreApi = true)]
 [Route("__tests/catalog")]
-public sealed class CatalogTestController(IGameCatalogProvider provider) : ControllerBase
+public sealed class CatalogTestController(IGameDataProvider provider) : ControllerBase
 {
     [HttpGet("search")]
     public async Task<IActionResult> Search(string q = "witcher", int page = 1, int pageSize = 20)
@@ -25,7 +25,7 @@ public sealed class CatalogTestController(IGameCatalogProvider provider) : Contr
 
     [HttpGet("local/{id:int}")]
     public async Task<IActionResult> LocalDetail(int id, [FromServices] IGameService games)
-        => Ok(await games.GetOrCreateAsync("rawg", id, HttpContext.RequestAborted));
+        => Ok(await games.GetOrCreateAsync("fake", id, HttpContext.RequestAborted));
 }
 
 internal sealed class CatalogControllerFeatureProvider : IApplicationFeatureProvider<ControllerFeature>

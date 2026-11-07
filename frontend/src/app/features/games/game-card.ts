@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import { GameImageComponent } from './game-image';
 import { GameSummary } from './models/game';
 
-// RAWG supplies landscape images; keep cards and skeletons on the same crop.
+// GameBrain supplies landscape images; keep cards and skeletons on the same crop.
 export const GAME_CARD_ASPECT_RATIO = '3 / 4';
 
 @Component({

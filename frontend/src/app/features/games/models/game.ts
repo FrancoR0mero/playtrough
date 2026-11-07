@@ -1,6 +1,8 @@
 import { RatingSummary } from '../../reviews/models/review';
 
 export interface GameSummary {
+  gameId?: number;
+  sourceUrl?: string | null;
   externalId: number;
   name: string;
   slug: string;
@@ -18,6 +20,12 @@ export interface GameSearchResponse {
 }
 
 export interface GameDetail {
+  sourceUrl?: string | null;
+  metadataUnavailable?: boolean;
+  providerRating?: number | null;
+  providerRatingCount?: number | null;
+  criticScore?: number | null;
+  screenshots?: string[];
   ratingSummary: RatingSummary;
   id: number;
   externalId: number;

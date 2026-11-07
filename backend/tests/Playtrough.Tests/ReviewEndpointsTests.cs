@@ -261,7 +261,7 @@ public class ReviewEndpointsTests
         using var created = await authenticated.PutAsJsonAsync(PathFor(game.Id), new { rating = 4m });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var service = new Mock<IGameService>(MockBehavior.Strict);
-        service.Setup(value => value.GetOrCreateAsync("rawg", 19, It.IsAny<CancellationToken>())).ReturnsAsync(stale);
+        service.Setup(value => value.GetOrCreateAsync("gamebrain", 19, It.IsAny<CancellationToken>())).ReturnsAsync(stale);
         using var factory = context.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IGameService>();

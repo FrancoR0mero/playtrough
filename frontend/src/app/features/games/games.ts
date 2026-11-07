@@ -52,6 +52,7 @@ export class GamesComponent implements OnInit {
   private readonly pages = new Subject<number>();
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
   private preview: DialogRef<void, GameDetailComponent> | null = null;
+  protected readonly fullSearch = signal(false);
   private query = '';
   private page = 0;
   private failedPage = 1;
@@ -135,6 +136,7 @@ export class GamesComponent implements OnInit {
       )
       .subscribe((q) => {
         if (q === this.query) return;
+        this.fullSearch.set(false);
         this.queries.next({ q, delay: 400 });
         void this.router.navigate([], {
           relativeTo: this.route,
@@ -145,12 +147,18 @@ export class GamesComponent implements OnInit {
       });
   }
 
+  protected searchAll(): void {
+    if (this.search.value.trim().length < 2 || this.cooldown.remaining() > 0) return;
+    this.fullSearch.set(true);
+    this.queries.next({ q: this.search.value.trim(), delay: 0 });
+  }
+
   private fetchPage(q: string, page: number) {
     this.loading.set(true);
     this.error.set(null);
     this.retryable.set(false);
     this.invalidQuery.set(false);
-    return this.catalog.search(q, page, PAGE_SIZE).pipe(
+    return (this.fullSearch() ? this.catalog.search(q, page, PAGE_SIZE) : this.catalog.suggest(q)).pipe(
       catchError((error: unknown) => {
         this.failedPage = page;
         if (error instanceof HttpErrorResponse && error.status === 401) return EMPTY;

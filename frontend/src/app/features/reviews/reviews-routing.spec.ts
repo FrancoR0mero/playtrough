@@ -33,8 +33,8 @@ describe('Reviews routing and navigation', () => {
       vi.restoreAllMocks();
     }
   });
-  function flushDetail() {
-    http.expectOne(`${url}/4200`).flush({
+  function flushDetail(path = '4200') {
+    http.expectOne(`${url}/${path}`).flush({
       id: 17,
       externalId: 4200,
       name: 'Portal 2',
@@ -59,6 +59,33 @@ describe('Reviews routing and navigation', () => {
       hasMore: false,
     });
   }
+
+  it('opens the local-ID route used by the detail button and loads reviews using that local ID', async () => {
+    storage.save(createSession());
+    const harness = await RouterTestingHarness.create('/games');
+    await TestBed.inject(Router).navigate(['/games/local', 17, 'reviews'], {
+      queryParams: { sort: 'top' },
+    });
+    harness.detectChanges();
+    flushDetail('local/17');
+    harness.detectChanges();
+    flushReviews('top');
+    harness.detectChanges();
+    expect(harness.routeNativeElement!.querySelector('#reviews-title')).not.toBeNull();
+    expect(harness.routeNativeElement!.textContent).toContain('Portal 2');
+    expect(TestBed.inject(Router).url).toBe('/games/local/17/reviews?sort=top');
+    http.expectNone(`${url}/4200`);
+  });
+
+  it('protects local-ID review links and preserves their return URL for login', async () => {
+    await RouterTestingHarness.create('/games/local/17/reviews?sort=top');
+    const router = TestBed.inject(Router);
+    expect(router.url.split('?')[0]).toBe('/auth/login');
+    expect(router.parseUrl(router.url).queryParams['returnUrl']).toBe(
+      '/games/local/17/reviews?sort=top',
+    );
+    http.expectNone(() => true);
+  });
 
   it('protects direct review links and preserves the return URL for login', async () => {
     expect(routes.find((route) => route.path === 'games/:externalId/reviews')?.canActivate).toEqual(
@@ -132,6 +159,6 @@ describe('Reviews routing and navigation', () => {
     const nav = fixture.nativeElement.querySelector('nav[aria-label="Navegación móvil"]');
     expect(nav.querySelector('a[href="/games"]').getAttribute('aria-current')).toBe('page');
     expect(nav.querySelector('a[href*="/reviews"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('footer a[href="https://rawg.io"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('footer a[href="https://gamebrain.co/api"]')).not.toBeNull();
   });
 });

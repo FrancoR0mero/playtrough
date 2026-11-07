@@ -13,12 +13,12 @@ public class GameServiceTests
     {
         using var context = new GamePersistenceTestContext();
         var created = await context.GetAsync();
-        var again = await context.GetAsync(provider: " RAWG ");
+        var again = await context.GetAsync(provider: " FAKE ");
         var stored = Assert.Single(await context.ReadAsync());
         var details = GamePersistenceTestContext.Details();
         Assert.True(created.Id > 0);
         Assert.Equal(created.Id, again.Id);
-        Assert.Equal("rawg", stored.Provider);
+        Assert.Equal("fake", stored.Provider);
         Assert.Equal(42, stored.ExternalId);
         Assert.Equal(details.Name, stored.Name);
         Assert.Equal(details.Slug, stored.Slug);
@@ -145,9 +145,9 @@ public class GameServiceTests
         using var context = new GamePersistenceTestContext();
         using var scope = context.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<IGameService>();
-        var first = await service.GetOrCreateAsync("rawg", 42);
+        var first = await service.GetOrCreateAsync("fake", 42);
         context.Clock.UtcNow += TimeSpan.FromDays(31);
-        var second = await service.GetOrCreateAsync("rawg", 42);
+        var second = await service.GetOrCreateAsync("fake", 42);
         Assert.Equal(first.Id, second.Id);
         Assert.Single(await context.ReadAsync());
         context.Provider.Verify(provider => provider.GetByExternalIdAsync(42, It.IsAny<CancellationToken>()), Times.Exactly(2));
@@ -184,8 +184,8 @@ public class GameServiceTests
     }
 
     [Theory]
-    [InlineData("rawg", 0)]
-    [InlineData("rawg", -1)]
+    [InlineData("fake", 0)]
+    [InlineData("fake", -1)]
     [InlineData("unknown", 42)]
     public async Task InvalidIdentity_IsRejectedWithoutProviderOrPersistence(string provider, int id)
     {

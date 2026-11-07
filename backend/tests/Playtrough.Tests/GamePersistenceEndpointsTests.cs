@@ -24,12 +24,12 @@ public class GamePersistenceEndpointsTests
     public async Task MissingProviderGame_MapsTo404WithStableCode_EvenWithStaleCopy(string environment, bool hasCopy)
     {
         using var factory = new LoginApiFactory(environment: environment);
-        var provider = new Mock<IGameCatalogProvider>(MockBehavior.Strict);
+        var provider = new Mock<IGameDataProvider>(MockBehavior.Strict);
         provider.Setup(item => item.GetByExternalIdAsync(42, It.IsAny<CancellationToken>())).ReturnsAsync((GameDetails?)null);
         using var configured = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.AddControllers().ConfigureApplicationPartManager(manager => manager.FeatureProviders.Add(new CatalogControllerFeatureProvider()));
-            services.RemoveAll<IGameCatalogProvider>();
+            services.RemoveAll<IGameDataProvider>();
             services.AddSingleton(provider.Object);
         }));
         using var client = configured.CreateClient();

@@ -31,8 +31,8 @@ internal sealed class GamesApiTestContext : IDisposable
         _baseFactory = new LoginApiFactory(useIndependentConnections: concurrent, environment: environment);
         Factory = _baseFactory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            services.RemoveAll<IGameCatalogProvider>();
-            services.AddSingleton<IGameCatalogProvider>(Provider);
+            services.RemoveAll<IGameDataProvider>();
+            services.AddSingleton<IGameDataProvider>(Provider);
             services.PostConfigure<RateLimitSettings>(settings =>
             {
                 settings.Enabled = enableLimits;
@@ -81,7 +81,7 @@ internal sealed class GamesApiTestContext : IDisposable
     {
         using var scope = Factory.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<AppDbContext>().Games.ExecuteUpdateAsync(update =>
-            update.SetProperty(game => game.UpdatedAt, DateTime.UtcNow.AddDays(-31)));
+            update.SetProperty(game => game.UpdatedAt, DateTime.UtcNow.AddDays(-31)).SetProperty(game => game.MetadataExpiresAt, DateTime.UtcNow.AddDays(-1)));
     }
 
     public void Dispose() { Factory.Dispose(); _baseFactory.Dispose(); }
@@ -101,7 +101,7 @@ internal sealed class GamesRemoteIpFilter : IStartupFilter
     };
 }
 
-internal sealed class RecordingGameCatalog : IGameCatalogProvider
+internal sealed class RecordingGameCatalog : IGameDataProvider
 {
     private readonly FakeGameCatalogProvider _fake = new();
     private int _searches;

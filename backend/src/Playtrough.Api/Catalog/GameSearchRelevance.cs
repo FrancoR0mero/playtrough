@@ -21,7 +21,7 @@ internal static partial class GameSearchRelevance
         return candidates.DistinctBy(game => game.ExternalId)
             .Select(game => (Game: game, Tokens: Tokens(game.Name)))
             .Where(item => Matches(wanted, item.Tokens))
-            // Keep RAWG's relevance order within each tier, and for a single-word search.
+            // Keep the provider's relevance order within each tier, and for a single-word search.
             .OrderBy(item => wanted.Length == 1 ? 0 : Rank(wanted, item.Tokens))
             .Select(item => item.Game).ToArray();
     }
