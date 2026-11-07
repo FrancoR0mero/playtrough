@@ -11,8 +11,8 @@ public record RegisterRequestDto
 
     [Required(ErrorMessage = "Username is required.")]
     [StringLength(20, MinimumLength = 3, ErrorMessage = "Username must be between 3 and 20 characters.")]
-    [RegularExpression(@"^[a-zA-Z0-9_.]{3,20}$",
-        ErrorMessage = "Username may contain only letters, digits, underscore and dot.")]
+    [RegularExpression(Playtrough.Api.Services.UsernameRules.Pattern,
+        ErrorMessage = "Username may contain only letters, digits, underscore.")]
     public string Username { get; init; } = string.Empty;
 
     [Required(ErrorMessage = "Password is required.")]

@@ -56,6 +56,14 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     var defaultResponse = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (context.ActionDescriptor is ControllerActionDescriptor profileAction &&
+            profileAction.ControllerTypeInfo.AsType() == typeof(UsersController))
+        {
+            var profileProblem = new ProblemDetails { Status = 400, Title = "Perfil inválido" };
+            profileProblem.Extensions["code"] = context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
+                entry.Key.Contains("bio", StringComparison.OrdinalIgnoreCase)) ? "invalid_bio" : "invalid_username";
+            return new BadRequestObjectResult(profileProblem);
+        }
         if (context.ActionDescriptor is ControllerActionDescriptor reviewAction &&
             reviewAction.ControllerTypeInfo.AsType() == typeof(ReviewsController))
         {
@@ -276,6 +284,12 @@ builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddOptions<ProfileSettings>()
+    .BindConfiguration(ProfileSettings.SectionName).ValidateDataAnnotations()
+    .Validate(settings => settings.ReservedUsernames is not null &&
+        settings.ReservedUsernames.All(name => !string.IsNullOrWhiteSpace(name)), "Reserved usernames cannot be blank.")
+    .ValidateOnStart();
 
 // Swagger / OpenAPI
 builder.Services.AddOptions<SwaggerSettings>()
@@ -313,6 +327,8 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<GamesExamplesFilter>();
     options.SchemaFilter<ReviewsExamplesFilter>();
     options.OperationFilter<ReviewsExamplesFilter>();
+    options.SchemaFilter<UsersExamplesFilter>();
+    options.OperationFilter<UsersExamplesFilter>();
     options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
     options.DocumentFilter<ApiDocumentationFilter>();
@@ -361,6 +377,7 @@ else app.UseExceptionHandler(new ExceptionHandlerOptions
 app.UseMiddleware<GameCatalogExceptionMiddleware>();
 app.UseMiddleware<LibraryExceptionMiddleware>();
 app.UseMiddleware<ReviewExceptionMiddleware>();
+app.UseMiddleware<ProfileExceptionMiddleware>();
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
 {

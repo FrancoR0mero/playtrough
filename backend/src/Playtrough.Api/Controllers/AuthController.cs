@@ -197,9 +197,10 @@ public class AuthController(IAuthService authService) : ControllerBase
     /// <summary>Registrar una cuenta y solicitar la confirmación del email.</summary>
     /// <remarks>Endpoint público. La cuenta se crea con rol User y no recibe tokens hasta iniciar sesión con el email confirmado.</remarks>
     /// <response code="201">Cuenta creada; emailConfirmationRequired indica que se debe confirmar el email.</response>
-    /// <response code="400">Datos inválidos o contraseña fuera de la política configurada.</response>
+    /// <response code="400">Datos inválidos o contraseña fuera de la política configurada. Nombre reservado: username_reserved.</response>
     /// <response code="409">El email o el nombre de usuario ya están registrados.</response>
     [HttpPost("register")]
+    [TypeFilter(typeof(Playtrough.Api.Services.ReservedUsernameFilter), Order = -3000)]
     [EnableRateLimiting(RateLimitPolicies.Register)]
     [AllowAnonymous]
     [ProducesResponseType(typeof(RegisterResponseDto), StatusCodes.Status201Created)]
@@ -216,6 +217,8 @@ public class AuthController(IAuthService authService) : ControllerBase
 
         return result.Error switch
         {
+            AuthError.UsernameReserved => Problem(statusCode: 400, title: "Username reservado",
+                extensions: new Dictionary<string, object?> { ["code"] = "username_reserved" }),
             AuthError.EmailAlreadyExists => Conflict(new ProblemDetails
             {
                 Status = StatusCodes.Status409Conflict,
