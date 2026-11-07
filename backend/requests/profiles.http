@@ -1,0 +1,56 @@
+@baseUrl = http://localhost:5000
+@tokenA = REEMPLAZAR_ACCESS_TOKEN_A
+@tokenB = REEMPLAZAR_ACCESS_TOKEN_B
+@tokenC = REEMPLAZAR_ACCESS_TOKEN_C
+@usernameA = gamer_a
+@refreshTokenA = REEMPLAZAR_REFRESH_TOKEN_A
+
+### A consulta su perfil (incluye email)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{tokenA}}
+
+### B consulta a A (sin email)
+GET {{baseUrl}}/api/users/{{usernameA}}
+Authorization: Bearer {{tokenB}}
+
+### C consulta a A
+GET {{baseUrl}}/api/users/{{usernameA}}
+Authorization: Bearer {{tokenC}}
+
+### A edita solo su bio; conserva username
+PUT {{baseUrl}}/api/users/me
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"bio":"  Hola gamers!\r\nMe gustan los RPG 🎮  "}
+
+### A cambia el username; inicia el plazo de 30 días
+PUT {{baseUrl}}/api/users/me
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"username":"gamer_a_nuevo"}
+
+### Renovar sesión para obtener el username nuevo en el JWT (guardar AMBOS tokens devueltos)
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{"refreshToken":"{{refreshTokenA}}"}
+
+### Otro cambio inmediato devuelve 409 username_change_too_soon con availableAt
+PUT {{baseUrl}}/api/users/me
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"username":"gamer_a_otro"}
+
+### B ve la nueva ruta
+GET {{baseUrl}}/api/users/GAMER_A_NUEVO
+Authorization: Bearer {{tokenB}}
+
+### A elimina la bio
+PUT {{baseUrl}}/api/users/me
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"bio":null}
