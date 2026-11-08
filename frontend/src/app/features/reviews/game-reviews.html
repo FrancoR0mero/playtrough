@@ -122,8 +122,13 @@
         >
           @for (review of items(); track review.id) {
             <li class="py-6" [attr.data-review-id]="review.id">
-              <!-- TODO: enlazar el username al perfil público cuando se implemente la épica de perfil. -->
-              <p class="mb-3 break-words font-semibold text-white">{{ review.author.username }}</p>
+              <a
+                [routerLink]="['/profile', review.author.username]"
+                class="mb-3 inline-flex min-h-11 max-w-full items-center gap-3 font-semibold text-white hover:underline"
+              >
+                <app-user-avatar [username]="review.author.username" size="sm" />
+                <span class="min-w-0 break-words">{{ review.author.username }}</span>
+              </a>
               <app-review-content [review]="review" [textId]="'review-text-' + review.id" />
             </li>
           }

@@ -13,11 +13,19 @@ import { HasRoleDirective } from '../../directives/has-role';
 import { NAVIGATION_ITEMS } from './layout-navigation';
 import { RateLimitNoticeService } from '../../services/rate-limit-notice';
 import { SiteFooterComponent } from './site-footer';
+import { UserAvatarComponent } from '../user-avatar/user-avatar';
 
 @Component({
   selector: 'app-layout',
   host: { '(keydown.escape)': 'closeMenu(true)' },
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, HasRoleDirective, SiteFooterComponent],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    HasRoleDirective,
+    SiteFooterComponent,
+    UserAvatarComponent,
+  ],
   templateUrl: './layout.html',
   styleUrl: './layout.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

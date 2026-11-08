@@ -95,6 +95,14 @@ describe('Game reviews screen', () => {
     fixture.detectChanges();
   }
 
+  it('links review authors to their public profile with a reusable avatar', () => {
+    ready();
+    const author = el<HTMLAnchorElement>('[data-review-id="2"] a');
+    expect(author.getAttribute('href')).toBe('/profile/otro');
+    expect(author.textContent).toContain('otro');
+    expect(author.querySelector('app-user-avatar')).not.toBeNull();
+  });
+
   beforeEach(() => {
     params = new BehaviorSubject(convertToParamMap({ externalId: '4200' }));
     query = new BehaviorSubject(convertToParamMap({}));
@@ -313,7 +321,7 @@ describe('Game reviews screen', () => {
     detail();
     flushMine();
     flushList([{ ...PUBLIC, text: null }]);
-    expect(el('[data-review-id] [role="img"]').getAttribute('aria-label')).toBe(
+    expect(el('[data-review-id] app-review-content [role="img"]').getAttribute('aria-label')).toBe(
       'Puntuación 5 de 5',
     );
     expect(el('[data-review-text]')).toBeNull();
