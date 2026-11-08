@@ -1,5 +1,12 @@
 import { RelationshipDto } from '../../friends/models/friend';
 
+export type Visibility = 'public' | 'friends' | 'private';
+export type ProfileRestriction = 'private' | 'friends_only';
+export interface PrivacyDto {
+  profileVisibility: Visibility;
+  historyVisibility: Visibility;
+}
+
 export interface UserSummaryDto {
   username: string;
   avatarUrl: string | null;
@@ -32,7 +39,7 @@ export interface ProfileDto extends UserSummaryDto {
   friendsCount?: number | null;
   relationship: RelationshipDto;
   isRestricted: boolean;
-  restriction: 'private' | 'friends_only' | null;
+  restriction: ProfileRestriction | null;
 }
 
 export interface UpdateProfileRequest {

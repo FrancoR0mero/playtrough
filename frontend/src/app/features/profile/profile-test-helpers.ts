@@ -1,4 +1,9 @@
-import { MyProfileDto, ProfileDto } from './models/user';
+import { MyProfileDto, PrivacyDto, ProfileDto } from './models/user';
+
+export const DEFAULT_PRIVACY: PrivacyDto = {
+  profileVisibility: 'public',
+  historyVisibility: 'public',
+};
 
 export const MY_PROFILE: MyProfileDto = {
   id: 1,

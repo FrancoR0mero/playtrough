@@ -2,10 +2,33 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
-import { MY_PROFILE, OTHER_PROFILE } from '../profile-test-helpers';
+import { DEFAULT_PRIVACY, MY_PROFILE, OTHER_PROFILE } from '../profile-test-helpers';
 import { UsersService } from './users';
 
 describe('UsersService', () => {
+  it('loads and updates both privacy preferences', () => {
+    TestBed.inject(UsersService)
+      .getPrivacy()
+      .subscribe((value) => expect(value).toEqual(DEFAULT_PRIVACY));
+    const read = TestBed.inject(HttpTestingController).expectOne(
+      `${environment.apiUrl}/users/me/privacy`,
+    );
+    expect(read.request.method).toBe('GET');
+    read.flush(DEFAULT_PRIVACY);
+    const privacy = {
+      profileVisibility: 'friends' as const,
+      historyVisibility: 'private' as const,
+    };
+    TestBed.inject(UsersService)
+      .updatePrivacy(privacy)
+      .subscribe((value) => expect(value).toEqual(privacy));
+    const update = TestBed.inject(HttpTestingController).expectOne(
+      `${environment.apiUrl}/users/me/privacy`,
+    );
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body).toEqual(privacy);
+    update.flush(privacy);
+  });
   it('searches users with encoded query parameters and pagination', () => {
     TestBed.inject(UsersService)
       .search('a & b', 2, 10)
