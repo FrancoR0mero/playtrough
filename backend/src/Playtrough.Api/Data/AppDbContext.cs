@@ -13,6 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RoleChangeLog> RoleChangeLogs => Set<RoleChangeLog>();
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<LibraryEntry> LibraryEntries => Set<LibraryEntry>();
     public DbSet<LibraryEvent> LibraryEvents => Set<LibraryEvent>();
 
@@ -21,6 +23,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         base.OnModelCreating(builder);
         builder.ApplyConfiguration(new GameConfiguration());
         builder.ApplyConfiguration(new ReviewConfiguration());
+        builder.ApplyConfiguration(new FriendRequestConfiguration());
+        builder.ApplyConfiguration(new FriendshipConfiguration());
         builder.ApplyConfiguration(new LibraryEntryConfiguration());
         builder.ApplyConfiguration(new LibraryEventConfiguration());
 
