@@ -56,6 +56,13 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     var defaultResponse = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (context.ActionDescriptor is ControllerActionDescriptor friendsAction &&
+            friendsAction.ControllerTypeInfo.AsType() == typeof(FriendsController))
+        {
+            var friendsProblem = new ProblemDetails { Status = 400, Title = "Solicitud inválida" };
+            friendsProblem.Extensions["code"] = "invalid_query";
+            return new BadRequestObjectResult(friendsProblem);
+        }
         if (context.ActionDescriptor is ControllerActionDescriptor profileAction &&
             profileAction.ControllerTypeInfo.AsType() == typeof(UsersController))
         {
@@ -285,6 +292,10 @@ builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddSingleton<Playtrough.Api.Events.IDomainEventPublisher, Playtrough.Api.Events.InMemoryDomainEventPublisher>();
+builder.Services.AddOptions<FriendsSettings>().BindConfiguration(FriendsSettings.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddOptions<ProfileSettings>()
     .BindConfiguration(ProfileSettings.SectionName).ValidateDataAnnotations()
     .Validate(settings => settings.ReservedUsernames is not null &&
@@ -329,6 +340,8 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<ReviewsExamplesFilter>();
     options.SchemaFilter<UsersExamplesFilter>();
     options.OperationFilter<UsersExamplesFilter>();
+    options.SchemaFilter<FriendsExamplesFilter>();
+    options.OperationFilter<FriendsExamplesFilter>();
     options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
     options.DocumentFilter<ApiDocumentationFilter>();
@@ -378,6 +391,7 @@ app.UseMiddleware<GameCatalogExceptionMiddleware>();
 app.UseMiddleware<LibraryExceptionMiddleware>();
 app.UseMiddleware<ReviewExceptionMiddleware>();
 app.UseMiddleware<ProfileExceptionMiddleware>();
+app.UseMiddleware<FriendExceptionMiddleware>();
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
 {

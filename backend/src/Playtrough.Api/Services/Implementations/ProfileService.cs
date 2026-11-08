@@ -13,18 +13,20 @@ using Playtrough.Api.Services.Interfaces;
 namespace Playtrough.Api.Services.Implementations;
 
 public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser> users,
-    IOptions<ProfileSettings> settings, TimeProvider time) : IProfileService
+    IOptions<ProfileSettings> settings, TimeProvider time, IFriendService friends) : IProfileService
 {
     public async Task<MyProfileDto> GetMineAsync(int userId, CancellationToken ct = default)
-        => Mine(await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, ct)
-            ?? throw new ProfileException("user_not_found"));
+        => await MineAsync(await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new ProfileException("user_not_found"), ct);
 
     public async Task<ProfileDto> GetAsync(int viewerId, string username, CancellationToken ct = default)
     {
         var normalized = users.NormalizeName(username);
         var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.NormalizedUserName == normalized &&
             (u.EmailConfirmed || u.Id == viewerId), ct) ?? throw new ProfileException("user_not_found");
-        return new(user.UserName!, null, user.Bio, user.CreatedAt, 0, new("none"), false, null);
+        var summary = await friends.SummaryAsync(user.Id, ct);
+        var relationship = await friends.RelationshipAsync(viewerId, user.Id, ct);
+        return new(user.UserName!, null, user.Bio, user.CreatedAt, summary.FriendsCount, relationship, false, null);
     }
 
     public async Task<MyProfileDto> UpdateAsync(int userId, UpdateProfileRequest request, CancellationToken ct = default)
@@ -58,7 +60,7 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
             bio = PlainText.Sanitize(request.Bio.GetString());
             if (bio?.EnumerateRunes().Count() > 300) throw new ProfileException("invalid_bio");
         }
-        if (!changed && bio == user.Bio) return Mine(user);
+        if (!changed && bio == user.Bio) return await MineAsync(user, ct);
         user.Bio = bio;
         if (changed) user.UsernameChangedAt = time.GetUtcNow().UtcDateTime;
         try
@@ -84,7 +86,7 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
             db.Entry(user).State = EntityState.Detached;
             throw new ProfileException("username_taken");
         }
-        return Mine(user);
+        return await MineAsync(user, ct);
     }
 
     private DateTime? AvailableAt(ApplicationUser user)
@@ -92,6 +94,10 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
         var available = user.UsernameChangedAt?.AddDays(settings.Value.UsernameChangeCooldownDays);
         return available > time.GetUtcNow().UtcDateTime ? available : null;
     }
-    private MyProfileDto Mine(ApplicationUser user) => new(user.Id, user.UserName!, user.Email, null,
-        user.Bio, user.CreatedAt, 0, 0, AvailableAt(user));
+    private async Task<MyProfileDto> MineAsync(ApplicationUser user, CancellationToken ct)
+    {
+        var summary = await friends.SummaryAsync(user.Id, ct);
+        return new(user.Id, user.UserName!, user.Email, null, user.Bio, user.CreatedAt,
+            summary.FriendsCount, summary.PendingReceivedCount, AvailableAt(user));
+    }
 }
