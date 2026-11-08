@@ -6,6 +6,7 @@ public enum AuthError
     None,
     EmailAlreadyExists,
     UsernameAlreadyExists,
+    UsernameReserved,
     ValidationError,
     Unexpected,
     InvalidCredentials,

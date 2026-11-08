@@ -23,7 +23,9 @@ public class AuthService(
     IOptions<PasswordResetSettings> passwordResetOptions,
     IOptions<EmailConfirmationSettings> confirmationOptions,
     IEmailConfirmationQueue confirmationQueue,
-    IMemoryCache cache) : IAuthService
+    IMemoryCache cache,
+    IOptions<ProfileSettings>? profileSettings = null,
+    TimeProvider? time = null) : IAuthService
 {
 
     public async Task<ServiceResult<AuthMessageDto>> ConfirmEmailAsync(ConfirmEmailRequestDto dto, CancellationToken ct = default)
@@ -198,6 +200,7 @@ public class AuthService(
             if (!original.IsActive(now))
                 return ServiceResult<RefreshResponseDto>.Fail(AuthError.InvalidRefreshToken);
 
+            // Reload current username for JWT claims; the frontend refreshes after a profile rename.
             var user = await userRepository.FindByIdAsync(original.UserId, ct);
             if (user is null || !user.EmailConfirmed || !await signInManager.CanSignInAsync(user) ||
                 await signInManager.UserManager.IsLockedOutAsync(user))
@@ -285,6 +288,8 @@ public class AuthService(
     {
         var email = dto.Email.Trim();
         var username = dto.Username.Trim();
+        if (UsernameRules.IsReserved(username, profileSettings?.Value ?? new ProfileSettings()))
+            return ServiceResult<RegisterResponseDto>.Fail(AuthError.UsernameReserved);
 
         if (await userRepository.ExistsByEmailAsync(email, ct))
         {
@@ -299,7 +304,12 @@ public class AuthService(
         var transaction = await userRepository.BeginTransactionAsync(ct);
         try
         {
-            var user = new ApplicationUser { UserName = username, Email = email };
+            var defaults = profileSettings?.Value ?? new ProfileSettings();
+            var user = new ApplicationUser
+            {
+                UserName = username, Email = email, CreatedAt = (time ?? TimeProvider.System).GetUtcNow().UtcDateTime,
+                ProfileVisibility = defaults.DefaultProfileVisibility, HistoryVisibility = defaults.DefaultHistoryVisibility,
+            };
             var createResult = await userRepository.CreateAsync(user, dto.Password, ct);
             if (!createResult.Succeeded)
             {

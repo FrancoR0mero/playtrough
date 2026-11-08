@@ -1,0 +1,100 @@
+@baseUrl = http://localhost:5000
+@tokenA = REEMPLAZAR_ACCESS_TOKEN_A
+@tokenB = REEMPLAZAR_ACCESS_TOKEN_B
+@tokenC = REEMPLAZAR_ACCESS_TOKEN_C
+@usernameA = gamer_a
+@usernameB = gamer_b
+@usernameC = gamer_c
+# Copiar el id devuelto al crear una solicitud C -> A.
+@requestCA = 1
+
+### A consulta su configuración inicial: public / friends.
+GET {{baseUrl}}/api/users/me/privacy
+Authorization: Bearer {{tokenA}}
+
+### Preparación: A y B deben ser amigos (ver friends.http); C no debe ser amigo de A.
+### A limita su perfil a amigos; History se guarda pero no se aplica a biblioteca/reseñas.
+PUT {{baseUrl}}/api/users/me/privacy
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"profileVisibility":"friends","historyVisibility":"private"}
+
+### B, amigo de A, ve bio, fecha y contador.
+GET {{baseUrl}}/api/users/{{usernameA}}
+Authorization: Bearer {{tokenB}}
+
+### C ve solo username, avatarUrl, relationship, isRestricted y restriction=friends_only.
+GET {{baseUrl}}/api/users/{{usernameA}}
+Authorization: Bearer {{tokenC}}
+
+### B puede ver los amigos de A: 200.
+GET {{baseUrl}}/api/users/{{usernameA}}/friends?page=1&pageSize=20
+Authorization: Bearer {{tokenB}}
+
+### C no puede ver los amigos de A: 403 profile_restricted.
+GET {{baseUrl}}/api/users/{{usernameA}}/friends
+Authorization: Bearer {{tokenC}}
+
+### A pasa a privado.
+PUT {{baseUrl}}/api/users/me/privacy
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"profileVisibility":"private","historyVisibility":"friends"}
+
+### B ahora ve restriction=private, incluso siendo amigo.
+GET {{baseUrl}}/api/users/{{usernameA}}
+Authorization: Bearer {{tokenB}}
+
+### A sigue viendo todo su perfil y sus amigos.
+GET {{baseUrl}}/api/users/{{usernameA}}/friends
+Authorization: Bearer {{tokenA}}
+
+### C sigue encontrando a A en la búsqueda.
+GET {{baseUrl}}/api/users/search?q={{usernameA}}
+Authorization: Bearer {{tokenC}}
+
+### C puede enviar una solicitud al perfil privado (copiar id en requestCA).
+POST {{baseUrl}}/api/friends/requests
+Authorization: Bearer {{tokenC}}
+Content-Type: application/json
+
+{"username":"{{usernameA}}"}
+
+### A acepta la solicitud de C.
+POST {{baseUrl}}/api/friends/requests/{{requestCA}}/accept
+Authorization: Bearer {{tokenA}}
+
+### A vuelve a perfil solo amigos.
+PUT {{baseUrl}}/api/users/me/privacy
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"profileVisibility":"friends","historyVisibility":"friends"}
+
+### C ahora ve el perfil completo inmediatamente.
+GET {{baseUrl}}/api/users/{{usernameA}}
+Authorization: Bearer {{tokenC}}
+
+### C elimina su amistad con A.
+DELETE {{baseUrl}}/api/friends/{{usernameA}}
+Authorization: Bearer {{tokenC}}
+
+### C pierde el acceso inmediatamente.
+GET {{baseUrl}}/api/users/{{usernameA}}
+Authorization: Bearer {{tokenC}}
+
+### A vuelve a public; cualquier usuario autenticado puede ver el perfil.
+PUT {{baseUrl}}/api/users/me/privacy
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"profileVisibility":"public","historyVisibility":"friends"}
+
+### Valor inválido: 400 invalid_visibility; no modifica ninguno de los dos ajustes.
+PUT {{baseUrl}}/api/users/me/privacy
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"profileVisibility":"private","historyVisibility":"invalid"}

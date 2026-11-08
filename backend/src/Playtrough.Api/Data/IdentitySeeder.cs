@@ -10,7 +10,8 @@ public sealed class IdentitySeeder(
     RoleManager<IdentityRole<int>> roles,
     UserManager<ApplicationUser> users,
     IOptions<AdminSeedSettings> options,
-    ILogger<IdentitySeeder> logger)
+    ILogger<IdentitySeeder> logger,
+    IOptions<ProfileSettings>? profileSettings = null)
 {
     public async Task InitializeAsync(CancellationToken ct = default)
     {
@@ -40,7 +41,12 @@ public sealed class IdentitySeeder(
             return;
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var admin = new ApplicationUser { UserName = username, Email = email, EmailConfirmed = true };
+        var defaults = profileSettings?.Value ?? new ProfileSettings();
+        var admin = new ApplicationUser
+        {
+            UserName = username, Email = email, EmailConfirmed = true,
+            ProfileVisibility = defaults.DefaultProfileVisibility, HistoryVisibility = defaults.DefaultHistoryVisibility,
+        };
         if (!(await users.CreateAsync(admin, settings.Password)).Succeeded ||
             !(await users.AddToRoleAsync(admin, AppRoles.Admin)).Succeeded)
             // Identity errors can echo account data. Do not log options, passwords or error descriptions.

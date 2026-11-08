@@ -1,0 +1,43 @@
+@baseUrl = http://localhost:5000
+@tokenA = REEMPLAZAR_ACCESS_TOKEN_A
+@tokenB = REEMPLAZAR_ACCESS_TOKEN_B
+@tokenC = REEMPLAZAR_ACCESS_TOKEN_C
+
+### A busca personas. Su propia cuenta no aparece; no hay emails ni ids de usuario.
+GET {{baseUrl}}/api/users/search?q=gamer&page=1&pageSize=2
+Authorization: Bearer {{tokenA}}
+
+### Página siguiente. Revisar hasMore y que no haya repeticiones.
+GET {{baseUrl}}/api/users/search?q=gamer&page=2&pageSize=2
+Authorization: Bearer {{tokenA}}
+
+### B ve las relaciones desde su perspectiva (request_received si A envió a B).
+GET {{baseUrl}}/api/users/search?q=gamer
+Authorization: Bearer {{tokenB}}
+
+### C ve sus propias relaciones.
+GET {{baseUrl}}/api/users/search?q=gamer
+Authorization: Bearer {{tokenC}}
+
+### Texto recortado y sin distinguir mayúsculas; gamer_a exacto debe preceder a prefijos y al resto.
+GET {{baseUrl}}/api/users/search?q=%20GAMER_A%20
+Authorization: Bearer {{tokenA}}
+
+### Guion bajo literal (no comodín de un carácter).
+GET {{baseUrl}}/api/users/search?q=er_
+Authorization: Bearer {{tokenA}}
+
+### Porcentaje literal (no coincide con todos los usuarios).
+GET {{baseUrl}}/api/users/search?q=er%25
+Authorization: Bearer {{tokenA}}
+
+### Consulta demasiado corta: 400 invalid_query.
+GET {{baseUrl}}/api/users/search?q=a
+Authorization: Bearer {{tokenA}}
+
+### Máximo 20 resultados: 400 invalid_query.
+GET {{baseUrl}}/api/users/search?q=gamer&pageSize=21
+Authorization: Bearer {{tokenA}}
+
+### Sin token: 401.
+GET {{baseUrl}}/api/users/search?q=gamer

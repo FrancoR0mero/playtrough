@@ -189,12 +189,8 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewS
 
     private static string? Sanitize(string? text)
     {
-        if (text is null) return null;
-        text = text.Replace("\r\n", "\n").Replace('\r', '\n');
-        var result = new StringBuilder(text.Length);
-        foreach (var character in text)
-            if (!char.IsControl(character) || character is '\n' or '\t') result.Append(character);
-        var clean = result.ToString().Trim();
+        var clean = PlainText.Sanitize(text);
+        if (clean is null) return null;
         // Count Unicode scalar values: an emoji is one character, matching utf8mb4 VARCHAR.
         if (clean.EnumerateRunes().Count() > 2000) throw new ReviewException("invalid_text");
         return clean.Length == 0 ? null : clean;

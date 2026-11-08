@@ -11,6 +11,9 @@ public sealed class RateLimitSettings
     public RateLimitPolicySettings TokenActions { get; set; } = new(10, TimeSpan.FromMinutes(15));
     public RateLimitPolicySettings Refresh { get; set; } = new(30, TimeSpan.FromMinutes(1));
     public RateLimitPolicySettings Catalog { get; set; } = new(30, TimeSpan.FromMinutes(1));
+    public RateLimitPolicySettings UserSearch { get; set; } = new(30, TimeSpan.FromMinutes(1));
+    public RateLimitPolicySettings FriendsWrite { get; set; } = new(30, TimeSpan.FromMinutes(1));
+    public RateLimitPolicySettings ProfileWrite { get; set; } = new(10, TimeSpan.FromMinutes(1));
     public RateLimitPolicySettings ReviewsWrite { get; set; } = new(20, TimeSpan.FromMinutes(1));
     public RateLimitPolicySettings Global { get; set; } = new(100, TimeSpan.FromMinutes(1));
 }
