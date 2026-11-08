@@ -1,6 +1,6 @@
 # Épica 9 — fase 2: amistades
 
-Implementa solicitudes, aceptación, rechazo, cancelación, listado, eliminación y contadores. No aplica privacidad todavía ni crea notificaciones, feed o consumidores de eventos.
+Implementa solicitudes, aceptación, rechazo, cancelación, listado, eliminación y contadores. La [fase 4](privacy.md) controla el acceso a perfiles y listas de amigos ajenas; los perfiles privados pueden recibir solicitudes. No crea notificaciones, feed o consumidores de eventos.
 
 ## Decisiones de persistencia y concurrencia
 
