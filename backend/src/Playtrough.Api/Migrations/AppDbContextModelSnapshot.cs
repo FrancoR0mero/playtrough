@@ -189,6 +189,10 @@ namespace Playtrough.Api.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<int>("HistoryVisibility")
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("tinyint(1)");
 
@@ -211,6 +215,10 @@ namespace Playtrough.Api.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("ProfileVisibility")
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("longtext");

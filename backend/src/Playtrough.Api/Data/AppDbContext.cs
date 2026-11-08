@@ -65,6 +65,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.Entity<ApplicationUser>(entity =>
         {
             entity.Property(u => u.Bio).HasMaxLength(300).HasAnnotation("MySQL:Charset", "utf8mb4");
+            // Always write explicit values, including Public=0 for history, rather
+            // than treating enum zero as a sentinel for the database's Friends default.
+            entity.Property(u => u.ProfileVisibility).HasDefaultValue(Visibility.Public).ValueGeneratedNever();
+            entity.Property(u => u.HistoryVisibility).HasDefaultValue(Visibility.Friends).ValueGeneratedNever();
             entity.Property(u => u.UsernameChangedAt).HasConversion(
                 value => value, value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value);
             entity.Property(u => u.CreatedAt).HasConversion(

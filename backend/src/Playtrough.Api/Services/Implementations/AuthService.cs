@@ -304,7 +304,12 @@ public class AuthService(
         var transaction = await userRepository.BeginTransactionAsync(ct);
         try
         {
-            var user = new ApplicationUser { UserName = username, Email = email, CreatedAt = (time ?? TimeProvider.System).GetUtcNow().UtcDateTime };
+            var defaults = profileSettings?.Value ?? new ProfileSettings();
+            var user = new ApplicationUser
+            {
+                UserName = username, Email = email, CreatedAt = (time ?? TimeProvider.System).GetUtcNow().UtcDateTime,
+                ProfileVisibility = defaults.DefaultProfileVisibility, HistoryVisibility = defaults.DefaultHistoryVisibility,
+            };
             var createResult = await userRepository.CreateAsync(user, dto.Password, ct);
             if (!createResult.Succeeded)
             {
