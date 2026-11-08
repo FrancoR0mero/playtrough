@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../../../environments/environment';
-import { MyProfileDto, ProfileDto, UpdateProfileRequest } from '../models/user';
+import { MyProfileDto, ProfileDto, UpdateProfileRequest, UserSearchPage } from '../models/user';
 
 @Injectable({ providedIn: 'root' })
 export class UsersService {
@@ -10,6 +10,10 @@ export class UsersService {
 
   getMe() {
     return this.http.get<MyProfileDto>(`${this.url}/me`);
+  }
+
+  search(q: string, page = 1, pageSize = 20) {
+    return this.http.get<UserSearchPage>(`${this.url}/search`, { params: { q, page, pageSize } });
   }
 
   getProfile(username: string) {

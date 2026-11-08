@@ -5,6 +5,17 @@ export interface UserSummaryDto {
   avatarUrl: string | null;
 }
 
+export interface UserSearchDto extends UserSummaryDto {
+  relationship: RelationshipDto;
+}
+
+export interface UserSearchPage {
+  items: UserSearchDto[];
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
 export interface MyProfileDto extends UserSummaryDto {
   id: number;
   email: string;

@@ -6,6 +6,19 @@ import { MY_PROFILE, OTHER_PROFILE } from '../profile-test-helpers';
 import { UsersService } from './users';
 
 describe('UsersService', () => {
+  it('searches users with encoded query parameters and pagination', () => {
+    TestBed.inject(UsersService)
+      .search('a & b', 2, 10)
+      .subscribe((value) => expect(value.items).toEqual([]));
+    const request = TestBed.inject(HttpTestingController).expectOne(
+      (req) => req.url === `${environment.apiUrl}/users/search`,
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('q')).toBe('a & b');
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('10');
+    request.flush({ items: [], page: 2, pageSize: 10, hasMore: false });
+  });
   beforeEach(() =>
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
