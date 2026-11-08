@@ -1,0 +1,86 @@
+@baseUrl = http://localhost:5000
+@tokenA = REEMPLAZAR_ACCESS_TOKEN_A
+@tokenB = REEMPLAZAR_ACCESS_TOKEN_B
+@tokenC = REEMPLAZAR_ACCESS_TOKEN_C
+@usernameA = gamer_a
+@usernameB = gamer_b
+@usernameC = gamer_c
+# Copiar los ids de las respuestas 201 de cada envío.
+@requestAB = 1
+@requestAC = 2
+@requestCB = 3
+
+### A envía solicitud a B (copiar id en requestAB)
+POST {{baseUrl}}/api/friends/requests
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"username":"{{usernameB}}"}
+
+### B ve request_received en el perfil de A
+GET {{baseUrl}}/api/users/{{usernameA}}
+Authorization: Bearer {{tokenB}}
+
+### B lista las recibidas
+GET {{baseUrl}}/api/friends/requests/received?page=1&pageSize=20
+Authorization: Bearer {{tokenB}}
+
+### C no puede aceptar la solicitud de B: 404
+POST {{baseUrl}}/api/friends/requests/{{requestAB}}/accept
+Authorization: Bearer {{tokenC}}
+
+### B acepta; repetir devuelve 200 sin duplicar
+POST {{baseUrl}}/api/friends/requests/{{requestAB}}/accept
+Authorization: Bearer {{tokenB}}
+
+### A lista amigos con fecha
+GET {{baseUrl}}/api/friends?q={{usernameB}}&page=1&pageSize=20
+Authorization: Bearer {{tokenA}}
+
+### Resumen de A
+GET {{baseUrl}}/api/friends/summary
+Authorization: Bearer {{tokenA}}
+
+### A envía a C (copiar id en requestAC)
+POST {{baseUrl}}/api/friends/requests
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"username":"{{usernameC}}"}
+
+### C rechaza: 204, sin evento ni notificación
+POST {{baseUrl}}/api/friends/requests/{{requestAC}}/reject
+Authorization: Bearer {{tokenC}}
+
+### A reintenta: 409 cooldown_active y availableAt
+POST {{baseUrl}}/api/friends/requests
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"username":"{{usernameC}}"}
+
+### C envía a B (copiar id en requestCB)
+POST {{baseUrl}}/api/friends/requests
+Authorization: Bearer {{tokenC}}
+Content-Type: application/json
+
+{"username":"{{usernameB}}"}
+
+### C ve las enviadas
+GET {{baseUrl}}/api/friends/requests/sent
+Authorization: Bearer {{tokenC}}
+
+### C cancela; repetir devuelve 204. Puede enviar otra inmediatamente.
+DELETE {{baseUrl}}/api/friends/requests/{{requestCB}}
+Authorization: Bearer {{tokenC}}
+
+### A elimina amistad con B; repetir devuelve 204
+DELETE {{baseUrl}}/api/friends/{{usernameB}}
+Authorization: Bearer {{tokenA}}
+
+### A puede enviar de nuevo sin espera
+POST {{baseUrl}}/api/friends/requests
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{"username":"{{usernameB}}"}

@@ -10,7 +10,7 @@ Todos los endpoints requieren un access token válido, de cualquier rol.
 - `GET /api/users/{username}`: búsqueda por nombre normalizado de Identity; sin email ni id interno. Las cuentas sin confirmar devuelven `404 user_not_found`, excepto al dueño.
 - `PUT /api/users/me`: edición parcial de `username` y `bio`. La identidad proviene del token. Campos omitidos se conservan; `bio: null` la elimina. JSON de tipos incorrectos devuelve los códigos de perfil.
 
-`friendsCount` y `pendingReceivedCount` valen cero, la relación es `none` sin `requestId`, y el perfil no está restringido en esta fase. `avatarUrl` es null. `me` y `search` quedan excluidos de la ruta variable; `search` se implementará en la fase 3.
+Con la fase 2, `friendsCount`, `pendingReceivedCount` y `relationship` ya reflejan las amistades y solicitudes reales; ver [amistades](friends.md). El perfil no está restringido todavía. `avatarUrl` es null. `me` y `search` quedan excluidos de la ruta variable; `search` se implementará en la fase 3.
 
 La política `profile-write` usa `RateLimit:ProfileWrite` (10 solicitudes por minuto y usuario), con `429 rate_limited` y `Retry-After`. Un token nuevo del mismo usuario conserva el presupuesto.
 
