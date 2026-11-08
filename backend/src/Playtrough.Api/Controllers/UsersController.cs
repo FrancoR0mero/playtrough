@@ -13,8 +13,20 @@ namespace Playtrough.Api.Controllers;
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 [ProducesResponseType(typeof(ProblemDetails), 401)]
 [ProducesResponseType(typeof(ProblemDetails), 429)]
-public sealed class UsersController(IProfileService profiles) : ControllerBase
+public sealed class UsersController(IProfileService profiles, IUserSearchService search) : ControllerBase
 {
+    /// <summary>Buscar usuarios confirmados por username, sin distinguir mayúsculas.</summary>
+    /// <remarks>q es obligatorio: 2–50 caracteres Unicode tras recortar. % y _ son literales.
+    /// Excluye al usuario del token. Orden: exacto, prefijo, resto; desempate por username normalizado e id.
+    /// page=1, pageSize=20 (máximo 20), hasMore. Solo expone username, avatarUrl y relationship.
+    /// Política user-search: 30 consultas por minuto por usuario.</remarks>
+    /// <response code="400">invalid_query: q o paginación inválidos.</response>
+    [HttpGet("search"), EnableRateLimiting(RateLimitPolicies.UserSearch)]
+    [ProducesResponseType(typeof(UserSearchResponse), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 400)]
+    public async Task<IActionResult> Search([FromQuery] UserSearchRequest request, CancellationToken ct)
+        => UserId() is { } id ? Ok(await search.SearchAsync(id, request, ct)) : Challenge();
+
     /// <summary>Consultar el perfil propio, incluido el email y la próxima fecha de cambio de username.</summary>
     /// <response code="404">user_not_found: el usuario del token ya no existe.</response>
     [HttpGet("me")]

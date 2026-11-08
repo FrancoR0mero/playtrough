@@ -13,6 +13,7 @@ public sealed class RateLimitSettingsValidator : IValidateOptions<RateLimitSetti
             (nameof(settings.PasswordRecovery), settings.PasswordRecovery), (nameof(settings.TokenActions), settings.TokenActions),
             (nameof(settings.Refresh), settings.Refresh), (nameof(settings.Global), settings.Global),
             (nameof(settings.Catalog), settings.Catalog),
+            (nameof(settings.UserSearch), settings.UserSearch),
             (nameof(settings.FriendsWrite), settings.FriendsWrite),
             (nameof(settings.ProfileWrite), settings.ProfileWrite),
             (nameof(settings.ReviewsWrite), settings.ReviewsWrite),

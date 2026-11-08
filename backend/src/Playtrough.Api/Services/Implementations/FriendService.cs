@@ -133,7 +133,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
                     select new { user.Id, user.UserName, user.NormalizedUserName, friendship.CreatedAt };
         if (!string.IsNullOrWhiteSpace(q))
         {
-            var pattern = "%" + EscapeLike(normalizer.NormalizeName(q.Trim())) + "%";
+            var pattern = "%" + LikePattern.Escape(normalizer.NormalizeName(q.Trim())) + "%";
             query = query.Where(row => EF.Functions.Like(row.NormalizedUserName!, pattern, "\\"));
         }
         var rows = await query.OrderBy(row => row.NormalizedUserName).ThenBy(row => row.Id)
@@ -235,5 +235,4 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
             throw new FriendException("invalid_query");
         return (page.Page - 1) * page.PageSize;
     }
-    private static string EscapeLike(string text) => text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 }

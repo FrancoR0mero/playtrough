@@ -25,6 +25,22 @@ public sealed class UsersExamplesFilter : ISchemaFilter, IOperationFilter
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         if (context.MethodInfo.DeclaringType != typeof(UsersController) || operation.Responses is not { } responses) return;
+        if (context.MethodInfo.Name == nameof(UsersController.Search) && operation.Parameters is { } parameters)
+            foreach (var parameter in parameters.OfType<OpenApiParameter>())
+            {
+                if (string.Equals(parameter.Name, "q", StringComparison.OrdinalIgnoreCase))
+                {
+                    parameter.Required = true;
+                    parameter.Description = "2–50 caracteres Unicode tras recortar; % y _ se buscan literalmente.";
+                    parameter.Schema = new OpenApiSchema { Type = JsonSchemaType.String, MinLength = 2, MaxLength = 50 };
+                }
+                else if (parameter.Schema is OpenApiSchema paging && parameter.Name is "page" or "pageSize")
+                {
+                    paging.Minimum = "1";
+                    paging.Default = JsonValue.Create(parameter.Name == "page" ? 1 : 20);
+                    if (parameter.Name == "pageSize") paging.Maximum = "20";
+                }
+            }
         if (operation.RequestBody?.Content is { } content)
             foreach (var media in content.Values)
                 media.Example = JsonNode.Parse("""{"username":"gamer_nuevo","bio":"Me gustan los RPG 🎮"}""");
