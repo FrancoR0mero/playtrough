@@ -13,6 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RoleChangeLog> RoleChangeLogs => Set<RoleChangeLog>();
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<LibraryEntry> LibraryEntries => Set<LibraryEntry>();
     public DbSet<LibraryEvent> LibraryEvents => Set<LibraryEvent>();
 
@@ -21,6 +23,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         base.OnModelCreating(builder);
         builder.ApplyConfiguration(new GameConfiguration());
         builder.ApplyConfiguration(new ReviewConfiguration());
+        builder.ApplyConfiguration(new FriendRequestConfiguration());
+        builder.ApplyConfiguration(new FriendshipConfiguration());
         builder.ApplyConfiguration(new LibraryEntryConfiguration());
         builder.ApplyConfiguration(new LibraryEventConfiguration());
 
@@ -60,6 +64,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         // Identity makes NormalizedUserName unique but not NormalizedEmail.
         builder.Entity<ApplicationUser>(entity =>
         {
+            entity.Property(u => u.Bio).HasMaxLength(300).HasAnnotation("MySQL:Charset", "utf8mb4");
+            // Always write explicit values, including Public=0 for history, rather
+            // than treating enum zero as a sentinel for the database's Friends default.
+            entity.Property(u => u.ProfileVisibility).HasDefaultValue(Visibility.Public).ValueGeneratedNever();
+            entity.Property(u => u.HistoryVisibility).HasDefaultValue(Visibility.Friends).ValueGeneratedNever();
+            entity.Property(u => u.UsernameChangedAt).HasConversion(
+                value => value, value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value);
+            entity.Property(u => u.CreatedAt).HasConversion(
+                value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
             entity.HasIndex(u => u.NormalizedUserName).IsUnique();
             entity.HasIndex(u => u.NormalizedEmail).IsUnique();
         });

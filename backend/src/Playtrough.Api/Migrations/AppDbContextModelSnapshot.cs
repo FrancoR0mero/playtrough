@@ -170,6 +170,11 @@ namespace Playtrough.Api.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
+                    b.Property<string>("Bio")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("longtext");
@@ -183,6 +188,10 @@ namespace Playtrough.Api.Migrations
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("HistoryVisibility")
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("tinyint(1)");
@@ -207,6 +216,10 @@ namespace Playtrough.Api.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<int>("ProfileVisibility")
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("longtext");
 
@@ -216,6 +229,9 @@ namespace Playtrough.Api.Migrations
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("UsernameChangedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -228,6 +244,68 @@ namespace Playtrough.Api.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.FriendRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long?>("PendingPairKey")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bigint")
+                        .HasComputedColumnSql("CASE WHEN `Status` = 0 THEN CASE WHEN `SenderId` < `ReceiverId` THEN `SenderId` * 4294967296 + `ReceiverId` ELSE `ReceiverId` * 4294967296 + `SenderId` END ELSE NULL END", false);
+
+                    b.Property<int>("ReceiverId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("SenderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PendingPairKey")
+                        .IsUnique();
+
+                    b.HasIndex("ReceiverId", "Status", "CreatedAt", "Id");
+
+                    b.HasIndex("SenderId", "Status", "CreatedAt", "Id");
+
+                    b.ToTable("FriendRequests", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_FriendRequests_DifferentUsers", "`SenderId` <> `ReceiverId`");
+                        });
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.Friendship", b =>
+                {
+                    b.Property<int>("UserLowId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserHighId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("UserLowId", "UserHighId");
+
+                    b.HasIndex("UserHighId");
+
+                    b.ToTable("Friendships", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Friendships_CanonicalPair", "`UserLowId` < `UserHighId`");
+                        });
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.Game", b =>
@@ -576,6 +654,36 @@ namespace Playtrough.Api.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.FriendRequest", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.Friendship", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserHighId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserLowId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

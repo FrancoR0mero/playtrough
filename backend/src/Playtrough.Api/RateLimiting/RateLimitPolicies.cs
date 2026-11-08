@@ -8,6 +8,9 @@ public static class RateLimitPolicies
     public const string TokenActions = "token-actions";
     public const string Refresh = "refresh";
     public const string Catalog = "catalog";
+    public const string UserSearch = "user-search";
+    public const string FriendsWrite = "friends-write";
+    public const string ProfileWrite = "profile-write";
     public const string ReviewsWrite = "reviews-write";
     public const string Global = "global";
 }

@@ -24,6 +24,18 @@ public sealed class ConfigureRateLimiting(
                 // Let authentication consistently return 401; anonymous requests cannot
                 // consume an authenticated user's catalog budget by claiming its subject.
                 : RateLimitPartition.GetNoLimiter<string>("catalog-anonymous"));
+        options.AddPolicy(RateLimitPolicies.UserSearch, context => limits.Enabled &&
+            context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var userId)
+                ? FixedWindow($"user:{userId}", limits.UserSearch)
+                : RateLimitPartition.GetNoLimiter<string>("user-search-anonymous"));
+        options.AddPolicy(RateLimitPolicies.FriendsWrite, context => limits.Enabled &&
+            context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var userId)
+                ? FixedWindow($"user:{userId}", limits.FriendsWrite)
+                : RateLimitPartition.GetNoLimiter<string>("friends-write-anonymous"));
+        options.AddPolicy(RateLimitPolicies.ProfileWrite, context => limits.Enabled &&
+            context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var userId)
+                ? FixedWindow($"user:{userId}", limits.ProfileWrite)
+                : RateLimitPartition.GetNoLimiter<string>("profile-write-anonymous"));
         options.AddPolicy(RateLimitPolicies.ReviewsWrite, context => limits.Enabled &&
             context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var userId)
                 ? FixedWindow($"user:{userId}", limits.ReviewsWrite)
@@ -90,6 +102,9 @@ public sealed class ConfigureRateLimiting(
         RateLimitPolicies.TokenActions => limits.TokenActions.Window,
         RateLimitPolicies.Refresh => limits.Refresh.Window,
         RateLimitPolicies.Catalog => limits.Catalog.Window,
+        RateLimitPolicies.UserSearch => limits.UserSearch.Window,
+        RateLimitPolicies.FriendsWrite => limits.FriendsWrite.Window,
+        RateLimitPolicies.ProfileWrite => limits.ProfileWrite.Window,
         RateLimitPolicies.ReviewsWrite => limits.ReviewsWrite.Window,
         _ => limits.Global.Window,
     };
