@@ -67,7 +67,8 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
             profileAction.ControllerTypeInfo.AsType() == typeof(UsersController))
         {
             var profileProblem = new ProblemDetails { Status = 400, Title = "Perfil inválido" };
-            profileProblem.Extensions["code"] = profileAction.ActionName == nameof(UsersController.Search) ? "invalid_query" : context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
+            profileProblem.Extensions["code"] = profileAction.ActionName == nameof(UsersController.UpdatePrivacy) ? "invalid_visibility" :
+                profileAction.ActionName is nameof(UsersController.Search) or nameof(UsersController.Friends) ? "invalid_query" : context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
                 entry.Key.Contains("bio", StringComparison.OrdinalIgnoreCase)) ? "invalid_bio" : "invalid_username";
             return new BadRequestObjectResult(profileProblem);
         }
@@ -292,6 +293,7 @@ builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IPrivacyService, PrivacyService>();
 builder.Services.AddScoped<IUserSearchService, UserSearchService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddSingleton<Playtrough.Api.Events.IDomainEventPublisher, Playtrough.Api.Events.InMemoryDomainEventPublisher>();
@@ -299,6 +301,8 @@ builder.Services.AddOptions<FriendsSettings>().BindConfiguration(FriendsSettings
     .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddOptions<ProfileSettings>()
     .BindConfiguration(ProfileSettings.SectionName).ValidateDataAnnotations()
+    .Validate(settings => Enum.IsDefined(settings.DefaultProfileVisibility) && Enum.IsDefined(settings.DefaultHistoryVisibility),
+        "Profile visibility defaults must be Public, Friends or Private.")
     .Validate(settings => settings.ReservedUsernames is not null &&
         settings.ReservedUsernames.All(name => !string.IsNullOrWhiteSpace(name)), "Reserved usernames cannot be blank.")
     .ValidateOnStart();

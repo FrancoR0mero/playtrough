@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Playtrough.Api.Dtos.Users;
+using Playtrough.Api.Dtos.Friends;
 using Playtrough.Api.RateLimiting;
 using Playtrough.Api.Services.Interfaces;
 
@@ -13,7 +14,7 @@ namespace Playtrough.Api.Controllers;
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 [ProducesResponseType(typeof(ProblemDetails), 401)]
 [ProducesResponseType(typeof(ProblemDetails), 429)]
-public sealed class UsersController(IProfileService profiles, IUserSearchService search) : ControllerBase
+public sealed class UsersController(IProfileService profiles, IUserSearchService search, IPrivacyService privacy) : ControllerBase
 {
     /// <summary>Buscar usuarios confirmados por username, sin distinguir mayúsculas.</summary>
     /// <remarks>q es obligatorio: 2–50 caracteres Unicode tras recortar. % y _ son literales.
@@ -36,12 +37,52 @@ public sealed class UsersController(IProfileService profiles, IUserSearchService
         => UserId() is { } id ? Ok(await profiles.GetMineAsync(id, ct)) : Challenge();
 
     /// <summary>Consultar un perfil por username sin distinguir mayúsculas. Nunca expone email.</summary>
+    /// <remarks>Si está restringido devuelve 200 con username, avatarUrl, relationship, isRestricted=true
+    /// y restriction=private o friends_only. Omite bio, createdAt y friendsCount. El dueño siempre puede verlo.</remarks>
     /// <response code="404">user_not_found: no existe o no confirmó su email (salvo el dueño).</response>
     [HttpGet("{username:regex(^(?!(?i:me|search)$).+$)}")]
     [ProducesResponseType(typeof(ProfileDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
     public async Task<IActionResult> Get(string username, CancellationToken ct)
-        => UserId() is { } id ? Ok(await profiles.GetAsync(id, username, ct)) : Challenge();
+    {
+        if (UserId() is not { } id) return Challenge();
+        var profile = await profiles.GetAsync(id, username, ct);
+        return profile.IsRestricted
+            ? Ok(new RestrictedProfileDto(profile.Username, profile.AvatarUrl, true, profile.Restriction!, profile.Relationship))
+            : Ok(profile);
+    }
+
+    /// <summary>Consultar la configuración propia de privacidad de perfil e historial.</summary>
+    /// <remarks>Valores: public, friends, private. El historial solo se configura; todavía no se aplica a biblioteca o reseñas.</remarks>
+    [HttpGet("me/privacy")]
+    [ProducesResponseType(typeof(PrivacyDto), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 404)]
+    public async Task<IActionResult> GetPrivacy(CancellationToken ct)
+        => UserId() is { } id ? Ok(await privacy.GetAsync(id, ct)) : Challenge();
+
+    /// <summary>Actualizar la privacidad propia de perfil e historial.</summary>
+    /// <remarks>Ambos campos son obligatorios y aceptan public, friends o private. Efecto inmediato.
+    /// Comparte el límite profile-write con la edición del perfil (10 por minuto por usuario).</remarks>
+    /// <response code="400">invalid_visibility: valor inválido, campo ausente o cuerpo inválido.</response>
+    [HttpPut("me/privacy"), EnableRateLimiting(RateLimitPolicies.ProfileWrite)]
+    [ProducesResponseType(typeof(PrivacyDto), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 400)]
+    [ProducesResponseType(typeof(ProblemDetails), 404)]
+    public async Task<IActionResult> UpdatePrivacy(UpdatePrivacyRequest request, CancellationToken ct)
+        => UserId() is { } id ? Ok(await privacy.UpdateAsync(id, request, ct)) : Challenge();
+
+    /// <summary>Listar los amigos de un usuario si su perfil es visible para el visitante.</summary>
+    /// <remarks>El dueño siempre tiene acceso. Orden alfabético e id; page=1, pageSize=20, máximo 50, hasMore.</remarks>
+    /// <response code="400">invalid_query: paginación inválida.</response>
+    /// <response code="403">profile_restricted: el perfil es privado o requiere amistad.</response>
+    /// <response code="404">user_not_found: cuenta inexistente o no confirmada (salvo el dueño).</response>
+    [HttpGet("{username:regex(^(?!(?i:me|search)$).+$)}/friends")]
+    [ProducesResponseType(typeof(FriendsPage<FriendDto>), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 400)]
+    [ProducesResponseType(typeof(ProblemDetails), 403)]
+    [ProducesResponseType(typeof(ProblemDetails), 404)]
+    public async Task<IActionResult> Friends(string username, [FromQuery] FriendsPageRequest request, CancellationToken ct)
+        => UserId() is { } id ? Ok(await profiles.FriendsAsync(id, username, request, ct)) : Challenge();
 
     /// <summary>Editar únicamente los campos presentes del perfil propio.</summary>
     /// <remarks>username: 3–20 letras ASCII, números o guion bajo. Un cambio cada 30 días por defecto.

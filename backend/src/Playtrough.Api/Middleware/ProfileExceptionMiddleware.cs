@@ -12,6 +12,7 @@ public sealed class ProfileExceptionMiddleware(RequestDelegate next)
             var status = error.Code switch
             {
                 "user_not_found" => 404,
+                "profile_restricted" => 403,
                 "username_taken" or "username_change_too_soon" or "concurrent_modification" => 409,
                 _ => 400,
             };
