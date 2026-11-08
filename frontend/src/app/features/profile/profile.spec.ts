@@ -1,9 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { createAuthMock, createSession } from '../auth/auth-test-helpers';
 import { AuthService } from '../auth/services/auth';
 import { ProfileComponent } from './profile';
+import { UsersService } from './services/users';
+import { MY_PROFILE } from './profile-test-helpers';
 
 describe('Profile account actions', () => {
   it('logs out once, announces the pending state and returns to login', async () => {
@@ -13,12 +15,18 @@ describe('Profile account actions', () => {
     auth.logout.mockReturnValue(pending);
     TestBed.configureTestingModule({
       imports: [ProfileComponent],
-      providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: auth },
+        { provide: UsersService, useValue: { getMe: () => of(MY_PROFILE) } },
+      ],
     });
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     const fixture = TestBed.createComponent(ProfileComponent);
     fixture.detectChanges();
-    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    const button = fixture.nativeElement.querySelector(
+      '[data-action="profile-logout"]',
+    ) as HTMLButtonElement;
     button.click();
     button.click();
     fixture.detectChanges();
