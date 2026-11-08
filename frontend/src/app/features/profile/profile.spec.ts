@@ -7,7 +7,7 @@ import { createAuthMock, createSession } from '../auth/auth-test-helpers';
 import { AuthService } from '../auth/services/auth';
 import { ProfileComponent } from './profile';
 import { UsersService } from './services/users';
-import { MY_PROFILE } from './profile-test-helpers';
+import { DEFAULT_PRIVACY, MY_PROFILE } from './profile-test-helpers';
 
 describe('Profile account actions', () => {
   it('logs out once, announces the pending state and returns to login', async () => {
@@ -21,7 +21,10 @@ describe('Profile account actions', () => {
         { provide: FriendsService, useValue: createFriendsMock() },
         provideRouter([]),
         { provide: AuthService, useValue: auth },
-        { provide: UsersService, useValue: { getMe: () => of(MY_PROFILE) } },
+        {
+          provide: UsersService,
+          useValue: { getMe: () => of(MY_PROFILE), getPrivacy: () => of(DEFAULT_PRIVACY) },
+        },
       ],
     });
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);

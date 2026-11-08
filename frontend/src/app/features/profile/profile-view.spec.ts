@@ -9,18 +9,20 @@ import { RateLimitError } from '../../core/http/rate-limit-error';
 import { createAuthMock, createSession } from '../auth/auth-test-helpers';
 import { AuthService } from '../auth/services/auth';
 import { ProfileComponent } from './profile';
-import { MY_PROFILE, OTHER_PROFILE } from './profile-test-helpers';
+import { DEFAULT_PRIVACY, MY_PROFILE, OTHER_PROFILE } from './profile-test-helpers';
 import { ProfileEditResult } from './profile-edit';
 import { UsersService } from './services/users';
+import { ProfileDto } from './models/user';
 
 describe('Social profile screen', () => {
-  function setup(username?: string) {
+  function setup(username?: string, profile: ProfileDto = OTHER_PROFILE) {
     const params = new BehaviorSubject(convertToParamMap(username ? { username } : {}));
     const auth = createAuthMock();
     auth.currentUser.set(createSession().user);
     const users = {
       getMe: vi.fn().mockReturnValue(of(MY_PROFILE)),
-      getProfile: vi.fn().mockReturnValue(of(OTHER_PROFILE)),
+      getPrivacy: vi.fn().mockReturnValue(of(DEFAULT_PRIVACY)),
+      getProfile: vi.fn().mockReturnValue(of(profile)),
     };
     const closed = new Subject<ProfileEditResult>();
     const dialog = { open: vi.fn().mockReturnValue({ closed, close: vi.fn() }) };
@@ -43,6 +45,7 @@ describe('Social profile screen', () => {
   }
   afterEach(() => {
     TestBed.resetTestingModule();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
   it('loads own profile, formats join date, invites a bio and focuses the heading', () => {
@@ -53,6 +56,113 @@ describe('Social profile screen', () => {
     expect(f.root.textContent).toContain('Agregá una biografía');
     expect(f.root.querySelector('[data-action="edit-profile"]')).not.toBeNull();
     expect(document.activeElement).toBe(f.root.querySelector('h1'));
+  });
+
+  it.each([
+    ['private', 'Este perfil es privado'],
+    ['friends_only', 'El contenido de este perfil es solo para amigos'],
+  ] as const)(
+    'hides every sensitive field for %s, even if present in the response',
+    (restriction, message) => {
+      const f = setup('jugador', {
+        ...OTHER_PROFILE,
+        isRestricted: true,
+        restriction,
+        bio: 'BIO SECRETA',
+        friendsCount: 987,
+      });
+      f.fixture.detectChanges();
+      expect(f.root.querySelector('h1')!.textContent).toContain('jugador');
+      expect(f.root.querySelector('app-user-avatar')).not.toBeNull();
+      expect(f.root.querySelector('[role="alert"]')!.textContent).toContain(message);
+      expect(f.root.querySelector('app-profile-restriction svg')).not.toBeNull();
+      expect(f.root.querySelector('app-friendship-button')).not.toBeNull();
+      expect(f.root.textContent).not.toContain('BIO SECRETA');
+      expect(f.root.textContent).not.toContain('987');
+      expect(f.root.textContent).not.toContain('Se unió');
+      expect(f.root.querySelector('app-friends-preview')).toBeNull();
+      expect(f.root.querySelector('app-profile-privacy')).toBeNull();
+      expect(f.root.querySelector('a[href="/profile/jugador/friends"]')).toBeNull();
+    },
+  );
+
+  it('can send a request from a private profile without exposing its contents', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    const profile: ProfileDto = { ...OTHER_PROFILE, isRestricted: true, restriction: 'private' };
+    const f = setup('jugador', profile);
+    f.fixture.detectChanges();
+    f.users.getProfile.mockReturnValue(
+      of({ ...profile, relationship: { status: 'request_sent', requestId: 7 } }),
+    );
+    [...f.root.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === 'Agregar amigo')!
+      .click();
+    await vi.advanceTimersByTimeAsync(1);
+    f.fixture.detectChanges();
+    expect(TestBed.inject(FriendsService).send).toHaveBeenCalledWith('jugador');
+    expect(f.users.getProfile).toHaveBeenCalledTimes(2);
+    expect(f.root.textContent).toContain('Solicitud enviada');
+    expect(f.root.textContent).toContain('Este perfil es privado');
+    expect(f.root.querySelector('app-friends-preview')).toBeNull();
+  });
+
+  it('reveals only server-authorized content after acceptance and hides it after removal', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    const restricted: ProfileDto = {
+      ...OTHER_PROFILE,
+      isRestricted: true,
+      restriction: 'friends_only',
+      relationship: { status: 'request_received', requestId: 7 },
+    };
+    const f = setup('jugador', restricted);
+    f.fixture.detectChanges();
+    f.users.getProfile.mockReturnValue(
+      of({ ...OTHER_PROFILE, relationship: { status: 'friends' } }),
+    );
+    [...f.root.querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === 'Aceptar')!
+      .click();
+    await vi.advanceTimersByTimeAsync(1);
+    f.fixture.detectChanges();
+    expect(TestBed.inject(FriendsService).accept).toHaveBeenCalledWith(7);
+    expect(f.root.textContent).toContain('Hola');
+    expect(f.root.querySelector('app-friends-preview')).not.toBeNull();
+    f.users.getProfile.mockReturnValue(of({ ...restricted, relationship: { status: 'none' } }));
+    const friends = TestBed.inject(FriendsService) as unknown as ReturnType<
+      typeof createFriendsMock
+    >;
+    friends.changes.next({ username: 'jugador', action: 'removed' });
+    await vi.advanceTimersByTimeAsync(1);
+    f.fixture.detectChanges();
+    expect(f.root.textContent).not.toContain('Hola');
+    expect(f.root.querySelector('app-friends-preview')).toBeNull();
+    expect(f.root.textContent).toContain('El contenido de este perfil es solo para amigos');
+  });
+
+  it('rechecks access on focus and visible polling, and stops on destroy', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    const f = setup('jugador');
+    f.fixture.detectChanges();
+    f.users.getProfile.mockReturnValue(
+      of({ ...OTHER_PROFILE, isRestricted: true, restriction: 'private' }),
+    );
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+    f.fixture.detectChanges();
+    expect(f.users.getProfile).toHaveBeenCalledTimes(2);
+    expect(f.root.textContent).toContain('Este perfil es privado');
+    visibility.mockReturnValue('hidden');
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(f.users.getProfile).toHaveBeenCalledTimes(2);
+    visibility.mockReturnValue('visible');
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(f.users.getProfile).toHaveBeenCalledTimes(3);
+    f.fixture.destroy();
+    await vi.advanceTimersByTimeAsync(30_000);
+    window.dispatchEvent(new Event('focus'));
+    expect(f.users.getProfile).toHaveBeenCalledTimes(3);
   });
   it('loads another profile with literal multiline text and no edit action', () => {
     const f = setup('jugador');

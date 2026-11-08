@@ -25,18 +25,30 @@ import {
 } from './models/friend';
 import { FriendsService } from './services/friends';
 import { FriendsState } from './services/friends-state';
+import { UsersService } from '../profile/services/users';
+import { ProfileRestriction } from '../profile/models/user';
+import { ProfileRestrictionComponent } from '../profile/profile-restriction';
+import { visibleSocialRefresh } from '../profile/social-refresh';
 
 type Tab = 'friends' | 'received' | 'sent';
 type Row = FriendDto | FriendRequestDto;
 
 @Component({
   selector: 'app-friends',
-  imports: [RouterLink, ReactiveFormsModule, FriendRowComponent, FriendshipButtonComponent],
+  imports: [
+    RouterLink,
+    ReactiveFormsModule,
+    FriendRowComponent,
+    FriendshipButtonComponent,
+    ProfileRestrictionComponent,
+  ],
   templateUrl: './friends.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FriendsComponent {
   private readonly service = inject(FriendsService);
+  private readonly users = inject(UsersService);
+  private restrictionRequest?: Subscription;
   protected readonly state = inject(FriendsState);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -61,10 +73,16 @@ export class FriendsComponent {
   protected readonly hasMore = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly restricted = signal(false);
+  protected readonly restriction = signal<ProfileRestriction | null>(null);
   protected readonly status = signal<string | null>(null);
   protected readonly cooldown = createRateLimitCooldown();
 
   constructor() {
+    visibleSocialRefresh()
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        if (this.username()) this.reload(true);
+      });
     afterNextRender(() => this.heading()?.nativeElement.focus());
     this.state.refresh();
     combineLatest([this.route.paramMap, this.route.queryParamMap])
@@ -110,7 +128,10 @@ export class FriendsComponent {
       this.status.set(FRIENDSHIP_MESSAGES[change.action]);
       this.reload(true);
     });
-    this.destroyRef.onDestroy(() => this.request?.unsubscribe());
+    this.destroyRef.onDestroy(() => {
+      this.request?.unsubscribe();
+      this.restrictionRequest?.unsubscribe();
+    });
   }
 
   protected selectTab(tab: Tab): void {
@@ -157,6 +178,7 @@ export class FriendsComponent {
   }
 
   private reload(keepItems = false): void {
+    this.restrictionRequest?.unsubscribe();
     this.request?.unsubscribe();
     this.loading.set(false);
     this.page = 0;
@@ -164,6 +186,7 @@ export class FriendsComponent {
     this.hasMore.set(false);
     this.error.set(null);
     this.restricted.set(false);
+    this.restriction.set(null);
     this.fetch(1);
   }
   protected more(): void {
@@ -208,6 +231,13 @@ export class FriendsComponent {
         if (code === 'profile_restricted') {
           this.items.set([]);
           this.restricted.set(true);
+          this.hasMore.set(false);
+          if (username) {
+            this.restrictionRequest = this.users.getProfile(username).subscribe({
+              next: (profile) => this.restriction.set(profile.restriction),
+              error: () => this.restriction.set(null),
+            });
+          }
         }
         this.error.set(
           code === 'profile_restricted'

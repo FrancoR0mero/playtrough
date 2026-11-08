@@ -44,7 +44,7 @@ describe('Other player friends preview', () => {
       ),
     );
     f.fixture.detectChanges();
-    expect(f.root.querySelector('[role="alert"]')!.textContent).toContain('privada');
+    expect(f.root.querySelector('[role="alert"]')!.textContent).toContain('acceso restringido');
     f.service.forUser.mockReturnValue(
       of({ items: [FRIEND], page: 1, pageSize: 6, hasMore: false }),
     );

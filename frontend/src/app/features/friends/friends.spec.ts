@@ -217,14 +217,24 @@ describe('Friends lists', () => {
     expect(root().querySelector('app-friendship-button')).toBeNull();
     expect(root().textContent).toContain('Amigos desde');
   });
-  it('hides another user’s list when the server returns profile_restricted', async () => {
-    friends.forUser.mockReturnValue(
-      throwError(
-        () => new HttpErrorResponse({ status: 403, error: { code: 'profile_restricted' } }),
-      ),
-    );
-    await start('/profile/otro/friends');
-    expect(root().querySelector('[role="alert"]')!.textContent).toContain('privada');
-    expect(root().querySelectorAll('app-friend-row')).toHaveLength(0);
-  });
+  it.each([
+    ['private', 'Este perfil es privado'],
+    ['friends_only', 'El contenido de este perfil es solo para amigos'],
+  ] as const)(
+    'shows the matching %s notice and return link on profile_restricted',
+    async (restriction, message) => {
+      vi.spyOn(TestBed.inject(UsersService), 'getProfile').mockReturnValue(
+        of({ ...OTHER_PROFILE, isRestricted: true, restriction }),
+      );
+      friends.forUser.mockReturnValue(
+        throwError(
+          () => new HttpErrorResponse({ status: 403, error: { code: 'profile_restricted' } }),
+        ),
+      );
+      await start('/profile/otro/friends');
+      expect(root().querySelector('[role="alert"]')!.textContent).toContain(message);
+      expect(root().querySelector('a[href="/profile/otro"]')).not.toBeNull();
+      expect(root().querySelectorAll('app-friend-row')).toHaveLength(0);
+    },
+  );
 });

@@ -17,7 +17,7 @@ import { TokenStorageService } from './features/auth/services/token-storage';
 import { of } from 'rxjs';
 import { LibraryService } from './features/library/services/library';
 import { EMPTY_LIBRARY } from './features/library/library-test-helpers';
-import { MY_PROFILE } from './features/profile/profile-test-helpers';
+import { DEFAULT_PRIVACY, MY_PROFILE } from './features/profile/profile-test-helpers';
 
 describe('Application route access', () => {
   let storage: TokenStorageService;
@@ -63,6 +63,7 @@ describe('Application route access', () => {
     const harness = await RouterTestingHarness.create('/profile');
     httpMock.expectOne(`${environment.apiUrl}/users/me`).flush(MY_PROFILE);
     harness.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/users/me/privacy`).flush(DEFAULT_PRIVACY);
     expect(harness.routeNativeElement?.textContent).toContain(createSession().user.email);
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent?.trim()).toBe('Mi perfil');
     httpMock.expectNone(() => true);

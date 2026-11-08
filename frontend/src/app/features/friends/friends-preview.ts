@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   input,
+  output,
   signal,
   untracked,
 } from '@angular/core';
@@ -16,10 +17,12 @@ import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { profileError } from '../profile/profile-error';
 import { FriendDto } from './models/friend';
 import { FriendsService } from './services/friends';
+import { visibleSocialRefresh } from '../profile/social-refresh';
+import { ProfileRestrictionComponent } from '../profile/profile-restriction';
 
 @Component({
   selector: 'app-friends-preview',
-  imports: [RouterLink, UserAvatarComponent],
+  imports: [RouterLink, UserAvatarComponent, ProfileRestrictionComponent],
   template: `
     <section class="mt-8 border-t border-white/10 pt-6" aria-label="Amigos del jugador">
       <div class="flex items-center justify-between gap-4">
@@ -54,7 +57,9 @@ import { FriendsService } from './services/friends';
           </li>
         }
       </ul>
-      @if (cooldown.message() || error(); as message) {
+      @if (restricted()) {
+        <app-profile-restriction />
+      } @else if (cooldown.message() || error(); as message) {
         <p role="alert" class="mt-3 text-sm text-red-300">{{ message }}</p>
       }
       @if (error() && !restricted()) {
@@ -73,6 +78,7 @@ import { FriendsService } from './services/friends';
 })
 export class FriendsPreviewComponent {
   readonly username = input.required<string>();
+  readonly accessChanged = output<void>();
   private readonly friends = inject(FriendsService);
   private request?: Subscription;
   protected readonly items = signal<FriendDto[]>([]);
@@ -81,6 +87,9 @@ export class FriendsPreviewComponent {
   protected readonly restricted = signal(false);
   protected readonly cooldown = createRateLimitCooldown();
   constructor() {
+    visibleSocialRefresh()
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.load());
     effect(() => {
       this.username();
       untracked(() => this.load());
@@ -105,6 +114,7 @@ export class FriendsPreviewComponent {
         this.loading.set(false);
         const restricted = profileError(error).code === 'profile_restricted';
         this.restricted.set(restricted);
+        if (restricted) this.accessChanged.emit();
         this.error.set(
           restricted
             ? 'La lista de amigos de este perfil es privada.'

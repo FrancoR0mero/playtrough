@@ -23,10 +23,20 @@ import { MyProfileDto, ProfileDto } from './models/user';
 import { UsersService } from './services/users';
 import { profileError } from './profile-error';
 import { ProfileEditComponent, ProfileEditResult } from './profile-edit';
+import { ProfilePrivacyComponent } from './profile-privacy';
+import { ProfileRestrictionComponent } from './profile-restriction';
+import { visibleSocialRefresh } from './social-refresh';
 
 @Component({
   selector: 'app-profile',
-  imports: [RouterLink, UserAvatarComponent, FriendshipButtonComponent, FriendsPreviewComponent],
+  imports: [
+    RouterLink,
+    UserAvatarComponent,
+    FriendshipButtonComponent,
+    FriendsPreviewComponent,
+    ProfilePrivacyComponent,
+    ProfileRestrictionComponent,
+  ],
   templateUrl: './profile.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -54,6 +64,11 @@ export class ProfileComponent {
   protected readonly cooldown = createRateLimitCooldown();
 
   constructor() {
+    visibleSocialRefresh()
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        if (!this.own()) this.refreshSocial();
+      });
     this.socialRefresh.pipe(auditTime(0), takeUntilDestroyed()).subscribe(() => this.loadSocial());
     this.friends.changes$.pipe(takeUntilDestroyed()).subscribe(() => this.refreshSocial());
     afterNextRender(() => this.title()?.nativeElement.focus());
@@ -89,12 +104,22 @@ export class ProfileComponent {
     return !!profile && 'isRestricted' in profile && !profile.isRestricted;
   }
 
+  protected restricted(): boolean {
+    const profile = this.profile();
+    return !!profile && 'isRestricted' in profile && profile.isRestricted;
+  }
+
+  protected restriction() {
+    const profile = this.profile();
+    return profile && 'restriction' in profile ? profile.restriction : null;
+  }
+
   protected refreshSocial(): void {
     this.socialRefresh.next();
   }
 
   private loadSocial(): void {
-    if (!this.profile()) return;
+    if (!this.profile() || this.cooldown.remaining()) return;
     this.socialRequest?.unsubscribe();
     const username = this.route.snapshot.paramMap.get('username');
     const request: Observable<MyProfileDto | ProfileDto> = username
@@ -105,8 +130,10 @@ export class ProfileComponent {
         this.profile.set(profile);
         this.warning.set(null);
       },
-      error: () =>
-        this.warning.set('La acción se completó, pero no pudimos actualizar los datos del perfil.'),
+      error: (error) => {
+        this.cooldown.handle(error);
+        this.warning.set('No pudimos actualizar el perfil. Volvé a intentarlo.');
+      },
     });
   }
 
