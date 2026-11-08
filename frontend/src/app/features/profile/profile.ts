@@ -11,7 +11,11 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Observable, Subscription, finalize } from 'rxjs';
+import { Observable, Subject, Subscription, auditTime, finalize } from 'rxjs';
+import { FriendshipButtonComponent } from '../friends/friendship-button';
+import { FriendsPreviewComponent } from '../friends/friends-preview';
+import { FriendsService } from '../friends/services/friends';
+import { RelationshipDto } from '../friends/models/friend';
 import { AuthService } from '../auth/services/auth';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar';
@@ -22,7 +26,7 @@ import { ProfileEditComponent, ProfileEditResult } from './profile-edit';
 
 @Component({
   selector: 'app-profile',
-  imports: [RouterLink, UserAvatarComponent],
+  imports: [RouterLink, UserAvatarComponent, FriendshipButtonComponent, FriendsPreviewComponent],
   templateUrl: './profile.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -34,6 +38,9 @@ export class ProfileComponent {
   private readonly users = inject(UsersService);
   private readonly dialogs = inject(Dialog);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly friends = inject(FriendsService);
+  private socialRequest?: Subscription;
+  private readonly socialRefresh = new Subject<void>();
   private readonly title = viewChild<ElementRef<HTMLHeadingElement>>('title');
   private request?: Subscription;
   private editor?: DialogRef<ProfileEditResult, ProfileEditComponent>;
@@ -47,9 +54,12 @@ export class ProfileComponent {
   protected readonly cooldown = createRateLimitCooldown();
 
   constructor() {
+    this.socialRefresh.pipe(auditTime(0), takeUntilDestroyed()).subscribe(() => this.loadSocial());
+    this.friends.changes$.pipe(takeUntilDestroyed()).subscribe(() => this.refreshSocial());
     afterNextRender(() => this.title()?.nativeElement.focus());
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       this.request?.unsubscribe();
+      this.socialRequest?.unsubscribe();
       this.editor?.close();
       this.status.set(null);
       this.warning.set(null);
@@ -64,7 +74,39 @@ export class ProfileComponent {
     });
     this.destroyRef.onDestroy(() => {
       this.request?.unsubscribe();
+      this.socialRequest?.unsubscribe();
       this.editor?.close();
+    });
+  }
+
+  protected relationship(): RelationshipDto | null {
+    const profile = this.profile();
+    return profile && 'relationship' in profile ? profile.relationship : null;
+  }
+
+  protected showFriends(): boolean {
+    const profile = this.profile();
+    return !!profile && 'isRestricted' in profile && !profile.isRestricted;
+  }
+
+  protected refreshSocial(): void {
+    this.socialRefresh.next();
+  }
+
+  private loadSocial(): void {
+    if (!this.profile()) return;
+    this.socialRequest?.unsubscribe();
+    const username = this.route.snapshot.paramMap.get('username');
+    const request: Observable<MyProfileDto | ProfileDto> = username
+      ? this.users.getProfile(username)
+      : this.users.getMe();
+    this.socialRequest = request.subscribe({
+      next: (profile) => {
+        this.profile.set(profile);
+        this.warning.set(null);
+      },
+      error: () =>
+        this.warning.set('La acción se completó, pero no pudimos actualizar los datos del perfil.'),
     });
   }
 

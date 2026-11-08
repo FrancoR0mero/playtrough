@@ -1,3 +1,5 @@
+import { FriendsService } from '../friends/services/friends';
+import { createFriendsMock } from '../friends/friends-test-helpers';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { Subject, of } from 'rxjs';
@@ -16,6 +18,7 @@ describe('Profile account actions', () => {
     TestBed.configureTestingModule({
       imports: [ProfileComponent],
       providers: [
+        { provide: FriendsService, useValue: createFriendsMock() },
         provideRouter([]),
         { provide: AuthService, useValue: auth },
         { provide: UsersService, useValue: { getMe: () => of(MY_PROFILE) } },

@@ -1,3 +1,5 @@
+import { FriendsService } from '../friends/services/friends';
+import { createFriendsMock } from '../friends/friends-test-helpers';
 import { Dialog } from '@angular/cdk/dialog';
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
@@ -24,6 +26,7 @@ describe('Social profile screen', () => {
     const dialog = { open: vi.fn().mockReturnValue({ closed, close: vi.fn() }) };
     TestBed.configureTestingModule({
       providers: [
+        { provide: FriendsService, useValue: createFriendsMock() },
         provideRouter([]),
         { provide: AuthService, useValue: auth },
         { provide: UsersService, useValue: users },
@@ -70,6 +73,25 @@ describe('Social profile screen', () => {
     f.fixture.detectChanges();
     expect(f.navigate).toHaveBeenCalledWith(['/profile'], { replaceUrl: true });
     expect(f.users.getProfile).not.toHaveBeenCalled();
+  });
+
+  it('shows friendship controls and refreshes the public count after social changes', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    const f = setup('jugador');
+    f.fixture.detectChanges();
+    expect(f.root.querySelector('app-friendship-button')).not.toBeNull();
+    expect(f.root.querySelector('app-friends-preview')).not.toBeNull();
+    f.users.getProfile.mockReturnValue(
+      of({ ...OTHER_PROFILE, friendsCount: 9, relationship: { status: 'friends' } }),
+    );
+    const service = TestBed.inject(FriendsService) as unknown as ReturnType<
+      typeof createFriendsMock
+    >;
+    service.changes.next({ username: 'jugador', action: 'accepted' });
+    await vi.advanceTimersByTimeAsync(1);
+    f.fixture.detectChanges();
+    expect(f.root.textContent).toContain('9 amigos');
+    expect(f.root.querySelector('a[href="/profile/jugador/friends"]')).not.toBeNull();
   });
   it('announces saved edits and navigates to the canonical route after a rename', () => {
     const f = setup();

@@ -56,7 +56,13 @@
             Editar perfil
           </button>
         }
-        <!-- TODO fase 2: botón de amistad para el perfil ajeno. -->
+        @if (relationship(); as relation) {
+          <app-friendship-button
+            [username]="user.username"
+            [relationship]="relation"
+            (relationshipChanged)="refreshSocial()"
+          />
+        }
       </div>
       @if (user.bio) {
         <p class="mt-7 whitespace-pre-line break-words text-slate-200">{{ user.bio }}</p>
@@ -64,10 +70,15 @@
         <p class="mt-7 text-slate-400">Agregá una biografía para contar qué te gusta jugar.</p>
       }
       @if (user.friendsCount !== undefined && user.friendsCount !== null) {
-        <!-- TODO fase 2: enlazar a la lista de amigos cuando exista la ruta. -->
-        <p class="mt-5 text-sm text-slate-300">
+        <a
+          [routerLink]="own() ? ['/friends'] : ['/profile', user.username, 'friends']"
+          class="mt-5 inline-flex min-h-11 items-center text-sm text-slate-300 hover:underline"
+        >
           {{ user.friendsCount }} {{ user.friendsCount === 1 ? 'amigo' : 'amigos' }}
-        </p>
+        </a>
+      }
+      @if (showFriends()) {
+        <app-friends-preview [username]="user.username" />
       }
       @if (own()) {
         <dl class="mt-8 border-y border-white/10 py-5">
