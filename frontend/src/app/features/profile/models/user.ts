@@ -1,3 +1,5 @@
+import { RelationshipDto } from '../../friends/models/friend';
+
 export interface UserSummaryDto {
   username: string;
   avatarUrl: string | null;
@@ -17,10 +19,7 @@ export interface ProfileDto extends UserSummaryDto {
   bio?: string | null;
   createdAt?: string | null;
   friendsCount?: number | null;
-  relationship: {
-    status: 'none' | 'friends' | 'request_sent' | 'request_received';
-    requestId?: number;
-  };
+  relationship: RelationshipDto;
   isRestricted: boolean;
   restriction: 'private' | 'friends_only' | null;
 }
