@@ -1,0 +1,69 @@
+<div class="dialog-card p-5 sm:p-8">
+  <h2 id="profile-edit-title" class="text-2xl font-semibold text-white">Editar perfil</h2>
+  <p class="mt-2 text-sm text-slate-400">Así te van a conocer otros jugadores.</p>
+  <form [formGroup]="form" (ngSubmit)="save()" class="mt-7 space-y-6" [attr.aria-busy]="saving()">
+    <div>
+      <label for="profile-username" class="block text-sm font-semibold text-white"
+        >Nombre de usuario</label
+      >
+      <input
+        id="profile-username"
+        formControlName="username"
+        autocomplete="username"
+        class="ui-input mt-2 w-full border"
+        aria-describedby="username-help username-error"
+        [attr.aria-invalid]="form.controls.username.invalid"
+      />
+      <p id="username-help" class="mt-2 text-sm text-slate-400">
+        @if (form.controls.username.disabled && availableAt(); as available) {
+          Podrás cambiarlo el {{ date(available) }}
+        } @else {
+          Entre 3 y 20 letras, números o guiones bajos.
+        }
+      </p>
+      <p id="username-error" class="mt-2 text-sm text-red-300">
+        @if (form.controls.username.invalid && form.controls.username.dirty) {
+          Revisá el formato del nombre de usuario.
+        }
+      </p>
+    </div>
+    <div>
+      <label for="profile-bio" class="block text-sm font-semibold text-white">Biografía</label>
+      <textarea
+        id="profile-bio"
+        formControlName="bio"
+        rows="5"
+        class="ui-input mt-2 w-full resize-y border px-3 py-3"
+        placeholder="¿Qué te gusta jugar?"
+        aria-describedby="bio-counter bio-error"
+        [attr.aria-invalid]="form.controls.bio.invalid"
+      ></textarea>
+      <p id="bio-counter" class="mt-2 text-right text-sm text-slate-400">{{ bioLength() }} / 300</p>
+      <p id="bio-error" class="text-sm text-red-300">
+        @if (form.controls.bio.invalid) {
+          La biografía debe tener hasta 300 caracteres.
+        }
+      </p>
+    </div>
+    @if (cooldown.message() || error(); as message) {
+      <p role="alert" class="text-sm text-red-300">{{ message }}</p>
+    }
+    <div class="flex flex-wrap justify-end gap-3 border-t border-white/10 pt-5">
+      <button
+        type="button"
+        class="ui-button min-h-11 border border-slate-600 px-5 py-3 text-white"
+        [disabled]="saving()"
+        (click)="dialog.close()"
+      >
+        Cancelar
+      </button>
+      <button
+        type="submit"
+        class="ui-button min-h-11 bg-accent px-5 py-3 font-semibold text-white disabled:opacity-50"
+        [disabled]="saving() || form.invalid || !changed() || cooldown.remaining() > 0"
+      >
+        {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
+      </button>
+    </div>
+  </form>
+</div>

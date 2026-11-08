@@ -44,6 +44,19 @@ describe('AuthService refresh', () => {
     return TestBed.inject(AuthService);
   }
 
+  it('persists a renamed current user without changing tokens or another account', () => {
+    const auth = authenticated();
+    const before = storage.read()!;
+    auth.updateCurrentUsername(999, 'ignored');
+    expect(auth.currentUser()?.username).toBe('ana');
+    auth.updateCurrentUsername(1, 'nuevo');
+    expect(storage.read()).toEqual({ ...before, user: { ...before.user, username: 'nuevo' } });
+    expect(auth.currentUser()?.username).toBe('nuevo');
+    auth.clearSession();
+    auth.updateCurrentUsername(1, 'ignored');
+    expect(auth.isAuthenticated()).toBe(false);
+  });
+
   function replacement(suffix = 'new'): LoginResponse {
     return {
       ...createSession(),
