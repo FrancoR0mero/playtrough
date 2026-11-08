@@ -63,6 +63,16 @@ export const routes: Routes = [
     loadComponent: () => import('./features/profile/profile').then((m) => m.ProfileComponent),
   },
   {
+    path: 'friends',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/friends/friends').then((m) => m.FriendsComponent),
+  },
+  {
+    path: 'profile/:username/friends',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/friends/friends').then((m) => m.FriendsComponent),
+  },
+  {
     path: 'profile/:username',
     canActivate: [authGuard],
     loadComponent: () => import('./features/profile/profile').then((m) => m.ProfileComponent),

@@ -1,0 +1,149 @@
+<section class="page-container" aria-labelledby="friends-title">
+  <h1
+    #heading
+    id="friends-title"
+    tabindex="-1"
+    class="page-heading w-fit max-w-full break-words text-white"
+  >
+    {{ username() ? 'Amigos de ' + username() : 'Amigos' }}
+  </h1>
+  @if (username(); as user) {
+    <a
+      [routerLink]="['/profile', user]"
+      class="mt-3 inline-flex min-h-11 items-center text-slate-300 hover:underline"
+      >Volver al perfil</a
+    >
+  } @else {
+    <div role="tablist" aria-label="Amistades" class="mt-7 flex gap-1 border-b border-white/10">
+      @for (item of tabs; track item.id; let index = $index) {
+        <button
+          type="button"
+          role="tab"
+          [id]="'tab-' + item.id"
+          aria-controls="friends-panel"
+          [attr.aria-selected]="tab() === item.id"
+          [tabIndex]="tab() === item.id ? 0 : -1"
+          (click)="selectTab(item.id)"
+          (keydown)="keydown($event, index)"
+          [class.border-accent]="tab() === item.id"
+          [class.border-transparent]="tab() !== item.id"
+          class="min-h-11 flex-1 border-b-2 px-2 py-3 text-sm font-semibold text-white sm:flex-none sm:px-5"
+        >
+          {{ item.label }}
+          @if (state.summary(); as summary) {
+            <span class="ml-1 text-slate-400">{{ summary[item.count] }}</span>
+          }
+        </button>
+      }
+    </div>
+    @if (state.cooldown.message() || state.error(); as message) {
+      <div role="alert" class="mt-4 text-sm text-red-300">
+        {{ message }}
+        <button
+          type="button"
+          (click)="state.refresh()"
+          [disabled]="state.loading() || state.cooldown.remaining() > 0"
+          class="ui-button ml-2 min-h-11 px-3 py-2 underline disabled:opacity-50"
+        >
+          Actualizar contadores
+        </button>
+      </div>
+    }
+  }
+  <div
+    #panel
+    id="friends-panel"
+    tabindex="-1"
+    [attr.role]="username() ? 'region' : 'tabpanel'"
+    [attr.aria-labelledby]="username() ? 'friends-title' : 'tab-' + tab()"
+    class="mt-6 max-w-3xl"
+  >
+    @if (!username() && tab() === 'friends') {
+      <label for="friend-search" class="mb-2 block text-sm text-slate-300"
+        >Buscar entre mis amigos</label
+      >
+      <input
+        id="friend-search"
+        type="search"
+        [formControl]="search"
+        class="ui-input w-full border"
+        placeholder="Nombre de usuario"
+        autocomplete="off"
+      />
+    }
+    <p role="status" aria-live="polite" class="mt-3 text-sm text-emerald-300">{{ status() }}</p>
+    <ul
+      class="divide-y divide-white/10"
+      aria-label="Lista de jugadores"
+      [attr.aria-busy]="loading() || searching()"
+    >
+      @for (row of items(); track row.user.username) {
+        <li>
+          <app-friend-row [user]="row.user" [since]="since(row)">
+            @if (!username()) {
+              <app-friendship-button
+                [username]="row.user.username"
+                [relationship]="relationship(row)"
+                (relationshipChanged)="reconciled(row, $event)"
+              />
+            }
+          </app-friend-row>
+        </li>
+      }
+    </ul>
+    @if (loading() || searching()) {
+      <div
+        role="status"
+        aria-label="Cargando jugadores"
+        class="mt-5 space-y-4 motion-safe:animate-pulse"
+      >
+        @for (row of [1, 2, 3]; track row) {
+          <div class="h-16 rounded bg-slate-800"></div>
+        }
+      </div>
+    } @else if (!items().length && !error() && !cooldown.remaining()) {
+      <div class="py-10 text-slate-300">
+        @if (username()) {
+          <p>Este jugador todavía no tiene amigos.</p>
+        } @else if (tab() === 'received') {
+          <p>No tenés solicitudes pendientes</p>
+        } @else if (tab() === 'sent') {
+          <p>No tenés solicitudes enviadas pendientes</p>
+        } @else if (search.value) {
+          <p>No encontramos amigos con ese nombre.</p>
+        } @else {
+          <p>Todavía no tenés amigos</p>
+          <p class="mt-2 text-sm text-slate-400">
+            Encontrá jugadores en las reseñas y agregalos desde su perfil.
+          </p>
+          <a routerLink="/games" class="mt-3 inline-flex min-h-11 items-center text-white underline"
+            >Explorar juegos y jugadores</a
+          >
+        }
+      </div>
+    }
+    @if (cooldown.message() || error(); as message) {
+      <p role="alert" class="mt-4 text-red-300">{{ message }}</p>
+    }
+    @if (!loading() && (error() || cooldown.remaining()) && !restricted()) {
+      <button
+        type="button"
+        (click)="retry()"
+        [disabled]="cooldown.remaining() > 0"
+        class="ui-button mt-4 min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-50"
+      >
+        Reintentar
+      </button>
+    }
+    @if (hasMore() && !error()) {
+      <button
+        type="button"
+        (click)="more()"
+        [disabled]="loading() || searching() || cooldown.remaining() > 0"
+        class="ui-button mt-5 min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-50"
+      >
+        Cargar más
+      </button>
+    }
+  </div>
+</section>

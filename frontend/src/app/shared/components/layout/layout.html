@@ -42,8 +42,15 @@
                   ariaCurrentWhenActive="page"
                   (click)="closeMenu()"
                   class="nav-link flex min-h-11 items-center rounded px-2 py-2 text-sm text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-accent"
-                  >{{ item.label }}</a
-                >
+                  >{{ item.label }}
+                  @if (item.path === '/friends' && friends.pendingReceived() > 0) {
+                    <span
+                      class="ml-2 rounded bg-accent px-2 py-1 text-xs text-white"
+                      [attr.aria-label]="friends.pendingReceived() + ' solicitudes pendientes'"
+                      >{{ friends.pendingReceived() }}</span
+                    >
+                  }
+                </a>
               </li>
             }
           }
@@ -126,6 +133,22 @@
           <path d="m17 5 4 14M5.5 8h0M12.5 8h0" />
         </svg>
         <span>Biblioteca</span>
+      </a>
+      <a routerLink="/friends" routerLinkActive="nav-active" ariaCurrentWhenActive="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v2" />
+        </svg>
+        <span
+          >Amigos
+          @if (friends.pendingReceived() > 0) {
+            <span
+              class="rounded bg-accent px-1 text-white"
+              [attr.aria-label]="friends.pendingReceived() + ' solicitudes pendientes'"
+              >{{ friends.pendingReceived() }}</span
+            >
+          }
+        </span>
       </a>
       <a routerLink="/profile" routerLinkActive="nav-active" ariaCurrentWhenActive="page">
         <svg viewBox="0 0 24 24" aria-hidden="true">

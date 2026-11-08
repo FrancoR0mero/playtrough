@@ -14,6 +14,7 @@ import { NAVIGATION_ITEMS } from './layout-navigation';
 import { RateLimitNoticeService } from '../../services/rate-limit-notice';
 import { SiteFooterComponent } from './site-footer';
 import { UserAvatarComponent } from '../user-avatar/user-avatar';
+import { FriendsState } from '../../../features/friends/services/friends-state';
 
 @Component({
   selector: 'app-layout',
@@ -32,6 +33,7 @@ import { UserAvatarComponent } from '../user-avatar/user-avatar';
 })
 export class LayoutComponent {
   protected readonly auth = inject(AuthService);
+  protected readonly friends = inject(FriendsState);
   protected readonly rateLimitNotice = inject(RateLimitNoticeService);
   protected readonly loggingOut = signal(false);
   protected readonly menuOpen = signal(false);

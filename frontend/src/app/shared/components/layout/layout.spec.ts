@@ -1,3 +1,5 @@
+import { FriendsState } from '../../../features/friends/services/friends-state';
+import { createFriendsStateMock } from '../../../features/friends/friends-test-helpers';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -26,6 +28,7 @@ describe('Layout navigation and logout', () => {
     TestBed.configureTestingModule({
       imports: [LayoutComponent],
       providers: [
+        { provide: FriendsState, useValue: createFriendsStateMock() },
         provideRouter([]),
         { provide: AuthService, useValue: auth },
         { provide: TokenStorageService, useValue: createTokenStorageMock() },
@@ -75,7 +78,7 @@ describe('Layout navigation and logout', () => {
     expect(auth.logout).not.toHaveBeenCalled();
   });
 
-  it('provides three mobile destinations without a separate reviews item when signed in', () => {
+  it('provides four mobile destinations without a separate reviews item when signed in', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.mobile-game-navigation')).toBeNull();
     renderAuthenticated();
@@ -83,6 +86,7 @@ describe('Layout navigation and logout', () => {
     expect(Array.from(nav.querySelectorAll('a')).map((link) => link.getAttribute('href'))).toEqual([
       '/games',
       '/library',
+      '/friends',
       '/profile',
     ]);
     expect(nav.querySelector('button')).toBeNull();
@@ -92,6 +96,15 @@ describe('Layout navigation and logout', () => {
         .querySelector('[aria-controls="primary-navigation"]')
         .classList.contains('hidden'),
     ).toBe(true);
+  });
+
+  it('exposes the pending count as text in desktop and mobile navigation', () => {
+    renderAuthenticated();
+    const indicators = fixture.nativeElement.querySelectorAll(
+      '[aria-label="3 solicitudes pendientes"]',
+    );
+    expect(indicators).toHaveLength(2);
+    expect(indicators[0].textContent).toContain('3');
   });
 
   it('shows login and registration links without a session', () => {

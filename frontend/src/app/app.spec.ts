@@ -1,3 +1,5 @@
+import { FriendsState } from './features/friends/services/friends-state';
+import { createFriendsStateMock } from './features/friends/friends-test-helpers';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
@@ -10,6 +12,7 @@ describe('App', () => {
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
+        { provide: FriendsState, useValue: createFriendsStateMock() },
         provideRouter([]),
         { provide: AuthService, useValue: createAuthMock() },
         { provide: TokenStorageService, useValue: createTokenStorageMock() },
