@@ -27,6 +27,7 @@ import { FriendsService } from './services/friends';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FriendshipButtonComponent {
+  readonly compact = input(false);
   readonly username = input.required<string>();
   readonly relationship = input.required<RelationshipDto>();
   readonly relationshipChanged = output<RelationshipDto>();

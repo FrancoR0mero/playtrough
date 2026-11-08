@@ -32,13 +32,14 @@ import { GAME_CARD_ASPECT_RATIO, GameCardComponent } from './game-card';
 import { GameDetailComponent } from './game-detail';
 import { GameSummary } from './models/game';
 import { GameCatalogService } from './services/game-catalog';
+import { SearchTabsComponent } from '../../shared/components/search-tabs/search-tabs';
 
 export { GAME_CARD_ASPECT_RATIO } from './game-card';
 const PAGE_SIZE = 20;
 
 @Component({
   selector: 'app-games',
-  imports: [ReactiveFormsModule, GameCardComponent],
+  imports: [ReactiveFormsModule, GameCardComponent, SearchTabsComponent],
   templateUrl: './games.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

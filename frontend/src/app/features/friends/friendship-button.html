@@ -1,5 +1,10 @@
 @if (!own()) {
-  <div [attr.aria-busy]="busy()" class="space-y-2">
+  <div
+    [attr.aria-busy]="busy()"
+    class="space-y-2"
+    [class.text-sm]="compact()"
+    [class.sm:max-w-xs]="compact()"
+  >
     <div class="flex flex-wrap items-center gap-2">
       @if (needsSync()) {
         <button
