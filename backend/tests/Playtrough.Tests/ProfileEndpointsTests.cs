@@ -49,7 +49,7 @@ public class ProfileEndpointsTests
         await Error(await other.GetAsync("/api/users/does_not_exist"), 404, "user_not_found");
         Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync("/api/users/GAMES_USER_1")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync("/api/users/me")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync("/api/users/search")).StatusCode);
+        await Error(await owner.GetAsync("/api/users/search"), 400, "invalid_query");
     }
 
     [Theory]
