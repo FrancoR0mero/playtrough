@@ -1,0 +1,98 @@
+@if (!own()) {
+  <div [attr.aria-busy]="busy()" class="space-y-2">
+    <div class="flex flex-wrap items-center gap-2">
+      @if (needsSync()) {
+        <button
+          type="button"
+          (click)="sync()"
+          [disabled]="busy() || cooldown.remaining() > 0"
+          class="ui-button min-h-11 border border-slate-600 px-4 py-2 text-white disabled:opacity-50"
+        >
+          Actualizar estado
+        </button>
+      } @else {
+        @switch (state().status) {
+          @case ('none') {
+            <button
+              type="button"
+              (click)="act('sent')"
+              [disabled]="busy() || cooldown.remaining() > 0"
+              class="ui-button min-h-11 bg-accent px-4 py-2 text-white disabled:opacity-50"
+            >
+              Agregar amigo
+            </button>
+          }
+          @case ('request_sent') {
+            <span class="text-sm text-slate-300">Solicitud enviada</span>
+            <button
+              type="button"
+              (click)="act('cancelled')"
+              [disabled]="busy() || cooldown.remaining() > 0"
+              class="ui-button min-h-11 border border-slate-600 px-4 py-2 text-white disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          }
+          @case ('request_received') {
+            <button
+              type="button"
+              (click)="act('accepted')"
+              [disabled]="busy() || cooldown.remaining() > 0"
+              class="ui-button min-h-11 bg-accent px-4 py-2 text-white disabled:opacity-50"
+            >
+              Aceptar
+            </button>
+            <button
+              type="button"
+              (click)="act('rejected')"
+              [disabled]="busy() || cooldown.remaining() > 0"
+              class="ui-button min-h-11 border border-slate-600 px-4 py-2 text-white disabled:opacity-50"
+            >
+              Rechazar
+            </button>
+          }
+          @case ('friends') {
+            <span class="text-sm text-slate-300">Amigos</span>
+            <button
+              #removeButton
+              type="button"
+              (click)="confirm.set(!confirm())"
+              [attr.aria-expanded]="confirm()"
+              [disabled]="busy() || cooldown.remaining() > 0"
+              class="ui-button min-h-11 border border-slate-600 px-4 py-2 text-white disabled:opacity-50"
+            >
+              Eliminar amistad
+            </button>
+          }
+        }
+      }
+    </div>
+    @if (confirm()) {
+      <div class="border-t border-white/10 pt-3">
+        <p class="text-sm text-slate-200">¿Eliminar tu amistad con {{ username() }}?</p>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            (click)="act('removed')"
+            [disabled]="busy() || cooldown.remaining() > 0"
+            class="ui-button min-h-11 border border-red-400 px-4 py-2 text-red-200 disabled:opacity-50"
+          >
+            Sí, eliminar
+          </button>
+          <button
+            type="button"
+            (click)="keepFriend()"
+            [disabled]="busy()"
+            class="ui-button min-h-11 px-4 py-2 text-white"
+          >
+            Conservar amistad
+          </button>
+        </div>
+      </div>
+    }
+    <p role="status" class="text-sm text-emerald-300">{{ busy() ? 'Procesando…' : status() }}</p>
+    @if (cooldown.message() || error(); as message) {
+      <p role="alert" class="max-w-md text-sm text-red-300">{{ message }}</p>
+    }
+  </div>
+}
