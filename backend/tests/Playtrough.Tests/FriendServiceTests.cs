@@ -9,6 +9,33 @@ namespace Playtrough.Tests;
 
 public class FriendServiceTests
 {
+    [Theory]
+    [InlineData("a_", "a_one", "abone")]
+    [InlineData("a%", "a%one", "aone")]
+    [InlineData("a!", "a!one", "aone")]
+    [InlineData("a!_", "a!_one", "a!xone")]
+    [InlineData("a\\", "a\\one", "abone")]
+    public async Task List_SearchTreatsWildcardsAndEscapeCharacterLiterally(string query, string match, string nonMatch)
+    {
+        using var c = new FriendTestContext();
+        await using (var db = c.CreateDb())
+        {
+            foreach (var (id, name) in new[] { (2, match), (3, nonMatch) })
+            {
+                await db.Users.Where(user => user.Id == id).ExecuteUpdateAsync(update => update
+                    .SetProperty(user => user.UserName, name)
+                    .SetProperty(user => user.NormalizedUserName, name.ToUpperInvariant()));
+                db.Friendships.Add(new Playtrough.Api.Models.Friendship
+                {
+                    UserLowId = 1, UserHighId = id, CreatedAt = c.Clock.UtcNow.UtcDateTime,
+                });
+            }
+            await db.SaveChangesAsync();
+        }
+        var result = await c.Run(service => service.ListAsync(1, query, new()));
+        Assert.Equal(match, Assert.Single(result.Items).User.Username);
+    }
+
     [Fact]
     public async Task Send_ValidatesSelfMissingUnconfirmedAndBothPendingDirections()
     {

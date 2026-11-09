@@ -29,9 +29,9 @@ public sealed class UserSearchService(AppDbContext db, ILookupNormalizer normali
     {
         var literal = LikePattern.Escape(normalized);
         return db.Users.AsNoTracking().Where(u => u.Id != viewerId && u.EmailConfirmed &&
-                EF.Functions.Like(u.NormalizedUserName!, "%" + literal + "%", "\\"))
+                EF.Functions.Like(u.NormalizedUserName!, "%" + literal + "%", LikePattern.EscapeCharacter))
             .OrderBy(u => u.NormalizedUserName == normalized ? 0 :
-                EF.Functions.Like(u.NormalizedUserName!, literal + "%", "\\") ? 1 : 2)
+                EF.Functions.Like(u.NormalizedUserName!, literal + "%", LikePattern.EscapeCharacter) ? 1 : 2)
             .ThenBy(u => u.NormalizedUserName).ThenBy(u => u.Id)
             .Select(u => new UserSearchRow(u.UserName!,
                 db.Friendships.Any(f => f.UserLowId == (viewerId < u.Id ? viewerId : u.Id) &&

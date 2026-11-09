@@ -134,7 +134,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
         if (!string.IsNullOrWhiteSpace(q))
         {
             var pattern = "%" + LikePattern.Escape(normalizer.NormalizeName(q.Trim())) + "%";
-            query = query.Where(row => EF.Functions.Like(row.NormalizedUserName!, pattern, "\\"));
+            query = query.Where(row => EF.Functions.Like(row.NormalizedUserName!, pattern, LikePattern.EscapeCharacter));
         }
         var rows = await query.OrderBy(row => row.NormalizedUserName).ThenBy(row => row.Id)
             .Skip(skip).Take(page.PageSize + 1).ToListAsync(ct);
