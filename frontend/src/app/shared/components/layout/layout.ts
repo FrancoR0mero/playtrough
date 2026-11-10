@@ -14,6 +14,7 @@ import { NAVIGATION_ITEMS } from './layout-navigation';
 import { RateLimitNoticeService } from '../../services/rate-limit-notice';
 import { SiteFooterComponent } from './site-footer';
 import { UserAvatarComponent } from '../user-avatar/user-avatar';
+import { PeopleSearchComponent } from '../people-search/people-search';
 import { FriendsState } from '../../../features/friends/services/friends-state';
 
 @Component({
@@ -26,6 +27,7 @@ import { FriendsState } from '../../../features/friends/services/friends-state';
     HasRoleDirective,
     SiteFooterComponent,
     UserAvatarComponent,
+    PeopleSearchComponent,
   ],
   templateUrl: './layout.html',
   styleUrl: './layout.css',
@@ -37,7 +39,7 @@ export class LayoutComponent {
   protected readonly rateLimitNotice = inject(RateLimitNoticeService);
   protected readonly loggingOut = signal(false);
   protected readonly menuOpen = signal(false);
-  protected readonly navigationItems = NAVIGATION_ITEMS;
+  protected readonly navigationItems = NAVIGATION_ITEMS.filter((item) => item.path !== '/profile');
   private readonly menuToggle = viewChild<ElementRef<HTMLButtonElement>>('menuToggle');
   private readonly router = inject(Router);
 

@@ -55,16 +55,20 @@
             }
           }
         </ul>
+        <app-people-search />
         <div
-          class="flex flex-wrap items-center gap-3 border-t border-slate-800 pt-4 md:border-t-0 md:border-l md:pl-5 md:pt-0"
+          class="header-account flex items-center gap-3"
         >
           @if (auth.currentUser(); as user) {
+            <a routerLink="/profile" routerLinkActive="nav-active" ariaCurrentWhenActive="page"
+              (click)="closeMenu()" class="profile-link" aria-label="Mi perfil">
             <app-user-avatar [username]="user.username" size="sm" />
             <span
               class="account-name min-w-0 text-sm font-medium text-white"
               [title]="user.username"
               >{{ user.username }}</span
             >
+            </a>
             @if (user.role !== 'User') {
               <span class="role-badge" aria-label="Rol de la cuenta">{{ user.role }}</span>
             }
