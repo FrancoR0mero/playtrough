@@ -124,7 +124,7 @@
             <li class="py-6" [attr.data-review-id]="review.id">
               <a
                 [routerLink]="['/profile', review.author.username]"
-                class="mb-3 inline-flex min-h-11 max-w-full items-center gap-3 font-semibold text-white hover:underline"
+                class="mr-5 mb-3 inline-flex min-h-11 max-w-full items-center gap-3 font-semibold text-white hover:underline"
               >
                 <app-user-avatar [username]="review.author.username" size="sm" />
                 <span class="min-w-0 break-words">{{ review.author.username }}</span>
