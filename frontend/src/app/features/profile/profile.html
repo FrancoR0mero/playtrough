@@ -47,8 +47,8 @@
     <div class="mt-7 max-w-2xl">
       <div class="flex flex-wrap items-center gap-5">
         <app-user-avatar [username]="user.username" [avatarUrl]="user.avatarUrl" size="lg" />
-        <div class="flex min-w-0 flex-1 basis-72 items-start gap-6" data-profile-identity>
-          <div class="min-w-0 flex-1">
+        <div class="flex min-w-0 flex-1 basis-72 items-center gap-5" data-profile-identity>
+          <div class="min-w-0">
             <h2 class="break-words text-2xl font-semibold text-white">{{ user.username }}</h2>
             @if (!restricted() && user.createdAt) {
               <p class="mt-2 text-sm text-slate-400">Se unió en {{ joined(user.createdAt) }}</p>
@@ -58,7 +58,7 @@
             <a
               [routerLink]="own() ? ['/friends'] : ['/profile', user.username, 'friends']"
               [attr.aria-label]="'Ver amigos de ' + user.username + ': ' + user.friendsCount"
-              class="group flex min-h-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded px-2 text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+              class="group mx-auto flex min-h-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded px-2 text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
               data-profile-friends
             >
               <span class="text-sm font-medium group-hover:underline">Amigos</span>
