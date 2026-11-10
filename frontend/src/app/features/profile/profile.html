@@ -5,7 +5,7 @@
     tabindex="-1"
     class="page-heading w-fit max-w-full break-words text-white"
   >
-    {{ own() ? 'Mi perfil' : profile()?.username || 'Perfil de jugador' }}
+    {{ own() ? 'Mi perfil' : 'Perfil de jugador' }}
   </h1>
   <div role="status" aria-live="polite" class="mt-3 text-sm text-emerald-300">
     {{ loggingOut() ? 'Cerrando sesión…' : status() }}
@@ -47,12 +47,23 @@
     <div class="mt-7 max-w-2xl">
       <div class="flex flex-wrap items-center gap-5">
         <app-user-avatar [username]="user.username" [avatarUrl]="user.avatarUrl" size="lg" />
-        <div class="min-w-0 flex-1 basis-40">
-          @if (own()) {
+        <div class="flex min-w-0 flex-1 basis-72 items-start gap-6" data-profile-identity>
+          <div class="min-w-0 flex-1">
             <h2 class="break-words text-2xl font-semibold text-white">{{ user.username }}</h2>
-          }
-          @if (!restricted() && user.createdAt) {
-            <p class="mt-2 text-sm text-slate-400">Se unió en {{ joined(user.createdAt) }}</p>
+            @if (!restricted() && user.createdAt) {
+              <p class="mt-2 text-sm text-slate-400">Se unió en {{ joined(user.createdAt) }}</p>
+            }
+          </div>
+          @if (!restricted() && user.friendsCount !== undefined && user.friendsCount !== null) {
+            <a
+              [routerLink]="own() ? ['/friends'] : ['/profile', user.username, 'friends']"
+              [attr.aria-label]="'Ver amigos de ' + user.username + ': ' + user.friendsCount"
+              class="group flex min-h-11 shrink-0 flex-col items-center gap-1 rounded px-2 text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+              data-profile-friends
+            >
+              <span class="text-2xl font-semibold group-hover:underline">Amigos</span>
+              <span class="text-xl tabular-nums text-slate-300">{{ user.friendsCount }}</span>
+            </a>
           }
         </div>
         @if (own()) {
@@ -81,14 +92,6 @@
           <p class="mt-7 whitespace-pre-line break-words text-slate-200">{{ user.bio }}</p>
         } @else if (own()) {
           <p class="mt-7 text-slate-400">Agregá una biografía para contar qué te gusta jugar.</p>
-        }
-        @if (user.friendsCount !== undefined && user.friendsCount !== null) {
-          <a
-            [routerLink]="own() ? ['/friends'] : ['/profile', user.username, 'friends']"
-            class="mt-5 inline-flex min-h-11 items-center text-sm text-slate-300 hover:underline"
-          >
-            {{ user.friendsCount }} {{ user.friendsCount === 1 ? 'amigo' : 'amigos' }}
-          </a>
         }
         @if (showFriends()) {
           <app-friends-preview [username]="user.username" (accessChanged)="refreshSocial()" />
