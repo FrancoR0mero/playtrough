@@ -28,7 +28,11 @@ import { PeopleSearchState } from './people-search-state';
           [class.with-icon]="!state.text()"
         />
       </div>
-      <span id="header-people-hint" class="sr-only"
+      <span
+        id="header-people-hint"
+        class="search-hint"
+        [class.sr-only]="!state.invalid()"
+        role="status"
         >Escribí al menos 2 caracteres y presioná Enter para buscar personas.</span
       >
       <button class="sr-only" type="submit">Buscar personas</button>
