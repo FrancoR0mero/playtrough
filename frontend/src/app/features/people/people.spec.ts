@@ -1,3 +1,4 @@
+import { PeopleSearchState } from '../../shared/components/people-search/people-search-state';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -27,9 +28,7 @@ describe('People search', () => {
     fixture.detectChanges();
   };
   function type(value: string) {
-    const input = root().querySelector('input')!;
-    input.value = value;
-    input.dispatchEvent(new Event('input'));
+    TestBed.inject(PeopleSearchState).control.setValue(value);
     fixture.detectChanges();
   }
   function tick(ms = 400) {
@@ -95,7 +94,7 @@ describe('People search', () => {
   it('restores URL queries immediately and does not repeat the request after URL synchronization', () => {
     params.next(convertToParamMap({ q: 'bea' }));
     tick(0);
-    expect(root().querySelector('input')!.value).toBe('bea');
+    expect(TestBed.inject(PeopleSearchState).control.value).toBe('bea');
     results([BEA], 1, false, 'bea');
     type('cami');
     params.next(convertToParamMap({ q: 'cami' }));
@@ -181,7 +180,7 @@ describe('People search', () => {
     expect(root().querySelector('[role="alert"]')!.textContent).toContain(
       'La búsqueda no es válida',
     );
-    expect(root().querySelector('input')!.getAttribute('aria-invalid')).toBe('true');
+    expect(TestBed.inject(PeopleSearchState).invalid()).toBe(true);
     expect(root().textContent).not.toContain('Reintentar');
   });
   it('retains results on a later page error and retries that page', () => {

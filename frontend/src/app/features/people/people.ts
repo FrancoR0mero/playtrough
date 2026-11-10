@@ -10,7 +10,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   EMPTY,
@@ -23,7 +22,7 @@ import {
   switchMap,
   timer,
 } from 'rxjs';
-import { SearchTabsComponent } from '../../shared/components/search-tabs/search-tabs';
+import { PeopleSearchState } from '../../shared/components/people-search/people-search-state';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { FriendRowComponent } from '../friends/friend-row';
 import { FriendshipButtonComponent } from '../friends/friendship-button';
@@ -34,12 +33,7 @@ import { UsersService } from '../profile/services/users';
 
 @Component({
   selector: 'app-people',
-  imports: [
-    ReactiveFormsModule,
-    SearchTabsComponent,
-    FriendRowComponent,
-    FriendshipButtonComponent,
-  ],
+  imports: [FriendRowComponent, FriendshipButtonComponent],
   templateUrl: './people.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -54,13 +48,14 @@ export class PeopleComponent implements OnInit {
   private query = '';
   private page = 0;
   private failedPage = 1;
-  protected readonly search = new FormControl('', { nonNullable: true });
+  private readonly searchState = inject(PeopleSearchState);
+  protected readonly search = this.searchState.control;
   protected readonly items = signal<UserSearchDto[]>([]);
   protected readonly loading = signal(false);
   protected readonly searched = signal(false);
   protected readonly hasMore = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly invalidQuery = signal(false);
+  protected readonly invalidQuery = this.searchState.invalid;
   protected readonly cooldown = createRateLimitCooldown();
 
   constructor() {
@@ -109,7 +104,7 @@ export class PeopleComponent implements OnInit {
       const q = (params.get('q') ?? '').trim();
       if (initialized && q === this.query) return;
       initialized = true;
-      this.search.setValue(q, { emitEvent: false });
+      this.searchState.restore(q);
       this.queries.next({ q, delay: 0 });
     });
     this.search.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((value) => {

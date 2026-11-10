@@ -1,28 +1,8 @@
 <section class="page-container" aria-labelledby="people-title">
   <h1 #heading id="people-title" tabindex="-1" class="page-heading w-fit text-white">Personas</h1>
-  <app-search-tabs active="people" [query]="search.value" />
   <p class="mt-4 max-w-xl text-sm leading-relaxed text-slate-400">
     Encontrá jugadores y compartí tu próxima partida.
   </p>
-  <div class="mt-5 max-w-xl">
-    <label for="people-search" class="mb-2 block text-sm font-medium text-slate-200"
-      >Buscar personas</label
-    >
-    <input
-      id="people-search"
-      type="search"
-      [formControl]="search"
-      autocomplete="off"
-      placeholder="Nombre de usuario…"
-      aria-describedby="people-search-hint"
-      [attr.aria-invalid]="invalidQuery()"
-      [attr.aria-errormessage]="invalidQuery() ? 'people-error' : null"
-      class="ui-input w-full border text-white"
-    />
-    <p id="people-search-hint" class="mt-2 text-xs text-slate-400">
-      Escribí al menos 2 caracteres.
-    </p>
-  </div>
   <p role="status" aria-live="polite" aria-atomic="true" class="mt-6 text-sm text-slate-400">
     @if (loading()) {
       {{ items().length ? 'Cargando más personas…' : 'Buscando personas…' }}
@@ -64,7 +44,7 @@
         {{
           searched()
             ? 'Probá con otro nombre o revisá cómo lo escribiste.'
-            : 'Escribí un nombre de usuario para empezar a conectar.'
+            : 'Escribí un nombre de usuario en el buscador de arriba para empezar a conectar.'
         }}
       </p>
     </div>

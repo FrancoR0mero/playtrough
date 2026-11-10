@@ -1,13 +1,42 @@
-.has-mobile-navigation .site-header { gap: 20px; }
-.has-mobile-navigation #primary-navigation { flex: 1; min-width: 0; gap: 20px; }
-#primary-navigation > ul { gap: 2px; }
-#primary-navigation .nav-link { padding-inline: 10px; white-space: nowrap; }
-app-people-search { flex: 1; max-width: 300px; min-width: 180px; margin-left: auto; }
-.header-account { flex-shrink: 0; }
-.profile-link { display: flex; align-items: center; gap: 8px; min-height: 44px; border-radius: 9px; }
-.profile-link:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
+.has-mobile-navigation .site-header {
+  gap: 20px;
+}
+.has-mobile-navigation #primary-navigation {
+  flex: 1;
+  min-width: 0;
+  gap: 20px;
+}
+#primary-navigation > ul {
+  gap: 2px;
+}
+#primary-navigation .nav-link {
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+app-people-search {
+  flex: 1;
+  max-width: 300px;
+  min-width: 180px;
+  margin-left: auto;
+}
+.header-account {
+  flex-shrink: 0;
+}
+.profile-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border-radius: 9px;
+}
+.profile-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
 @media (min-width: 768px) and (max-width: 1199px) {
-  .has-mobile-navigation #primary-navigation { flex-basis: 100%; }
+  .has-mobile-navigation #primary-navigation {
+    flex-basis: 100%;
+  }
 }
 
 .mobile-game-navigation {
@@ -19,12 +48,24 @@ app-people-search { flex: 1; max-width: 300px; min-width: 180px; margin-left: au
     padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 
-  .has-mobile-navigation #primary-navigation { display: contents; }
-  #primary-navigation > ul, .header-account > button, .header-account > .role-badge,
-  .header-account .account-name { display: none; }
-  .header-account { margin-left: auto; }
-  app-people-search { order: 3; flex-basis: 100%; max-width: none; margin: 0; }
-
+  .has-mobile-navigation #primary-navigation {
+    display: contents;
+  }
+  #primary-navigation > ul,
+  .header-account > button,
+  .header-account > .role-badge,
+  .header-account .account-name {
+    display: none;
+  }
+  .header-account {
+    margin-left: auto;
+  }
+  app-people-search {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+    margin: 0;
+  }
 
   .mobile-game-navigation {
     position: fixed;
