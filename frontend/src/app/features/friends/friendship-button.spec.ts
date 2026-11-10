@@ -62,11 +62,11 @@ describe('Friendship button', () => {
   });
   it('requires inline confirmation and does not remove when cancelled', () => {
     const f = setup('friends');
-    f.click('Eliminar amistad');
+    f.click('Eliminar amigo');
     expect(f.root.textContent).toContain('¿Eliminar tu amistad con bea?');
     f.click('Conservar amistad');
     expect(f.friends.remove).not.toHaveBeenCalled();
-    f.click('Eliminar amistad');
+    f.click('Eliminar amigo');
     f.click('Sí, eliminar');
     expect(f.friends.remove).toHaveBeenCalledWith('bea');
     expect(f.changed).toHaveBeenCalledWith({ status: 'none' });
