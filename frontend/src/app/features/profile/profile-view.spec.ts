@@ -58,6 +58,34 @@ describe('Social profile screen', () => {
     expect(document.activeElement).toBe(f.root.querySelector('h1'));
   });
 
+  it.each([0, 1, 12])(
+    'shows the own friends count %i beside the name with a link to the own list',
+    (count) => {
+      const f = setup();
+      f.users.getMe.mockReturnValue(of({ ...MY_PROFILE, friendsCount: count }));
+      // Reload after replacing the initial mock response.
+      f.fixture.componentInstance['load']();
+      f.fixture.detectChanges();
+      const identity = f.root.querySelector('[data-profile-identity]')!;
+      expect(identity.querySelector('h2')?.textContent).toContain(MY_PROFILE.username);
+      const link = identity.querySelector('[data-profile-friends]')!;
+      expect(link.getAttribute('href')).toBe('/friends');
+      expect(
+        Array.from(link.querySelectorAll('span')).map((span) => span.textContent?.trim()),
+      ).toEqual(['Amigos', String(count)]);
+      expect(f.root.querySelectorAll('a[href="/friends"]')).toHaveLength(1);
+    },
+  );
+
+  it('links the public count to that player’s friends and preserves the preview', () => {
+    const f = setup('jugador', { ...OTHER_PROFILE, friendsCount: 12 });
+    f.fixture.detectChanges();
+    expect(
+      f.root.querySelector('[data-profile-identity] [data-profile-friends]')?.getAttribute('href'),
+    ).toBe('/profile/jugador/friends');
+    expect(f.root.querySelector('app-friends-preview')).not.toBeNull();
+  });
+
   it.each([
     ['private', 'Este perfil es privado'],
     ['friends_only', 'El contenido de este perfil es solo para amigos'],
@@ -200,7 +228,9 @@ describe('Social profile screen', () => {
     service.changes.next({ username: 'jugador', action: 'accepted' });
     await vi.advanceTimersByTimeAsync(1);
     f.fixture.detectChanges();
-    expect(f.root.textContent).toContain('9 amigos');
+    expect(f.root.querySelector('[data-profile-friends]')?.getAttribute('aria-label')).toBe(
+      'Ver amigos de jugador: 9',
+    );
     expect(f.root.querySelector('a[href="/profile/jugador/friends"]')).not.toBeNull();
   });
   it('announces saved edits and navigates to the canonical route after a rename', () => {
