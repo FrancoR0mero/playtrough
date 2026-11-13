@@ -46,7 +46,15 @@
   } @else if (profile(); as user) {
     <div class="mt-7 max-w-2xl">
       <div class="flex flex-wrap items-center gap-5">
-        <app-user-avatar [username]="user.username" [avatarUrl]="user.avatarUrl" size="lg" />
+        <app-user-avatar
+          [username]="user.username"
+          [avatarUrl]="
+            own() && auth.currentUser()?.avatarUrl !== undefined
+              ? (auth.currentUser()?.avatarUrl ?? null)
+              : user.avatarUrl
+          "
+          size="lg"
+        />
         <div class="flex min-w-0 flex-1 basis-72 items-center gap-5" data-profile-identity>
           <div class="min-w-0">
             <h2 class="break-words text-2xl font-semibold text-white">{{ user.username }}</h2>

@@ -34,6 +34,16 @@ export class UsersService {
     return this.http.get<ProfileDto>(`${this.url}/${encodeURIComponent(username)}`);
   }
 
+  uploadAvatar(file: File) {
+    const data = new FormData();
+    data.append('file', file);
+    return this.http.post<{ avatarUrl: string }>(`${this.url}/me/avatar`, data);
+  }
+
+  deleteAvatar() {
+    return this.http.delete<void>(`${this.url}/me/avatar`);
+  }
+
   updateMe(payload: UpdateProfileRequest) {
     return this.http.put<MyProfileDto>(`${this.url}/me`, payload);
   }

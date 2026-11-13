@@ -126,6 +126,8 @@ export class ProfileComponent {
     this.socialRequest = request.subscribe({
       next: (profile) => {
         this.profile.set(profile);
+        if (this.own() && 'id' in profile)
+          this.auth.updateCurrentAvatar(profile.id, profile.avatarUrl);
         this.warning.set(null);
       },
       error: (error) => {
@@ -159,6 +161,8 @@ export class ProfileComponent {
     this.request = request.subscribe({
       next: (profile) => {
         this.profile.set(profile);
+        if (this.own() && 'id' in profile)
+          this.auth.updateCurrentAvatar(profile.id, profile.avatarUrl);
         this.loading.set(false);
       },
       error: (error) => {
@@ -191,6 +195,9 @@ export class ProfileComponent {
     );
     this.editor.closed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((result) => {
       this.editor = undefined;
+      const current = this.profile();
+      const avatarUrl = this.auth.currentUser()?.avatarUrl;
+      if (current && avatarUrl !== undefined) this.profile.set({ ...current, avatarUrl });
       if (!result) return;
       this.profile.set(result.profile);
       this.status.set('Perfil actualizado');

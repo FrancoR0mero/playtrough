@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { environment } from '../../../../environments/environment';
 import { UserAvatarComponent } from './user-avatar';
 
 describe('UserAvatarComponent', () => {
@@ -41,5 +42,17 @@ describe('UserAvatarComponent', () => {
     fixture.componentRef.setInput('avatarUrl', '/new.png');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('img').getAttribute('src')).toBe('/new.png');
+  });
+  it('resolves API avatars against the backend origin and returns to initials after removal', () => {
+    const f = setup();
+    f.componentRef.setInput('avatarUrl', '/api/avatars/photo.webp');
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('img').src).toBe(
+      new URL('/api/avatars/photo.webp', environment.apiUrl).href,
+    );
+    f.componentRef.setInput('avatarUrl', null);
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('img')).toBeNull();
+    expect(f.nativeElement.textContent).toContain('AN');
   });
 });

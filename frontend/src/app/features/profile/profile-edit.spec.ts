@@ -1,5 +1,7 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { By } from '@angular/platform-browser';
+import { AvatarEditorComponent } from './avatar-editor';
 import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { RateLimitError } from '../../core/http/rate-limit-error';
@@ -50,6 +52,29 @@ describe('Profile editor', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     vi.useRealTimers();
+  });
+
+  it('synchronizes a saved photo with the session and blocks closing during an avatar upload', () => {
+    const f = setup();
+    const avatar = f.fixture.debugElement.query(By.directive(AvatarEditorComponent))
+      .componentInstance as AvatarEditorComponent;
+    avatar.busyChanged.emit(true);
+    f.fixture.detectChanges();
+    expect(f.dialog.disableClose).toBe(true);
+    expect(f.root.querySelector<HTMLButtonElement>('form button[type="button"]')!.disabled).toBe(
+      true,
+    );
+    avatar.changed.emit('/api/avatars/photo.webp');
+    expect(f.auth.updateCurrentAvatar).toHaveBeenCalledWith(
+      MY_PROFILE.id,
+      '/api/avatars/photo.webp',
+    );
+    avatar.busyChanged.emit(false);
+    f.fixture.detectChanges();
+    expect(f.dialog.disableClose).toBe(false);
+    expect(f.root.querySelector<HTMLButtonElement>('form button[type="button"]')!.disabled).toBe(
+      false,
+    );
   });
 
   it('disables unchanged and invalid values and counts Unicode scalars after normalization', () => {

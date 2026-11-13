@@ -15,6 +15,7 @@ import { AuthService } from '../auth/services/auth';
 import { normalizeReviewText, reviewTextLength } from '../reviews/review-text';
 import { MyProfileDto, UpdateProfileRequest } from './models/user';
 import { profileDate, profileError } from './profile-error';
+import { AvatarEditorComponent } from './avatar-editor';
 import { UsersService } from './services/users';
 
 export interface ProfileEditResult {
@@ -25,7 +26,7 @@ export interface ProfileEditResult {
 
 @Component({
   selector: 'app-profile-edit',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, AvatarEditorComponent],
   templateUrl: './profile-edit.html',
   styles: ':host { display:block; max-height:90dvh; overflow-y:auto; }',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,6 +40,8 @@ export class ProfileEditComponent {
   protected readonly cooldown = createRateLimitCooldown();
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly avatarUrl = signal(this.initial.avatarUrl);
+  protected readonly avatarBusy = signal(false);
   protected readonly availableAt = signal(this.initial.usernameChangeAvailableAt);
   protected readonly date = profileDate;
   protected readonly form = new FormGroup({
@@ -67,12 +70,29 @@ export class ProfileEditComponent {
     );
   });
 
+  protected avatarChanged(url: string | null): void {
+    this.avatarUrl.set(url);
+    this.auth.updateCurrentAvatar(this.initial.id, url);
+  }
+
+  protected avatarBusyChanged(busy: boolean): void {
+    this.avatarBusy.set(busy);
+    this.dialog.disableClose = busy || this.saving();
+  }
+
   private isBlocked(date: string | null): boolean {
     return !!date && Date.parse(date) > Date.now();
   }
 
   protected save(): void {
-    if (this.saving() || this.form.invalid || !this.changed() || this.cooldown.remaining()) return;
+    if (
+      this.avatarBusy() ||
+      this.saving() ||
+      this.form.invalid ||
+      !this.changed() ||
+      this.cooldown.remaining()
+    )
+      return;
     const value = this.form.getRawValue();
     const payload: UpdateProfileRequest = {};
     if (

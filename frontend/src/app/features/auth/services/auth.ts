@@ -109,6 +109,18 @@ export class AuthService {
     this.setSession(updated);
   }
 
+  updateCurrentAvatar(userId: number, avatarUrl: string | null): void {
+    const current = this.session();
+    if (!current || current.user.id !== userId || current.user.avatarUrl === avatarUrl) return;
+    const updated = { ...current, user: { ...current.user, avatarUrl } };
+    try {
+      this.storage.save(updated);
+    } catch {
+      /* Preserve an already persisted avatar. */
+    }
+    this.setSession(updated);
+  }
+
   hasRole(role: AppRole): boolean {
     return this.isAuthenticated() && this.currentUser()?.role === role;
   }

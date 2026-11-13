@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 
+import { environment } from '../../../../environments/environment';
+
 const COLORS = ['#57428a', '#315e6b', '#734556', '#476047', '#715029', '#454f86'];
 
 @Component({
@@ -9,7 +11,7 @@ const COLORS = ['#57428a', '#315e6b', '#734556', '#476047', '#715029', '#454f86'
   template: `
     @if (avatarUrl() && failedUrl() !== avatarUrl()) {
       <img
-        [src]="avatarUrl()"
+        [src]="imageUrl()"
         [alt]="label()"
         [width]="pixels()"
         [height]="pixels()"
@@ -36,6 +38,12 @@ export class UserAvatarComponent {
   readonly username = input.required<string>();
   readonly avatarUrl = input<string | null>(null);
   readonly size = input<'sm' | 'md' | 'lg'>('md');
+  protected readonly imageUrl = computed(() => {
+    const url = this.avatarUrl();
+    return url?.startsWith('/api/avatars/')
+      ? new URL(url, new URL(environment.apiUrl, document.baseURI)).href
+      : url;
+  });
   protected readonly failedUrl = signal<string | null>(null);
   protected readonly pixels = computed(() => ({ sm: 32, md: 44, lg: 96 })[this.size()]);
   protected readonly label = computed(() => `Avatar de ${this.username()}`);

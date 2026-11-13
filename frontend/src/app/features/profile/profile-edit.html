@@ -1,6 +1,13 @@
 <div class="dialog-card p-5 sm:p-8">
   <h2 id="profile-edit-title" class="text-2xl font-semibold text-white">Editar perfil</h2>
   <p class="mt-2 text-sm text-slate-400">Así te van a conocer otros jugadores.</p>
+  <app-avatar-editor
+    [username]="initial.username"
+    [avatarUrl]="avatarUrl()"
+    [disabled]="saving()"
+    (changed)="avatarChanged($event)"
+    (busyChanged)="avatarBusyChanged($event)"
+  />
   <form [formGroup]="form" (ngSubmit)="save()" class="mt-7 space-y-6" [attr.aria-busy]="saving()">
     <div>
       <label for="profile-username" class="block text-sm font-semibold text-white"
@@ -52,7 +59,7 @@
       <button
         type="button"
         class="ui-button min-h-11 border border-slate-600 px-5 py-3 text-white"
-        [disabled]="saving()"
+        [disabled]="saving() || avatarBusy()"
         (click)="dialog.close()"
       >
         Cancelar
@@ -60,7 +67,9 @@
       <button
         type="submit"
         class="ui-button min-h-11 bg-accent px-5 py-3 font-semibold text-white disabled:opacity-50"
-        [disabled]="saving() || form.invalid || !changed() || cooldown.remaining() > 0"
+        [disabled]="
+          avatarBusy() || saving() || form.invalid || !changed() || cooldown.remaining() > 0
+        "
       >
         {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
       </button>

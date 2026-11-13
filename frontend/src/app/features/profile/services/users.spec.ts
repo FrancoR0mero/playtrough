@@ -6,6 +6,23 @@ import { DEFAULT_PRIVACY, MY_PROFILE, OTHER_PROFILE } from '../profile-test-help
 import { UsersService } from './users';
 
 describe('UsersService', () => {
+  it('uploads multipart without overriding its boundary and deletes the current avatar', () => {
+    const service = TestBed.inject(UsersService);
+    const http = TestBed.inject(HttpTestingController);
+    const file = new File(['image'], 'photo.png', { type: 'image/png' });
+    service.uploadAvatar(file).subscribe();
+    const upload = http.expectOne(`${environment.apiUrl}/users/me/avatar`);
+    expect(upload.request.method).toBe('POST');
+    expect(upload.request.body instanceof FormData).toBe(true);
+    expect(upload.request.body.get('file')).toBe(file);
+    expect(upload.request.headers.has('Content-Type')).toBe(false);
+    upload.flush({ avatarUrl: '/api/avatars/photo.webp' });
+    service.deleteAvatar().subscribe();
+    const remove = http.expectOne(`${environment.apiUrl}/users/me/avatar`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
   it('loads and updates both privacy preferences', () => {
     TestBed.inject(UsersService)
       .getPrivacy()
