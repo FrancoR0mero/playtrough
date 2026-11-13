@@ -1,21 +1,37 @@
 <section class="page-container library-page" aria-labelledby="library-title">
   <div class="library-heading">
     <div>
-      <h1 id="library-title" class="page-heading text-white">Tu biblioteca</h1>
-      <p class="mt-2 hidden text-sm text-slate-400 sm:block">Solo vos podés ver esta biblioteca.</p>
+      <h1 id="library-title" class="page-heading text-white">
+        {{ username() ? 'Biblioteca de ' + username() : 'Tu biblioteca' }}
+      </h1>
+      <p class="mt-2 hidden text-sm text-slate-400 sm:block">
+        {{
+          username()
+            ? 'Consultá los juegos y el estado de cada uno.'
+            : 'Elegí quién puede ver tus juegos desde la configuración de privacidad.'
+        }}
+      </p>
     </div>
-    <a
-      routerLink="/games"
-      [queryParams]="{ focus: 'search' }"
-      class="ui-button inline-flex items-center justify-center bg-accent px-4 py-2 text-white"
-      >Agregar juego</a
-    >
+    @if (username()) {
+      <a
+        [routerLink]="['/profile', username()]"
+        class="ui-button inline-flex min-h-11 items-center border border-slate-600 px-4 py-2 text-white"
+        >Volver al perfil</a
+      >
+    } @else {
+      <a
+        routerLink="/games"
+        [queryParams]="{ focus: 'search' }"
+        class="ui-button inline-flex items-center justify-center bg-accent px-4 py-2 text-white"
+        >Agregar juego</a
+      >
+    }
   </div>
   <div class="library-toolbar">
     <div class="min-w-0 flex-1">
-      <label for="library-search" class="mb-2 block text-sm text-slate-200"
-        >Buscar en tu biblioteca</label
-      >
+      <label for="library-search" class="mb-2 block text-sm text-slate-200">{{
+        username() ? 'Buscar en la biblioteca' : 'Buscar en tu biblioteca'
+      }}</label>
       <input
         id="library-search"
         type="search"
@@ -139,14 +155,16 @@
                 >{{ state(entry.status).label }}</span
               >
             </span>
-            <app-library-card-menu
-              game-card-actions
-              [gameId]="entry.gameId"
-              [gameName]="entry.name"
-              [status]="entry.status"
-              [disabled]="loading() || saving() !== null || cooldown.remaining() > 0"
-              (chosen)="menuAction(entry, $event)"
-            />
+            @if (!username()) {
+              <app-library-card-menu
+                game-card-actions
+                [gameId]="entry.gameId"
+                [gameName]="entry.name"
+                [status]="entry.status"
+                [disabled]="loading() || saving() !== null || cooldown.remaining() > 0"
+                (chosen)="menuAction(entry, $event)"
+              />
+            }
           </app-game-card>
         }
         @if (loading()) {
@@ -165,7 +183,9 @@
         data-library-empty
         class="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-8 text-center sm:py-16"
       >
-        @if (counts().total === 0) {
+        @if (username() && counts().total === 0) {
+          <h2 class="text-xl font-semibold text-white">Esta biblioteca todavía no tiene juegos</h2>
+        } @else if (counts().total === 0) {
           <h2 class="text-xl font-semibold text-white">Todavía no agregaste juegos</h2>
           <p class="mt-3 text-sm text-slate-400">Explorá el catálogo y empezá tu colección.</p>
           <a
@@ -178,9 +198,15 @@
           <h2 class="text-xl font-semibold text-white">No encontramos juegos para esta búsqueda</h2>
           <p class="mt-3 text-sm text-slate-400">Probá con otro nombre o cambiá de pestaña.</p>
         } @else {
-          <h2 class="text-xl font-semibold text-white">No tenés juegos en este estado</h2>
+          <h2 class="text-xl font-semibold text-white">
+            {{ username() ? 'No hay juegos en este estado' : 'No tenés juegos en este estado' }}
+          </h2>
           <p class="mt-3 text-sm text-slate-400">
-            Podés cambiar el estado de tus juegos desde su detalle.
+            {{
+              username()
+                ? 'Probá con otro estado para seguir explorando.'
+                : 'Podés cambiar el estado de tus juegos desde su detalle.'
+            }}
           </p>
         }
       </div>

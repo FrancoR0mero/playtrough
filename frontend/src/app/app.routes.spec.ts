@@ -63,11 +63,38 @@ describe('Application route access', () => {
     const harness = await RouterTestingHarness.create('/profile');
     httpMock.expectOne(`${environment.apiUrl}/users/me`).flush(MY_PROFILE);
     harness.detectChanges();
-    httpMock.expectOne(`${environment.apiUrl}/users/me/privacy`).flush(DEFAULT_PRIVACY);
     expect(harness.routeNativeElement?.textContent).toContain(createSession().user.email);
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent?.trim()).toBe('Mi perfil');
     httpMock.expectNone(() => true);
   });
+
+  it('opens privacy from the profile gear and loads saved preferences', async () => {
+    storage.save(createSession());
+    const harness = await RouterTestingHarness.create('/profile');
+    httpMock.expectOne(`${environment.apiUrl}/users/me`).flush(MY_PROFILE);
+    harness.detectChanges();
+    const gear = harness.routeNativeElement?.querySelector<HTMLAnchorElement>(
+      '[data-action="privacy-settings"]',
+    );
+    expect(gear?.getAttribute('aria-label')).toBe('Configuración de privacidad');
+    gear!.click();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/profile/settings/privacy');
+    httpMock.expectOne(`${environment.apiUrl}/users/me/privacy`).flush(DEFAULT_PRIVACY);
+    harness.detectChanges();
+    expect(harness.routeNativeElement?.textContent).toContain('Configuración de privacidad');
+  });
+
+  it.each(['/profile/settings/privacy', '/profile/jugador/library'])(
+    'protects direct navigation to %s',
+    async (path) => {
+      await RouterTestingHarness.create(path);
+      const router = TestBed.inject(Router);
+      expect(router.url.split('?')[0]).toBe('/auth/login');
+      expect(router.parseUrl(router.url).queryParams['returnUrl']).toBe(path);
+    },
+  );
 
   it('protects role administration with both guards and Admin as the minimum role', () => {
     const route = routes.find((route) => route.path === 'admin/roles');

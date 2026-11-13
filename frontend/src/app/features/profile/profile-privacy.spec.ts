@@ -52,9 +52,7 @@ describe('Privacy preferences', () => {
     expect(f.submit().disabled).toBe(true);
     f.save();
     expect(f.users.updatePrivacy).not.toHaveBeenCalled();
-    expect(f.root.textContent).toContain(
-      'por ahora no cambia quién puede ver tu biblioteca ni tus reseñas',
-    );
+    expect(f.root.textContent).toContain('Esta preferencia controla el acceso a tu biblioteca.');
   });
   it('sends both changed preferences and announces success', () => {
     const f = setup();

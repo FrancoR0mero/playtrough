@@ -23,7 +23,6 @@ import { MyProfileDto, ProfileDto } from './models/user';
 import { UsersService } from './services/users';
 import { profileError } from './profile-error';
 import { ProfileEditComponent, ProfileEditResult } from './profile-edit';
-import { ProfilePrivacyComponent } from './profile-privacy';
 import { ProfileRestrictionComponent } from './profile-restriction';
 import { visibleSocialRefresh } from './social-refresh';
 
@@ -34,7 +33,6 @@ import { visibleSocialRefresh } from './social-refresh';
     UserAvatarComponent,
     FriendshipButtonComponent,
     FriendsPreviewComponent,
-    ProfilePrivacyComponent,
     ProfileRestrictionComponent,
   ],
   templateUrl: './profile.html',

@@ -49,8 +49,9 @@ export class ProfilePrivacyComponent {
     },
     {
       key: 'historyVisibility' as const,
-      label: 'Historial',
-      description: 'Elegí tu preferencia de visibilidad para el historial de juegos.',
+      label: 'Biblioteca e historial',
+      description:
+        'Elegí quién puede ver tu biblioteca y el estado de tus juegos. Esta opción es independiente de la privacidad del perfil.',
     },
   ];
   protected readonly options = [

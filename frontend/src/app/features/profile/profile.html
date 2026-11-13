@@ -76,6 +76,30 @@
           >
             Editar perfil
           </button>
+          <a
+            routerLink="/profile/settings/privacy"
+            aria-label="Configuración de privacidad"
+            title="Configuración de privacidad"
+            data-action="privacy-settings"
+            class="ui-button inline-flex min-h-11 min-w-11 items-center justify-center border border-slate-600 text-white"
+          >
+            <svg
+              aria-hidden="true"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="m9 3-.6 2.4-2 .9L4 5.6 2 9l1.8 1.7v2.6L2 15l2 3.4 2.4-.7 2 .9L9 21h4l.6-2.4 2-.9 2.4.7 2-3.4-1.8-1.7v-2.6L20 9l-2-3.4-2.4.7-2-.9L13 3Z"
+              />
+              <circle cx="11" cy="12" r="3" />
+            </svg>
+          </a>
         }
         @if (relationship(); as relation) {
           <app-friendship-button
@@ -85,6 +109,12 @@
           />
         }
       </div>
+      <a
+        [routerLink]="own() ? ['/library'] : ['/profile', user.username, 'library']"
+        data-action="view-library"
+        class="ui-button mt-6 inline-flex min-h-11 items-center border border-slate-600 px-5 py-3 text-white"
+        >{{ own() ? 'Ver mi biblioteca' : 'Ver biblioteca' }}</a
+      >
       @if (restricted()) {
         <app-profile-restriction [restriction]="restriction()" />
       } @else {
@@ -98,7 +128,6 @@
         }
       }
       @if (own()) {
-        <app-profile-privacy />
         <dl class="mt-8 border-y border-white/10 py-5">
           <dt class="text-sm text-slate-400">Email</dt>
           <dd class="mt-2 break-words text-slate-200">{{ auth.currentUser()?.email }}</dd>

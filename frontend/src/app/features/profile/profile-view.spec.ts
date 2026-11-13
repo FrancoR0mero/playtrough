@@ -77,6 +77,18 @@ describe('Social profile screen', () => {
     },
   );
 
+  it('shows settings only on the owner profile and links each library', () => {
+    const f = setup();
+    f.fixture.detectChanges();
+    expect(f.root.querySelector('[data-action="privacy-settings"]')?.getAttribute('href')).toBe(
+      '/profile/settings/privacy',
+    );
+    expect(f.root.querySelector('[data-action="view-library"]')?.getAttribute('href')).toBe(
+      '/library',
+    );
+    expect(f.root.querySelector('app-profile-privacy')).toBeNull();
+  });
+
   it('links the public count to that player’s friends and preserves the preview', () => {
     const f = setup('jugador', { ...OTHER_PROFILE, friendsCount: 12 });
     f.fixture.detectChanges();
@@ -110,6 +122,10 @@ describe('Social profile screen', () => {
       expect(f.root.textContent).not.toContain('Se unió');
       expect(f.root.querySelector('app-friends-preview')).toBeNull();
       expect(f.root.querySelector('app-profile-privacy')).toBeNull();
+      expect(f.root.querySelector('[data-action="privacy-settings"]')).toBeNull();
+      expect(f.root.querySelector('[data-action="view-library"]')?.getAttribute('href')).toBe(
+        '/profile/jugador/library',
+      );
       expect(f.root.querySelector('a[href="/profile/jugador/friends"]')).toBeNull();
     },
   );
