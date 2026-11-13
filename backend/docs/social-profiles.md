@@ -1,6 +1,6 @@
 # Épica 9 — guía final de perfiles sociales y amistades
 
-Las cuatro fases están implementadas en backend con tests. No hay cambios de frontend. Los endpoints requieren un JWT de cualquier rol salvo el registro, que mantiene su acceso anónimo.
+Las cuatro fases están implementadas en backend con tests y cuentan con interfaz de perfiles, amistades, búsqueda y privacidad. La extensión de biblioteca ajena y el acceso por engranaje se describen en [bibliotecas de usuarios](user-library.md). Los endpoints requieren un JWT de cualquier rol salvo el registro, que mantiene su acceso anónimo.
 
 ## Estado de base de datos
 
@@ -30,7 +30,7 @@ Ese comando no se ejecutó durante esta implementación. No ejecutar los scripts
 - La búsqueda se resuelve en una sola consulta con relaciones y escape literal de comodines. Conserva acentos; las equivalencias adicionales dependen de la collation existente. La paginación por offset es estable para un conjunto de datos sin cambios entre páginas.
 - Perfil restringido: campos sensibles en null dentro del servicio y **omitidos del JSON**. La búsqueda y recepción de solicitudes siguen disponibles.
 - Defaults de privacidad configurables para cuentas nuevas; la migración establece public/friends para las existentes. Cambiar configuración no cambia preferencias ya guardadas.
-- History está listo para evaluación con `PrivacyService`, pero no se aplica a biblioteca ni reseñas en esta épica.
+- History se aplica mediante `PrivacyService` a la consulta de bibliotecas ajenas. Las reseñas de juegos conservan su visibilidad. Ver [bibliotecas de usuarios](user-library.md).
 
 ## Prueba manual con A, B y C
 

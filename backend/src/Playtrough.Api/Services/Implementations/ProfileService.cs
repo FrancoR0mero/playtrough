@@ -7,6 +7,7 @@ using MySql.Data.MySqlClient;
 using Playtrough.Api.Data;
 using Playtrough.Api.Dtos.Users;
 using Playtrough.Api.Dtos.Friends;
+using Playtrough.Api.Dtos.Library;
 using Playtrough.Api.Models;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Services.Interfaces;
@@ -14,7 +15,7 @@ using Playtrough.Api.Services.Interfaces;
 namespace Playtrough.Api.Services.Implementations;
 
 public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser> users,
-    IOptions<ProfileSettings> settings, TimeProvider time, IFriendService friends, IPrivacyService privacy) : IProfileService
+    IOptions<ProfileSettings> settings, TimeProvider time, IFriendService friends, IPrivacyService privacy, ILibraryService library) : IProfileService
 {
     public async Task<MyProfileDto> GetMineAsync(int userId, CancellationToken ct = default)
         => await MineAsync(await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, ct)
@@ -37,6 +38,14 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
         if (!await privacy.CanViewAsync(viewerId, user.Id, PrivacyScope.Profile, ct))
             throw new ProfileException("profile_restricted");
         return await friends.ListAsync(user.Id, null, request, ct);
+    }
+
+    public async Task<LibraryListResponseDto> LibraryAsync(int viewerId, string username, LibraryListRequest request, CancellationToken ct = default)
+    {
+        var user = await FindVisibleAccountAsync(viewerId, username, ct);
+        if (!await privacy.CanViewAsync(viewerId, user.Id, PrivacyScope.History, ct))
+            throw new ProfileException("history_restricted");
+        return await library.ListAsync(user.Id, request, ct);
     }
 
     private async Task<ApplicationUser> FindVisibleAccountAsync(int viewerId, string username, CancellationToken ct)

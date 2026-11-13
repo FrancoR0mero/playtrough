@@ -68,7 +68,7 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
         {
             var profileProblem = new ProblemDetails { Status = 400, Title = "Perfil inválido" };
             profileProblem.Extensions["code"] = profileAction.ActionName == nameof(UsersController.UpdatePrivacy) ? "invalid_visibility" :
-                profileAction.ActionName is nameof(UsersController.Search) or nameof(UsersController.Friends) ? "invalid_query" : context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
+                profileAction.ActionName is nameof(UsersController.Search) or nameof(UsersController.Friends) or nameof(UsersController.Library) ? "invalid_query" : context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
                 entry.Key.Contains("bio", StringComparison.OrdinalIgnoreCase)) ? "invalid_bio" : "invalid_username";
             return new BadRequestObjectResult(profileProblem);
         }

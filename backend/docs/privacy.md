@@ -20,7 +20,7 @@
 
 La matriz se aplica tanto a `PrivacyScope.Profile` como a `PrivacyScope.History`. `IPrivacyService.CanViewAsync(viewerId, ownerId, scope)` consulta valores actuales sin tracking ni caché e incluye como máximo una consulta de existencia de amistad en la misma sentencia SQL. Para el dueño, EF elimina esa comprobación innecesaria.
 
-El perfil ya consulta la relación para mostrarla al frontend. En ese caso reutiliza la evaluación pura `CanView(viewerId, ownerId, visibility, areFriends)` con esos datos de la petición, sin consultar la amistad dos veces. El servicio queda disponible para biblioteca, timeline y feed futuros; en esta fase **History solo se configura y se consulta, no se aplica a biblioteca ni reseñas**.
+El perfil ya consulta la relación para mostrarla al frontend. En ese caso reutiliza la evaluación pura `CanView(viewerId, ownerId, visibility, areFriends)` con esos datos de la petición, sin consultar la amistad dos veces. El ámbito History ahora se aplica a `GET /api/users/{username}/library`, de forma independiente del perfil. El dueño conserva acceso; amigos y visitantes se evalúan con la misma matriz. Las reseñas publicadas en páginas de juegos mantienen su visibilidad. Ver [bibliotecas de usuarios](user-library.md).
 
 Crear o eliminar una amistad y cambiar una preferencia se refleja en la siguiente lectura, sin renovar el JWT. La escritura modifica solo las preferencias y el `ConcurrencyStamp` de Identity: una edición de perfil que haya cargado datos viejos no puede sobrescribir la privacidad recién guardada.
 

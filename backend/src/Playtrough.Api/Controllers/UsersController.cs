@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Playtrough.Api.Dtos.Users;
 using Playtrough.Api.Dtos.Friends;
+using Playtrough.Api.Dtos.Library;
 using Playtrough.Api.RateLimiting;
 using Playtrough.Api.Services.Interfaces;
 
@@ -53,7 +54,7 @@ public sealed class UsersController(IProfileService profiles, IUserSearchService
     }
 
     /// <summary>Consultar la configuración propia de privacidad de perfil e historial.</summary>
-    /// <remarks>Valores: public, friends, private. El historial solo se configura; todavía no se aplica a biblioteca o reseñas.</remarks>
+    /// <remarks>Valores: public, friends, private. Historial controla la biblioteca; las reseñas de juegos siguen públicas.</remarks>
     [HttpGet("me/privacy")]
     [ProducesResponseType(typeof(PrivacyDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
@@ -83,6 +84,17 @@ public sealed class UsersController(IProfileService profiles, IUserSearchService
     [ProducesResponseType(typeof(ProblemDetails), 404)]
     public async Task<IActionResult> Friends(string username, [FromQuery] FriendsPageRequest request, CancellationToken ct)
         => UserId() is { } id ? Ok(await profiles.FriendsAsync(id, username, request, ct)) : Challenge();
+
+    /// <summary>Consultar la biblioteca y estados de juegos según la privacidad del historial.</summary>
+    /// <remarks>Solo lectura. La visibilidad del historial es independiente de la del perfil.
+    /// El dueño siempre puede acceder. Admite los filtros y paginación de la biblioteca propia.</remarks>
+    [HttpGet("{username:regex(^(?!(?i:me|search)$).+$)}/library")]
+    [ProducesResponseType(typeof(LibraryListResponseDto), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 400)]
+    [ProducesResponseType(typeof(ProblemDetails), 403)]
+    [ProducesResponseType(typeof(ProblemDetails), 404)]
+    public async Task<IActionResult> Library(string username, [FromQuery] LibraryListRequest request, CancellationToken ct)
+        => UserId() is { } id ? Ok(await profiles.LibraryAsync(id, username, request, ct)) : Challenge();
 
     /// <summary>Editar únicamente los campos presentes del perfil propio.</summary>
     /// <remarks>username: 3–20 letras ASCII, números o guion bajo. Un cambio cada 30 días por defecto.
