@@ -56,6 +56,8 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     var defaultResponse = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (context.ActionDescriptor is ControllerActionDescriptor blocksAction && blocksAction.ControllerTypeInfo.AsType() == typeof(BlocksController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Solicitud inválida", Extensions = { ["code"] = "invalid_query" } });
         if (context.ActionDescriptor is ControllerActionDescriptor friendsAction &&
             friendsAction.ControllerTypeInfo.AsType() == typeof(FriendsController))
         {
@@ -302,6 +304,7 @@ builder.Services.AddScoped<IAvatarService, AvatarService>();
 builder.Services.AddScoped<IPrivacyService, PrivacyService>();
 builder.Services.AddScoped<IUserSearchService, UserSearchService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddScoped<IBlockService, BlockService>();
 builder.Services.AddSingleton<Playtrough.Api.Events.IDomainEventPublisher, Playtrough.Api.Events.InMemoryDomainEventPublisher>();
 builder.Services.AddOptions<FriendsSettings>().BindConfiguration(FriendsSettings.SectionName)
     .ValidateDataAnnotations().ValidateOnStart();

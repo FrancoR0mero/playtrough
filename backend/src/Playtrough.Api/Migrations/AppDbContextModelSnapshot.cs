@@ -610,6 +610,27 @@ namespace Playtrough.Api.Migrations
                     b.ToTable("RoleChangeLogs", (string)null);
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.UserBlock", b =>
+                {
+                    b.Property<int>("BlockerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BlockedId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("BlockerId", "BlockedId");
+
+                    b.HasIndex("BlockedId", "BlockerId");
+
+                    b.ToTable("UserBlocks", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_UserBlocks_DifferentUsers", "`BlockerId` <> `BlockedId`");
+                        });
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
@@ -756,6 +777,21 @@ namespace Playtrough.Api.Migrations
                     b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.UserBlock", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("BlockedId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("BlockerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

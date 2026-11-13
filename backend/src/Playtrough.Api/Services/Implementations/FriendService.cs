@@ -200,32 +200,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
             (receiver ? r.ReceiverId == userId : r.SenderId == userId), ct) ?? throw new FriendException("request_not_found");
 
     private Task<T> WithPairAsync<T>(int first, int second, Func<Task<T>> action, CancellationToken ct)
-        => db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
-        {
-            await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            try
-            {
-                var (low, high) = Pair(first, second);
-                // No-op updates acquire database row locks (not in-process locks). Always
-                // low then high, before any transactional read, avoiding stale snapshots.
-                // Locking sender also serializes its pending quota across different pairs.
-                await db.Users.Where(u => u.Id == low).ExecuteUpdateAsync(update =>
-                    update.SetProperty(u => u.AccessFailedCount, u => u.AccessFailedCount), ct);
-                if (high != low)
-                    await db.Users.Where(u => u.Id == high).ExecuteUpdateAsync(update =>
-                        update.SetProperty(u => u.AccessFailedCount, u => u.AccessFailedCount), ct);
-                var result = await action();
-                await transaction.CommitAsync(ct);
-                return result;
-            }
-            catch
-            {
-                await transaction.RollbackAsync(CancellationToken.None);
-                foreach (var entry in db.ChangeTracker.Entries().Where(e => e.Entity is FriendRequest or Friendship).ToArray())
-                    entry.State = EntityState.Detached;
-                throw;
-            }
-        });
+        => UserPairTransaction.RunAsync(db, first, second, action, ct);
 
     private static (int Low, int High) Pair(int a, int b) => a < b ? (a, b) : (b, a);
     private static long PairKey(int low, int high) => (long)low * 4294967296L + high;
