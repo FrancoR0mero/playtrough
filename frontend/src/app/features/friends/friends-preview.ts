@@ -114,7 +114,7 @@ export class FriendsPreviewComponent {
         this.loading.set(false);
         const restricted = profileError(error).code === 'profile_restricted';
         this.restricted.set(restricted);
-        if (restricted) this.accessChanged.emit();
+        if (restricted || profileError(error).code === 'user_not_found') this.accessChanged.emit();
         this.error.set(
           restricted
             ? 'La lista de amigos de este perfil es privada.'

@@ -24,6 +24,7 @@ import { UsersService } from './services/users';
 import { profileError } from './profile-error';
 import { ProfileEditComponent, ProfileEditResult } from './profile-edit';
 import { ProfileRestrictionComponent } from './profile-restriction';
+import { BlockUserButtonComponent } from '../blocks/block-user-button';
 import { visibleSocialRefresh } from './social-refresh';
 
 @Component({
@@ -34,6 +35,7 @@ import { visibleSocialRefresh } from './social-refresh';
     FriendshipButtonComponent,
     FriendsPreviewComponent,
     ProfileRestrictionComponent,
+    BlockUserButtonComponent,
   ],
   templateUrl: './profile.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -112,6 +114,14 @@ export class ProfileComponent {
     return profile && 'restriction' in profile ? profile.restriction : null;
   }
 
+  protected blocked(): void {
+    this.request?.unsubscribe();
+    this.socialRequest?.unsubscribe();
+    this.profile.set(null);
+    this.loading.set(true);
+    void this.router.navigate(['/profile/settings/blocked'], { queryParams: { done: 'blocked' } });
+  }
+
   protected refreshSocial(): void {
     this.socialRefresh.next();
   }
@@ -131,6 +141,12 @@ export class ProfileComponent {
         this.warning.set(null);
       },
       error: (error) => {
+        if (profileError(error).code === 'user_not_found') {
+          this.profile.set(null);
+          this.notFound.set(true);
+          this.warning.set(null);
+          return;
+        }
         this.cooldown.handle(error);
         this.warning.set('No pudimos actualizar el perfil. Volvé a intentarlo.');
       },

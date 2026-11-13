@@ -17,6 +17,7 @@ import {
   catchError,
   exhaustMap,
   finalize,
+  filter,
   merge,
   of,
   switchMap,
@@ -29,6 +30,8 @@ import { FriendshipButtonComponent } from '../friends/friendship-button';
 import { RelationshipDto } from '../friends/models/friend';
 import { UserSearchDto } from '../profile/models/user';
 import { profileError } from '../profile/profile-error';
+import { visibleSocialRefresh } from '../profile/social-refresh';
+import { FriendsService } from '../friends/services/friends';
 import { UsersService } from '../profile/services/users';
 
 @Component({
@@ -38,6 +41,7 @@ import { UsersService } from '../profile/services/users';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PeopleComponent implements OnInit {
+  private readonly friends = inject(FriendsService);
   private readonly users = inject(UsersService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -99,6 +103,14 @@ export class PeopleComponent implements OnInit {
         this.hasMore.set(result.hasMore);
         this.searched.set(true);
       });
+    merge(
+      visibleSocialRefresh(),
+      this.friends.changes$.pipe(
+        filter((change) => change.action === 'blocked' || change.action === 'unblocked'),
+      ),
+    )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.queries.next({ q: this.query, delay: 0 }));
     let initialized = false;
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const q = (params.get('q') ?? '').trim();

@@ -123,6 +123,11 @@
         class="ui-button mt-6 inline-flex min-h-11 items-center border border-slate-600 px-5 py-3 text-white"
         >{{ own() ? 'Ver mi biblioteca' : 'Ver biblioteca' }}</a
       >
+      @if (!own()) {
+        <div class="mt-4">
+          <app-block-user-button [username]="user.username" (blocked)="blocked()" />
+        </div>
+      }
       @if (restricted()) {
         <app-profile-restriction [restriction]="restriction()" />
       } @else {

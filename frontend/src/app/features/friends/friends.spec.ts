@@ -60,6 +60,19 @@ describe('Friends lists', () => {
     harness = await RouterTestingHarness.create(url);
     harness.detectChanges();
   }
+  it('refreshes personal requests and counters on focus after a remote block', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    friends.received.mockReturnValue(of(page([REQUEST])));
+    await start('/friends?tab=received');
+    expect(root().querySelectorAll('app-friend-row')).toHaveLength(1);
+    friends.received.mockReturnValue(of(page([])));
+    window.dispatchEvent(new Event('focus'));
+    harness.detectChanges();
+    expect(friends.received).toHaveBeenCalledTimes(2);
+    expect(root().querySelectorAll('app-friend-row')).toHaveLength(0);
+    expect(state.refresh).toHaveBeenCalledTimes(2);
+  });
+
   it('restores URL tabs and query, exposes counters and navigates tabs by keyboard', async () => {
     await start('/friends?tab=received&q=bea');
     expect(friends.received).toHaveBeenCalledWith(1);

@@ -55,7 +55,7 @@ export class FriendshipButtonComponent {
     this.removeButton()?.nativeElement.focus();
   }
 
-  protected act(action: FriendshipChange['action']): void {
+  protected act(action: Exclude<FriendshipChange['action'], 'blocked' | 'unblocked'>): void {
     if (this.own() || this.busy() || this.cooldown.remaining()) return;
     const id = this.state().requestId;
     if (['accepted', 'rejected', 'cancelled'].includes(action) && !id) {

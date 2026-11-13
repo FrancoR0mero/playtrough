@@ -33,7 +33,7 @@ export interface FriendsSummaryDto {
 }
 export interface FriendshipChange {
   username: string;
-  action: 'sent' | 'accepted' | 'rejected' | 'cancelled' | 'removed';
+  action: 'sent' | 'accepted' | 'rejected' | 'cancelled' | 'removed' | 'blocked' | 'unblocked';
 }
 export const FRIENDSHIP_MESSAGES = {
   sent: 'Solicitud enviada',
@@ -41,4 +41,6 @@ export const FRIENDSHIP_MESSAGES = {
   rejected: 'Solicitud rechazada',
   cancelled: 'Solicitud cancelada',
   removed: 'Amistad eliminada',
+  blocked: 'Usuario bloqueado',
+  unblocked: 'Usuario desbloqueado',
 };

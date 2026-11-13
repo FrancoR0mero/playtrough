@@ -19,6 +19,11 @@ import { ProfilePrivacyComponent } from './profile-privacy';
       <p class="mt-3 max-w-2xl text-slate-400">
         Decidí quién puede ver tu perfil y tu biblioteca de juegos.
       </p>
+      <a
+        routerLink="/profile/settings/blocked"
+        class="ui-button mt-5 inline-flex min-h-11 items-center border border-slate-600 px-4 py-2 text-white"
+        >Usuarios bloqueados</a
+      >
       <div class="max-w-2xl"><app-profile-privacy /></div>
     </section>
   `,

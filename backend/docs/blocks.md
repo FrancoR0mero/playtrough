@@ -27,3 +27,17 @@ La búsqueda excluye bloqueos en ambas direcciones antes de ordenar y paginar, e
 Enviar solicitudes vuelve a comprobar el bloqueo dentro de los bloqueos de filas y devuelve 404 `user_not_found`. Aceptar, rechazar o cancelar solicitudes de un par bloqueado devuelve 404 `request_not_found`; también se impide reutilizar una aceptación histórica mientras hay bloqueo. Desbloquear deja las preferencias de privacidad vigentes y exige solicitudes nuevas para volver a ser amigos. Las reseñas publicadas en páginas de juegos y los avatares públicos mantienen su visibilidad.
 
 `BlockEnforcementTests` cubre ambos sentidos, privacidad central, consultas de terceros, conservación de reseñas, rollback ante fallo y concurrencia con aceptación o duplicación de bloqueos. Concurrencia ejecutable usa SQLite con conexiones independientes; no equivale a probar la concurrencia del motor MySQL.
+
+## Interfaz y comprobación final
+
+El perfil ajeno ofrece «Bloquear usuario», también cuando está restringido por privacidad. La confirmación explica la eliminación de amistad, cancelación de solicitudes y ausencia de notificaciones. Solo se oculta el perfil y se abre la lista de bloqueados cuando POST devuelve éxito. Red, errores y 429 conservan la confirmación; no hay reenvíos automáticos.
+
+El engranaje del perfil propio lleva a Privacidad, desde donde «Usuarios bloqueados» abre `/profile/settings/blocked`. La lista propia muestra avatar, nombre y fecha, paginación y confirmación para desbloquear. Las filas se conservan si falla la operación; después de una eliminación confirmada se vuelve a consultar la primera página para evitar saltos por paginación por offset. El desbloqueo advierte que un bloqueo en sentido contrario puede seguir vigente.
+
+Las mutaciones publican un cambio social local para actualizar contadores, amistades y biblioteca. Las listas propias también reconsultan al recuperar foco y cada 30 segundos mientras están visibles para retirar solicitudes canceladas por un bloqueo remoto. Perfil y listas retiran datos si una lectura posterior devuelve `user_not_found`; la búsqueda vuelve a consultar al recuperar foco, mientras está visible cada 30 segundos y ante cambios locales de bloqueo. No se agregaron conexiones en tiempo real.
+
+Prueba manual con A y B amigos y C como tercero: A bloquea a B, ambos pierden amistad y acceso mutuo a perfil/biblioteca/amigos y dejan de aparecer en búsqueda. C mantiene sus accesos según privacidad; las reseñas publicadas se conservan. B puede bloquear a A por API si conoce su username; cada uno verá únicamente sus propios bloqueos. Quitar solo uno de los dos bloqueos no restaura acceso. Quitar ambos permite nuevas solicitudes, sin recrear la amistad anterior. Verificar también bloqueo con solicitud pendiente, cancelación de las confirmaciones, errores de red, 429 y rutas directas.
+
+La migración `20261113070456_AddUserBlocks` se aplicó y verificó en la base de desarrollo el 13 de noviembre de 2026, sin migraciones pendientes. En otros entornos: `dotnet ef database update AddUserBlocks --project backend/src/Playtrough.Api`. El SQL revisable está en `backend/sql/20261113070456_AddUserBlocks.sql`.
+
+Validación: suite completa de backend (1108 pruebas), frontend (849 pruebas), compilaciones y lint; revisión visual en 1365 y 390 px con respuestas ficticias. Pruebas de interfaz en `blocks.spec.ts`, integración en `profile-view.spec.ts` y guards en `app.routes.spec.ts`.

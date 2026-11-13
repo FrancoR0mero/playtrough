@@ -11,6 +11,9 @@ export function createFriendsMock() {
   return {
     changes,
     changes$: changes.asObservable(),
+    notifyBlockChange: vi.fn((username: string, action: 'blocked' | 'unblocked') =>
+      changes.next({ username, action }),
+    ),
     summary: vi.fn().mockReturnValue(of(SUMMARY)),
     list: vi.fn().mockReturnValue(of(EMPTY_FRIENDS)),
     received: vi.fn().mockReturnValue(of(EMPTY_FRIENDS)),

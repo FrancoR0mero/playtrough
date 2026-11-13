@@ -79,6 +79,12 @@ export const routes: Routes = [
       import('./features/profile/privacy-settings').then((m) => m.PrivacySettingsComponent),
   },
   {
+    path: 'profile/settings/blocked',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/blocks/blocked-users').then((m) => m.BlockedUsersComponent),
+  },
+  {
     path: 'profile/:username/library',
     canActivate: [authGuard],
     loadComponent: () => import('./features/library/library').then((m) => m.LibraryComponent),

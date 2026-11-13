@@ -19,6 +19,10 @@ export class FriendsService {
   private readonly changes = new Subject<FriendshipChange>();
   readonly changes$ = this.changes.asObservable();
 
+  notifyBlockChange(username: string, action: 'blocked' | 'unblocked') {
+    this.changes.next({ username, action });
+  }
+
   summary() {
     return this.http.get<FriendsSummaryDto>(`${this.url}/summary`);
   }

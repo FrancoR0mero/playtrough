@@ -38,7 +38,7 @@
 - Los datos de acceso se reconsultan tras acciones de amistad, al recuperar el foco, al volver a una pestaña visible y cada 30 segundos mientras está visible. No se usan notificaciones en tiempo real ni conexiones persistentes. Las preferencias propias no se recargan automáticamente mientras se editan para preservar cambios sin guardar.
 - El 403 de la lista de amigos no incluye el motivo de privacidad: se consulta el perfil para mostrar «privado» o «solo para amigos». Si esa consulta también falla, se muestra un aviso genérico de acceso restringido, sin datos de la lista.
 - La confirmación para eliminar una amistad es en línea. Las listas públicas reutilizan la fila de usuario sin acciones de gestión. La búsqueda reutiliza el botón de amistad con presentación compacta y objetivos táctiles completos.
-- Avatar implementado con subida, procesamiento, reemplazo, eliminación e iniciales por defecto; ver `backend/docs/avatars.md`. No se implementan bloqueo, feed, cambios de contraseña/email, eliminación de cuenta ni restricciones de historial sobre reseñas. Bibliotecas ajenas y avatares incluyen endpoints y pruebas de backend; no se añadieron tests E2E permanentes.
+- Avatar implementado con subida, procesamiento, reemplazo, eliminación e iniciales por defecto; ver `backend/docs/avatars.md`. Bloqueo y desbloqueo implementados con confirmaciones y lista propia desde Privacidad → Usuarios bloqueados; ver `backend/docs/blocks.md`. No se implementan feed, cambios de contraseña/email, eliminación de cuenta ni restricciones de historial sobre reseñas. Bibliotecas ajenas y avatares incluyen endpoints y pruebas de backend; no se añadieron tests E2E permanentes.
 
 ## Verificación automatizada
 

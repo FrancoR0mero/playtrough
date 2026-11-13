@@ -86,7 +86,7 @@ describe('Application route access', () => {
     expect(harness.routeNativeElement?.textContent).toContain('Configuración de privacidad');
   });
 
-  it.each(['/profile/settings/privacy', '/profile/jugador/library'])(
+  it.each(['/profile/settings/privacy', '/profile/settings/blocked', '/profile/jugador/library'])(
     'protects direct navigation to %s',
     async (path) => {
       await RouterTestingHarness.create(path);

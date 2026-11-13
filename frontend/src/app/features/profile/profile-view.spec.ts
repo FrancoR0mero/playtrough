@@ -8,6 +8,7 @@ import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { RateLimitError } from '../../core/http/rate-limit-error';
 import { createAuthMock, createSession } from '../auth/auth-test-helpers';
 import { AuthService } from '../auth/services/auth';
+import { BlocksService } from '../blocks/services/blocks';
 import { ProfileComponent } from './profile';
 import { DEFAULT_PRIVACY, MY_PROFILE, OTHER_PROFILE } from './profile-test-helpers';
 import { ProfileEditResult } from './profile-edit';
@@ -29,6 +30,7 @@ describe('Social profile screen', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: FriendsService, useValue: createFriendsMock() },
+        { provide: BlocksService, useValue: { block: vi.fn().mockReturnValue(of(undefined)) } },
         provideRouter([]),
         { provide: AuthService, useValue: auth },
         { provide: UsersService, useValue: users },
@@ -208,6 +210,38 @@ describe('Social profile screen', () => {
     window.dispatchEvent(new Event('focus'));
     expect(f.users.getProfile).toHaveBeenCalledTimes(3);
   });
+  it('clears a loaded profile when a remote block makes it unavailable', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    const f = setup('jugador');
+    f.fixture.detectChanges();
+    f.users.getProfile.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 404, error: { code: 'user_not_found' } })),
+    );
+    window.dispatchEvent(new Event('focus'));
+    await vi.advanceTimersByTimeAsync(1);
+    f.fixture.detectChanges();
+    expect(f.root.textContent).toContain('No encontramos a este jugador');
+    expect(f.root.querySelector('app-friendship-button')).toBeNull();
+    expect(f.root.querySelector('app-friends-preview')).toBeNull();
+    expect(f.root.querySelector('[data-action="view-library"]')).toBeNull();
+  });
+
+  it('blocks only after confirmation and opens blocked accounts management', () => {
+    const f = setup('jugador');
+    f.fixture.detectChanges();
+    f.root.querySelector<HTMLButtonElement>('[data-action="block-user"]')!.click();
+    f.fixture.detectChanges();
+    const blocks = TestBed.inject(BlocksService);
+    expect(blocks.block).not.toHaveBeenCalled();
+    f.root.querySelector<HTMLButtonElement>('[data-action="confirm-block"]')!.click();
+    f.fixture.detectChanges();
+    expect(blocks.block).toHaveBeenCalledWith('jugador');
+    expect(f.navigate).toHaveBeenCalledWith(['/profile/settings/blocked'], {
+      queryParams: { done: 'blocked' },
+    });
+    expect(f.root.querySelector('app-friendship-button')).toBeNull();
+  });
+
   it('loads another profile with literal multiline text and no edit action', () => {
     const f = setup('jugador');
     f.users.getProfile.mockReturnValue(

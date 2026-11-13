@@ -81,7 +81,8 @@ export class FriendsComponent {
     visibleSocialRefresh()
       .pipe(takeUntilDestroyed())
       .subscribe(() => {
-        if (this.username()) this.reload(true);
+        this.state.refresh();
+        this.reload(true);
       });
     afterNextRender(() => this.heading()?.nativeElement.focus());
     this.state.refresh();
@@ -228,6 +229,10 @@ export class FriendsComponent {
           return;
         }
         const code = profileError(error).code;
+        if (code === 'user_not_found') {
+          this.items.set([]);
+          this.hasMore.set(false);
+        }
         if (code === 'profile_restricted') {
           this.items.set([]);
           this.restricted.set(true);
