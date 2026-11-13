@@ -194,7 +194,7 @@ public class SwaggerDocumentationTests
                 var expectedTag = path.Name.StartsWith("/api/admin", StringComparison.OrdinalIgnoreCase) ? "Admin" :
                     path.Name.Contains("/reviews", StringComparison.OrdinalIgnoreCase) ? "Reviews" :
                     path.Name.StartsWith("/api/games", StringComparison.OrdinalIgnoreCase) ? "Games" :
-                    path.Name.StartsWith("/api/users", StringComparison.OrdinalIgnoreCase) ? "Users" :
+                    (path.Name.StartsWith("/api/users", StringComparison.OrdinalIgnoreCase) || path.Name.StartsWith("/api/avatars", StringComparison.OrdinalIgnoreCase)) ? "Users" :
                     path.Name.StartsWith("/api/friends", StringComparison.OrdinalIgnoreCase) ? "Friends" :
                     path.Name.StartsWith("/api/library", StringComparison.OrdinalIgnoreCase) ? "Library" : "Auth";
                 Assert.Equal(expectedTag,

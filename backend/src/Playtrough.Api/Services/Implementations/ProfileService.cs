@@ -26,10 +26,10 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
         var user = await FindVisibleAccountAsync(viewerId, username, ct);
         var relationship = await friends.RelationshipAsync(viewerId, user.Id, ct);
         if (!privacy.CanView(viewerId, user.Id, user.ProfileVisibility, relationship.Status == "friends"))
-            return new(user.UserName!, null, null, null, null, relationship, true,
+            return new(user.UserName!, AvatarUrls.FromFile(user.AvatarFileName), null, null, null, relationship, true,
                 user.ProfileVisibility == Visibility.Friends ? "friends_only" : "private");
         var summary = await friends.SummaryAsync(user.Id, ct);
-        return new(user.UserName!, null, user.Bio, user.CreatedAt, summary.FriendsCount, relationship, false, null);
+        return new(user.UserName!, AvatarUrls.FromFile(user.AvatarFileName), user.Bio, user.CreatedAt, summary.FriendsCount, relationship, false, null);
     }
 
     public async Task<FriendsPage<FriendDto>> FriendsAsync(int viewerId, string username, FriendsPageRequest request, CancellationToken ct = default)
@@ -123,7 +123,7 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
     private async Task<MyProfileDto> MineAsync(ApplicationUser user, CancellationToken ct)
     {
         var summary = await friends.SummaryAsync(user.Id, ct);
-        return new(user.Id, user.UserName!, user.Email, null, user.Bio, user.CreatedAt,
+        return new(user.Id, user.UserName!, user.Email, AvatarUrls.FromFile(user.AvatarFileName), user.Bio, user.CreatedAt,
             summary.FriendsCount, summary.PendingReceivedCount, AvailableAt(user));
     }
 }

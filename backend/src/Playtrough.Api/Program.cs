@@ -63,6 +63,8 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
             friendsProblem.Extensions["code"] = "invalid_query";
             return new BadRequestObjectResult(friendsProblem);
         }
+        if (context.ActionDescriptor is ControllerActionDescriptor avatarAction && avatarAction.ControllerTypeInfo.AsType() == typeof(AvatarsController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Avatar inválido", Extensions = { ["code"] = "invalid_avatar" } });
         if (context.ActionDescriptor is ControllerActionDescriptor profileAction &&
             profileAction.ControllerTypeInfo.AsType() == typeof(UsersController))
         {
@@ -293,6 +295,10 @@ builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddOptions<AvatarSettings>().BindConfiguration(AvatarSettings.SectionName).ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddSingleton<IAvatarStorage, LocalAvatarStorage>();
+builder.Services.AddSingleton<AvatarImageProcessor>();
+builder.Services.AddScoped<IAvatarService, AvatarService>();
 builder.Services.AddScoped<IPrivacyService, PrivacyService>();
 builder.Services.AddScoped<IUserSearchService, UserSearchService>();
 builder.Services.AddScoped<IFriendService, FriendService>();

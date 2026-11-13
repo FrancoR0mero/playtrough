@@ -5,6 +5,7 @@ namespace Playtrough.Api.Models;
 /// <summary>Application user, keyed by <see cref="int"/>.</summary>
 public class ApplicationUser : IdentityUser<int>
 {
+    public string? AvatarFileName { get; set; }
     public string? Bio { get; set; }
     public DateTime? UsernameChangedAt { get; set; }
     public Visibility ProfileVisibility { get; set; } = Visibility.Public;

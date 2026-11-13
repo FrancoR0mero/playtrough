@@ -16,7 +16,7 @@ namespace Playtrough.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.14")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
@@ -169,6 +169,10 @@ namespace Playtrough.Api.Migrations
 
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
+
+                    b.Property<string>("AvatarFileName")
+                        .HasMaxLength(37)
+                        .HasColumnType("varchar(37)");
 
                     b.Property<string>("Bio")
                         .HasMaxLength(300)

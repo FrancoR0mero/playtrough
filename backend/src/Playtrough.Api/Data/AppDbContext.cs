@@ -64,6 +64,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         // Identity makes NormalizedUserName unique but not NormalizedEmail.
         builder.Entity<ApplicationUser>(entity =>
         {
+            entity.Property(u => u.AvatarFileName).HasMaxLength(37);
             entity.Property(u => u.Bio).HasMaxLength(300).HasAnnotation("MySQL:Charset", "utf8mb4");
             // Always write explicit values, including Public=0 for history, rather
             // than treating enum zero as a sentinel for the database's Friends default.

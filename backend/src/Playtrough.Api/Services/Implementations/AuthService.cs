@@ -230,7 +230,7 @@ public class AuthService(
     private static LoginUserDto ToLoginUser(ApplicationUser user, IList<string> roles)
     {
         var role = roles.Single();
-        return new LoginUserDto(user.Id, user.UserName ?? string.Empty, user.Email ?? string.Empty, role);
+        return new LoginUserDto(user.Id, user.UserName ?? string.Empty, user.Email ?? string.Empty, role, AvatarUrls.FromFile(user.AvatarFileName));
     }
 
     public Task LogoutAsync(int userId, LogoutRequestDto dto, CancellationToken ct = default)

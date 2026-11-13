@@ -6,4 +6,4 @@ public record LoginResponseDto(
     DateTime ExpiresAt,
     LoginUserDto User);
 
-public record LoginUserDto(int Id, string Username, string Email, string Role);
+public record LoginUserDto(int Id, string Username, string Email, string Role, string? AvatarUrl = null);

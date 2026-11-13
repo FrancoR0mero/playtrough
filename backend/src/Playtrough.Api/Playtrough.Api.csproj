@@ -11,6 +11,8 @@
     <InternalsVisibleTo Include="Playtrough.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="4.156.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.156.0" />
     <PackageReference Include="MailKit" Version="4.18.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.*" />
     <PackageReference Include="MySql.EntityFrameworkCore" Version="10.0.9" />

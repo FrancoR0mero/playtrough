@@ -52,7 +52,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
             throw;
         }
         await events.PublishAsync(new FriendRequestSent(request.Id, senderId, receiver.Id, request.CreatedAt), CancellationToken.None);
-        return new(request.Id, "pending", new(receiver.UserName!, null), request.CreatedAt);
+        return new(request.Id, "pending", new(receiver.UserName!, AvatarUrls.FromFile(receiver.AvatarFileName)), request.CreatedAt);
     }
 
     public async Task<AcceptedFriendDto> AcceptAsync(int userId, int requestId, CancellationToken ct = default)
@@ -66,7 +66,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
                 var request = await OwnRequestAsync(userId, requestId, receiver: true, ct);
                 var sender = await db.Users.AsNoTracking().SingleAsync(u => u.Id == request.SenderId, ct);
                 if (request.Status == FriendRequestStatus.Accepted)
-                    return (new AcceptedFriendDto(new(sender.UserName!, null), request.RespondedAt!.Value), (FriendRequestAccepted?)null);
+                    return (new AcceptedFriendDto(new(sender.UserName!, AvatarUrls.FromFile(sender.AvatarFileName)), request.RespondedAt!.Value), (FriendRequestAccepted?)null);
                 if (request.Status != FriendRequestStatus.Pending) throw new FriendException("request_not_pending");
                 var now = time.GetUtcNow().UtcDateTime;
                 await db.FriendRequests.Where(r => r.Id == requestId).ExecuteUpdateAsync(update =>
@@ -74,7 +74,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
                 var (low, high) = Pair(request.SenderId, userId);
                 db.Friendships.Add(new Friendship { UserLowId = low, UserHighId = high, CreatedAt = now });
                 await db.SaveChangesAsync(ct);
-                return (new AcceptedFriendDto(new(sender.UserName!, null), now),
+                return (new AcceptedFriendDto(new(sender.UserName!, AvatarUrls.FromFile(sender.AvatarFileName)), now),
                     (FriendRequestAccepted?)new FriendRequestAccepted(requestId, request.SenderId, userId, now));
             }, ct);
         }
@@ -86,7 +86,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
             if (current.Status != FriendRequestStatus.Accepted ||
                 !await db.Friendships.AnyAsync(f => f.UserLowId == low && f.UserHighId == high, ct)) throw;
             var sender = await db.Users.AsNoTracking().SingleAsync(u => u.Id == current.SenderId, ct);
-            return new(new(sender.UserName!, null), current.RespondedAt!.Value);
+            return new(new(sender.UserName!, AvatarUrls.FromFile(sender.AvatarFileName)), current.RespondedAt!.Value);
         }
         if (outcome.Event is { } accepted) await events.PublishAsync(accepted, CancellationToken.None);
         return outcome.Result;
@@ -130,7 +130,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
                     where friendship.UserLowId == userId || friendship.UserHighId == userId
                     join user in db.Users on (friendship.UserLowId == userId ? friendship.UserHighId : friendship.UserLowId) equals user.Id
                     where user.EmailConfirmed
-                    select new { user.Id, user.UserName, user.NormalizedUserName, friendship.CreatedAt };
+                    select new { user.Id, user.UserName, user.NormalizedUserName, user.AvatarFileName, friendship.CreatedAt };
         if (!string.IsNullOrWhiteSpace(q))
         {
             var pattern = "%" + LikePattern.Escape(normalizer.NormalizeName(q.Trim())) + "%";
@@ -138,7 +138,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
         }
         var rows = await query.OrderBy(row => row.NormalizedUserName).ThenBy(row => row.Id)
             .Skip(skip).Take(page.PageSize + 1).ToListAsync(ct);
-        return new(rows.Take(page.PageSize).Select(row => new FriendDto(new(row.UserName!, null), row.CreatedAt)).ToArray(),
+        return new(rows.Take(page.PageSize).Select(row => new FriendDto(new(row.UserName!, AvatarUrls.FromFile(row.AvatarFileName)), row.CreatedAt)).ToArray(),
             page.Page, page.PageSize, rows.Count > page.PageSize);
     }
 
@@ -150,9 +150,9 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
                     join user in db.Users on (received ? request.SenderId : request.ReceiverId) equals user.Id
                     where user.EmailConfirmed
                     orderby request.CreatedAt descending, request.Id descending
-                    select new { request.Id, user.UserName, request.CreatedAt };
+                    select new { request.Id, user.UserName, user.AvatarFileName, request.CreatedAt };
         var rows = await query.Skip(skip).Take(page.PageSize + 1).ToListAsync(ct);
-        return new(rows.Take(page.PageSize).Select(row => new FriendRequestDto(row.Id, new(row.UserName!, null), row.CreatedAt)).ToArray(),
+        return new(rows.Take(page.PageSize).Select(row => new FriendRequestDto(row.Id, new(row.UserName!, AvatarUrls.FromFile(row.AvatarFileName)), row.CreatedAt)).ToArray(),
             page.Page, page.PageSize, rows.Count > page.PageSize);
     }
 

@@ -8,7 +8,8 @@ public sealed class RequestBodyLimitMiddleware(RequestDelegate next, IOptions<Tr
 {
     public async Task InvokeAsync(HttpContext context)
     {
-        var limit = settings.Value.MaxRequestBodySizeBytes;
+        var limit = context.GetEndpoint()?.Metadata.GetMetadata<AvatarUploadAttribute>() is not null
+            ? AvatarSettings.MaxRequestBytes : settings.Value.MaxRequestBodySizeBytes;
         if (context.Request.ContentLength > limit)
         {
             await RejectAsync(context);
