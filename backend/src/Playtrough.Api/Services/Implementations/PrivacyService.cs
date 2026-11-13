@@ -10,9 +10,13 @@ namespace Playtrough.Api.Services.Implementations;
 
 public sealed class PrivacyService(AppDbContext db) : IPrivacyService
 {
-    public bool CanView(int viewerId, int ownerId, Visibility visibility, bool areFriends)
-        => viewerId > 0 && (viewerId == ownerId || visibility == Visibility.Public ||
-            visibility == Visibility.Friends && areFriends);
+    public bool CanView(int viewerId, int ownerId, Visibility visibility, bool areFriends, bool blocked = false)
+        => viewerId > 0 && (viewerId == ownerId || !blocked && (visibility == Visibility.Public ||
+            visibility == Visibility.Friends && areFriends));
+
+    public Task<bool> IsBlockedAsync(int firstId, int secondId, CancellationToken ct = default)
+        => firstId == secondId ? Task.FromResult(false) : db.UserBlocks.AnyAsync(b =>
+            b.BlockerId == firstId && b.BlockedId == secondId || b.BlockerId == secondId && b.BlockedId == firstId, ct);
 
     public async Task<bool> CanViewAsync(int viewerId, int ownerId, PrivacyScope scope, CancellationToken ct = default)
     {
@@ -23,12 +27,14 @@ public sealed class PrivacyService(AppDbContext db) : IPrivacyService
         // Fresh no-tracking query, including one existence subquery for Friends.
         var row = await db.Users.AsNoTracking().Where(u => u.Id == ownerId).Select(u => new
         {
+            Blocked = viewerId != ownerId && db.UserBlocks.Any(b =>
+                b.BlockerId == viewerId && b.BlockedId == ownerId || b.BlockerId == ownerId && b.BlockedId == viewerId),
             Visibility = scope == PrivacyScope.Profile ? u.ProfileVisibility : u.HistoryVisibility,
             AreFriends = viewerId != ownerId &&
                 (scope == PrivacyScope.Profile ? u.ProfileVisibility : u.HistoryVisibility) == Visibility.Friends &&
                 db.Friendships.Any(f => f.UserLowId == low && f.UserHighId == high),
         }).SingleOrDefaultAsync(ct) ?? throw new ProfileException("user_not_found");
-        return CanView(viewerId, ownerId, row.Visibility, row.AreFriends);
+        return CanView(viewerId, ownerId, row.Visibility, row.AreFriends, row.Blocked);
     }
 
     public async Task<PrivacyDto> GetAsync(int userId, CancellationToken ct = default)

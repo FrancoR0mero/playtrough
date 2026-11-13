@@ -37,7 +37,7 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
         var user = await FindVisibleAccountAsync(viewerId, username, ct);
         if (!await privacy.CanViewAsync(viewerId, user.Id, PrivacyScope.Profile, ct))
             throw new ProfileException("profile_restricted");
-        return await friends.ListAsync(user.Id, null, request, ct);
+        return await friends.ListAsync(user.Id, null, request, ct, viewerId);
     }
 
     public async Task<LibraryListResponseDto> LibraryAsync(int viewerId, string username, LibraryListRequest request, CancellationToken ct = default)
@@ -51,8 +51,10 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
     private async Task<ApplicationUser> FindVisibleAccountAsync(int viewerId, string username, CancellationToken ct)
     {
         var normalized = users.NormalizeName(username);
-        return await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.NormalizedUserName == normalized &&
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.NormalizedUserName == normalized &&
             (u.EmailConfirmed || u.Id == viewerId), ct) ?? throw new ProfileException("user_not_found");
+        if (await privacy.IsBlockedAsync(viewerId, user.Id, ct)) throw new ProfileException("user_not_found");
+        return user;
     }
 
     public async Task<MyProfileDto> UpdateAsync(int userId, UpdateProfileRequest request, CancellationToken ct = default)

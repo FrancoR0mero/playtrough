@@ -27,6 +27,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
                 var currentReceiver = await FindUserAsync(username, ct);
                 if (currentReceiver.Id != receiver.Id) throw new FriendException("user_not_found");
                 receiver = currentReceiver;
+                await EnsureNotBlockedAsync(senderId, receiver.Id, false, ct);
                 await EnsureNoRelationshipAsync(senderId, receiver.Id, ct);
                 var lastRejection = await db.FriendRequests.Where(r => r.SenderId == senderId &&
                         r.ReceiverId == receiver.Id && r.Status == FriendRequestStatus.Rejected)
@@ -64,6 +65,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
             outcome = await WithPairAsync(initial.SenderId, initial.ReceiverId, async () =>
             {
                 var request = await OwnRequestAsync(userId, requestId, receiver: true, ct);
+                await EnsureNotBlockedAsync(request.SenderId, request.ReceiverId, true, ct);
                 var sender = await db.Users.AsNoTracking().SingleAsync(u => u.Id == request.SenderId, ct);
                 if (request.Status == FriendRequestStatus.Accepted)
                     return (new AcceptedFriendDto(new(sender.UserName!, AvatarUrls.FromFile(sender.AvatarFileName)), request.RespondedAt!.Value), (FriendRequestAccepted?)null);
@@ -103,6 +105,7 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
         await WithPairAsync(initial.SenderId, initial.ReceiverId, async () =>
         {
             var current = await OwnRequestAsync(userId, requestId, receiver, ct);
+            await EnsureNotBlockedAsync(current.SenderId, current.ReceiverId, true, ct);
             if (current.Status == status) return true;
             if (current.Status != FriendRequestStatus.Pending) throw new FriendException("request_not_pending");
             var now = time.GetUtcNow().UtcDateTime;
@@ -117,19 +120,22 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
         var other = await FindUserAsync(username, ct);
         await WithPairAsync(userId, other.Id, async () =>
         {
+            await EnsureNotBlockedAsync(userId, other.Id, false, ct);
             var (low, high) = Pair(userId, other.Id);
             await db.Friendships.Where(f => f.UserLowId == low && f.UserHighId == high).ExecuteDeleteAsync(ct);
             return true;
         }, ct);
     }
 
-    public async Task<FriendsPage<FriendDto>> ListAsync(int userId, string? q, FriendsPageRequest page, CancellationToken ct = default)
+    public async Task<FriendsPage<FriendDto>> ListAsync(int userId, string? q, FriendsPageRequest page, CancellationToken ct = default, int? viewerId = null)
     {
         var skip = Skip(page);
+        var viewer = viewerId ?? userId;
         var query = from friendship in db.Friendships.AsNoTracking()
                     where friendship.UserLowId == userId || friendship.UserHighId == userId
                     join user in db.Users on (friendship.UserLowId == userId ? friendship.UserHighId : friendship.UserLowId) equals user.Id
-                    where user.EmailConfirmed
+                    where user.EmailConfirmed && !db.UserBlocks.Any(b =>
+                        b.BlockerId == viewer && b.BlockedId == user.Id || b.BlockerId == user.Id && b.BlockedId == viewer)
                     select new { user.Id, user.UserName, user.NormalizedUserName, user.AvatarFileName, friendship.CreatedAt };
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -148,7 +154,8 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
         var query = from request in db.FriendRequests.AsNoTracking()
                     where request.Status == FriendRequestStatus.Pending && (received ? request.ReceiverId == userId : request.SenderId == userId)
                     join user in db.Users on (received ? request.SenderId : request.ReceiverId) equals user.Id
-                    where user.EmailConfirmed
+                    where user.EmailConfirmed && !db.UserBlocks.Any(b =>
+                        b.BlockerId == userId && b.BlockedId == user.Id || b.BlockerId == user.Id && b.BlockedId == userId)
                     orderby request.CreatedAt descending, request.Id descending
                     select new { request.Id, user.UserName, user.AvatarFileName, request.CreatedAt };
         var rows = await query.Skip(skip).Take(page.PageSize + 1).ToListAsync(ct);
@@ -175,6 +182,12 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
                 .Select(r => new { Status = r.SenderId == viewerId ? "request_sent" : "request_received", RequestId = (int?)r.Id, Priority = 1 }))
             .OrderBy(r => r.Priority).FirstOrDefaultAsync(ct);
         return row is null ? new("none") : new(row.Status, row.RequestId);
+    }
+
+    private async Task EnsureNotBlockedAsync(int first, int second, bool request, CancellationToken ct)
+    {
+        if (await db.UserBlocks.AnyAsync(b => b.BlockerId == first && b.BlockedId == second || b.BlockerId == second && b.BlockedId == first, ct))
+            throw new FriendException(request ? "request_not_found" : "user_not_found");
     }
 
     private async Task EnsureNoRelationshipAsync(int sender, int receiver, CancellationToken ct)

@@ -17,3 +17,13 @@ POST/DELETE comparten `friends-write` con amistades (30 escrituras/minuto por us
 Si A bloquea a B y B bloquea a A, quitar el bloqueo de A no elimina el de B. Desbloquear nunca recrea una amistad ni una solicitud.
 
 La migración `AddUserBlocks` solo crea la tabla y sus índices; no altera usuarios ni relaciones existentes. El SQL se genera offline. Las pruebas usan SQLite aislado y verifican también el SQL del proveedor MySQL.
+
+## Aplicación del bloqueo
+
+Un bloqueo en cualquiera de los sentidos prevalece sobre perfil e historial públicos. `PrivacyService` evalúa el par en ambos ámbitos, sin caché; el dueño conserva acceso propio. Los GET de perfil, biblioteca y amigos ajenos devuelven 404 `user_not_found`, igual que una cuenta no disponible, sin revelar quién bloqueó a quién.
+
+La búsqueda excluye bloqueos en ambas direcciones antes de ordenar y paginar, en la misma consulta SQL. Las listas de amigos también excluyen cuentas bloqueadas respecto del visitante, incluso al consultar la lista de un tercero. Crear un bloqueo elimina los contadores de amistad y solicitudes mediante la eliminación/cancelación real de esas relaciones.
+
+Enviar solicitudes vuelve a comprobar el bloqueo dentro de los bloqueos de filas y devuelve 404 `user_not_found`. Aceptar, rechazar o cancelar solicitudes de un par bloqueado devuelve 404 `request_not_found`; también se impide reutilizar una aceptación histórica mientras hay bloqueo. Desbloquear deja las preferencias de privacidad vigentes y exige solicitudes nuevas para volver a ser amigos. Las reseñas publicadas en páginas de juegos y los avatares públicos mantienen su visibilidad.
+
+`BlockEnforcementTests` cubre ambos sentidos, privacidad central, consultas de terceros, conservación de reseñas, rollback ante fallo y concurrencia con aceptación o duplicación de bloqueos. Concurrencia ejecutable usa SQLite con conexiones independientes; no equivale a probar la concurrencia del motor MySQL.
