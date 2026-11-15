@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<LibraryEntry> LibraryEntries => Set<LibraryEntry>();
     public DbSet<LibraryEvent> LibraryEvents => Set<LibraryEvent>();
+    public DbSet<TimelineEntry> TimelineEntries => Set<TimelineEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -29,6 +30,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.ApplyConfiguration(new UserBlockConfiguration());
         builder.ApplyConfiguration(new LibraryEntryConfiguration());
         builder.ApplyConfiguration(new LibraryEventConfiguration());
+        builder.ApplyConfiguration(new TimelineEntryConfiguration());
 
         // Identity tables use domain names, not the framework's AspNet* prefix.
         // Data is preserved by RENAME TABLE (never recreated) in migrations.

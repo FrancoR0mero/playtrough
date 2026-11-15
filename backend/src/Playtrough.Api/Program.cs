@@ -296,6 +296,11 @@ builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddOptions<TimelineSettings>().BindConfiguration(TimelineSettings.SectionName)
+    .ValidateDataAnnotations().Validate(s => s.DefaultLimit <= s.MaxLimit,
+        "Timeline:DefaultLimit must not exceed MaxLimit.").ValidateOnStart();
+builder.Services.AddOptions<FeedSettings>().BindConfiguration(FeedSettings.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddOptions<AvatarSettings>().BindConfiguration(AvatarSettings.SectionName).ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddSingleton<IAvatarStorage, LocalAvatarStorage>();
