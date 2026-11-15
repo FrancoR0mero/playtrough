@@ -60,7 +60,7 @@ internal sealed class ReviewTestContext : IDisposable
         return new AppDbContext(options.Options);
     }
 
-    public ReviewService Service(AppDbContext db) => new(db, Clock);
+    public ReviewService Service(AppDbContext db) => new(db, Clock, new TimelineWriter(db, Microsoft.Extensions.Options.Options.Create(new FeedSettings())));
 
     public async Task<ReviewResult> UpsertAsync(decimal rating = 4.5m, string? text = null, int? userId = null, bool observe = true)
     {

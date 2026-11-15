@@ -296,6 +296,7 @@ builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<TimelineWriter>();
 builder.Services.AddOptions<TimelineSettings>().BindConfiguration(TimelineSettings.SectionName)
     .ValidateDataAnnotations().Validate(s => s.DefaultLimit <= s.MaxLimit,
         "Timeline:DefaultLimit must not exceed MaxLimit.").ValidateOnStart();

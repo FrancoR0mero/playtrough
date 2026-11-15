@@ -49,7 +49,7 @@ internal sealed class LibraryTestContext : IDisposable
         return new AppDbContext(options.Options);
     }
 
-    public LibraryService Service(AppDbContext db) => new(new LibraryRepository(db), Clock);
+    public LibraryService Service(AppDbContext db) => new(new LibraryRepository(db, new TimelineWriter(db, Microsoft.Extensions.Options.Options.Create(new FeedSettings())), Clock), Clock);
 
     public async Task<LibraryEntry> AddAsync(LibraryStatus status = LibraryStatus.Backlog, DateOnly? date = null,
         int? userId = null, bool observe = true)
