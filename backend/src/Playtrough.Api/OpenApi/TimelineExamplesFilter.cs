@@ -34,7 +34,7 @@ public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, 
                 notFoundEntry.Description = "entry_not_found: entrada inexistente o ajena. No revela si otro usuario es su dueño.";
             return;
         }
-        if (context.MethodInfo.DeclaringType != typeof(TimelineController)) return;
+        if (context.MethodInfo.DeclaringType != typeof(TimelineController) && context.MethodInfo.DeclaringType != typeof(FeedController)) return;
         if (operation.Parameters is { } parameters)
             foreach (var parameter in parameters.OfType<OpenApiParameter>())
             {
