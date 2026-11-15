@@ -3,6 +3,7 @@
 @userToken = REEMPLAZAR_POR_JWT_USUARIO
 @username = REEMPLAZAR_POR_USERNAME
 @nextCursor = REEMPLAZAR_POR_NEXT_CURSOR_SIN_MODIFICAR
+@entryId = REEMPLAZAR_POR_ID_DE_ENTRADA_PROPIA
 
 ### Solo después de aprobar y aplicar la migración. No aplica migraciones.
 POST {{baseUrl}}/api/admin/timeline/backfill
@@ -38,3 +39,17 @@ Authorization: Bearer {{adminToken}}
 
 ### Sin token: 401.
 POST {{baseUrl}}/api/admin/timeline/backfill
+
+### Ocultar una entrada propia. Repetir el mismo cuerpo devuelve 200.
+PUT {{baseUrl}}/api/timeline/entries/{{entryId}}/visibility
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{ "hidden": true }
+
+### Volver a mostrar la entrada. Con token ajeno o ID inexistente devuelve 404 entry_not_found.
+PUT {{baseUrl}}/api/timeline/entries/{{entryId}}/visibility
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{ "hidden": false }
