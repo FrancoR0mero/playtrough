@@ -17,6 +17,14 @@ public sealed class LibraryRepository(AppDbContext db, TimelineWriter timeline, 
     public LibraryRepository(AppDbContext db, TimeProvider? clock = null)
         : this(db, new TimelineWriter(db, Options.Create(new FeedSettings())), clock) { }
 
+    public async Task<IReadOnlyList<int>> MetadataRefreshIdsAsync(IReadOnlyList<int> gameIds, DateTime now,
+        CancellationToken ct = default)
+        => await db.Games.AsNoTracking()
+            .Where(game => gameIds.Contains(game.Id) && game.GameBrainId != null
+                && (game.MetadataExpiresAt == null || game.MetadataExpiresAt <= now))
+            .OrderBy(game => game.Id)
+            .Select(game => game.GameBrainId!.Value).ToListAsync(ct);
+
     public Task<bool> GameExistsAsync(int gameId, CancellationToken ct = default)
         => db.Games.AnyAsync(game => game.Id == gameId, ct);
 

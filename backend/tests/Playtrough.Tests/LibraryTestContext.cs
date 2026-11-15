@@ -5,6 +5,8 @@ using Playtrough.Api.Data;
 using Playtrough.Api.Models;
 using Playtrough.Api.Repositories.Implementations;
 using Playtrough.Api.Services.Implementations;
+using Playtrough.Api.Services.Interfaces;
+using Moq;
 
 namespace Playtrough.Tests;
 
@@ -49,7 +51,8 @@ internal sealed class LibraryTestContext : IDisposable
         return new AppDbContext(options.Options);
     }
 
-    public LibraryService Service(AppDbContext db) => new(new LibraryRepository(db, new TimelineWriter(db, Microsoft.Extensions.Options.Options.Create(new FeedSettings())), Clock), Clock);
+    public LibraryService Service(AppDbContext db) => new(new LibraryRepository(db, new TimelineWriter(db, Microsoft.Extensions.Options.Options.Create(new FeedSettings())), Clock), Clock,
+        new Mock<IGameService>(MockBehavior.Strict).Object);
 
     public async Task<LibraryEntry> AddAsync(LibraryStatus status = LibraryStatus.Backlog, DateOnly? date = null,
         int? userId = null, bool observe = true)
