@@ -13,9 +13,51 @@ public sealed record TimelineFilters(int? Year, int? Month, TimelineEntryType[] 
 {
     public string Fingerprint => FormattableString.Invariant($"{Year ?? 0}:{Month ?? 0}:{string.Join(',', Types.Select(t => (int)t))}");
 }
+public sealed record FeedPosition(DateTime RecordedAt, long Id);
 
 public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> settings, TimeProvider time)
 {
+    internal IQueryable<FeedEntryDto> FeedEntries(int viewerId, FeedPosition? position, int limit)
+    {
+        // Canonical friendships make the two directions disjoint, so UNION ALL
+        // needs no deduplication and both indexed access paths remain available.
+        var friends = db.Friendships.Where(f => f.UserLowId == viewerId).Select(f => f.UserHighId)
+            .Concat(db.Friendships.Where(f => f.UserHighId == viewerId).Select(f => f.UserLowId));
+        // Parameterized equality lets MySQL seek the leading FeedEligible key;
+        // a bare boolean predicate is emitted as <> 0 and can lose that access path.
+        var eligible = true;
+        var source = from entry in db.TimelineEntries.AsNoTracking()
+                     join friendId in friends on entry.UserId equals friendId
+                     where entry.FeedEligible == eligible
+                     select entry;
+        var entries = ApplyFilters(source, null, false, new(null, null, []));
+        if (position is { } cursor)
+            entries = entries.Where(e => e.RecordedAt < cursor.RecordedAt || e.RecordedAt == cursor.RecordedAt && e.Id < cursor.Id);
+        var excerptLength = settings.Value.ExcerptLength;
+        // Every confirmed friend satisfies the unified Public/Private policy.
+        // Blocks still deny access in either direction, even with a stale friendship.
+        return (from entry in entries
+                join author in db.Users.AsNoTracking() on entry.UserId equals author.Id
+                join game in db.Games.AsNoTracking() on entry.GameId equals game.Id
+                join review in db.Reviews.AsNoTracking() on entry.ReviewId equals (int?)review.Id into reviews
+                from review in reviews.DefaultIfEmpty()
+                where author.EmailConfirmed && !db.UserBlocks.Any(b =>
+                    b.BlockerId == viewerId && b.BlockedId == author.Id || b.BlockerId == author.Id && b.BlockedId == viewerId)
+                orderby entry.RecordedAt descending, entry.Id descending
+                select new FeedEntryDto(entry.Id, TimelineValues.TypeValue(entry.Type), entry.OccurredOn, entry.RecordedAt,
+                    new TimelineGameDto(game.Id, game.GameBrainId ?? game.ExternalId, game.Name, game.Slug,
+                        game.CoverImageUrl, game.FirstReleaseDate.HasValue ? game.FirstReleaseDate.Value.Year : null),
+                    entry.FromStatus.HasValue ? LibraryValues.StatusValue(entry.FromStatus.GetValueOrDefault()) : null,
+                    entry.ToStatus.HasValue ? LibraryValues.StatusValue(entry.ToStatus.GetValueOrDefault()) : null,
+                    entry.Type == TimelineEntryType.Reviewed && review != null
+                        ? new TimelineReviewDto(review.Id, review.Rating, Excerpt(review.Text, excerptLength)) : null,
+                    false, new FeedAuthorDto(author.UserName!, AvatarUrls.FromFile(author.AvatarFileName))))
+            .Take(limit + 1);
+    }
+
+    public Task<List<FeedEntryDto>> FeedAsync(int viewerId, FeedPosition? position, int limit, CancellationToken ct)
+        => FeedEntries(viewerId, position, limit).ToListAsync(ct);
+
     public TimelineFilters Filters(int? year, int? month, string? type)
     {
         if (year is { } y && (y < 1970 || y > Math.Min(9999, time.GetUtcNow().Year + 1))
