@@ -1,0 +1,13 @@
+@baseUrl = http://localhost:5000
+@adminToken = REEMPLAZAR_POR_JWT_ADMIN
+
+### Solo después de aprobar y aplicar la migración. No aplica migraciones.
+POST {{baseUrl}}/api/admin/timeline/backfill
+Authorization: Bearer {{adminToken}}
+
+### Repetir: debe devolver ambos conteos en cero si no faltan entradas.
+POST {{baseUrl}}/api/admin/timeline/backfill
+Authorization: Bearer {{adminToken}}
+
+### Sin token: 401.
+POST {{baseUrl}}/api/admin/timeline/backfill
