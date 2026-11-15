@@ -78,12 +78,13 @@ describe('Layout navigation and logout', () => {
     expect(auth.logout).not.toHaveBeenCalled();
   });
 
-  it('provides four mobile destinations without a separate reviews item when signed in', () => {
+  it('provides five mobile destinations without a separate reviews item when signed in', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.mobile-game-navigation')).toBeNull();
     renderAuthenticated();
     const nav = fixture.nativeElement.querySelector('.mobile-game-navigation') as HTMLElement;
     expect(Array.from(nav.querySelectorAll('a')).map((link) => link.getAttribute('href'))).toEqual([
+      '/feed',
       '/games',
       '/library',
       '/friends',
