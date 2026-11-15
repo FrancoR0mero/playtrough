@@ -1,9 +1,36 @@
 @baseUrl = http://localhost:5000
 @adminToken = REEMPLAZAR_POR_JWT_ADMIN
+@userToken = REEMPLAZAR_POR_JWT_USUARIO
+@username = REEMPLAZAR_POR_USERNAME
+@nextCursor = REEMPLAZAR_POR_NEXT_CURSOR_SIN_MODIFICAR
 
 ### Solo después de aprobar y aplicar la migración. No aplica migraciones.
 POST {{baseUrl}}/api/admin/timeline/backfill
 Authorization: Bearer {{adminToken}}
+
+### Primera página propia: incluye ocultas.
+GET {{baseUrl}}/api/timeline/me?limit=20
+Authorization: Bearer {{userToken}}
+
+### Página siguiente de la misma consulta.
+GET {{baseUrl}}/api/timeline/me?limit=20&cursor={{nextCursor}}
+Authorization: Bearer {{userToken}}
+
+### Fecha efectiva y tipos combinados. Comenzar sin cursor al cambiar filtros.
+GET {{baseUrl}}/api/timeline/me?year=2026&month=11&type=added,status_changed
+Authorization: Bearer {{userToken}}
+
+### Períodos propios filtrados por tipo.
+GET {{baseUrl}}/api/timeline/me/periods?type=added,status_changed
+Authorization: Bearer {{userToken}}
+
+### Línea ajena: Público, o Privado si son amigos. Excluye ocultas.
+GET {{baseUrl}}/api/users/{{username}}/timeline?limit=20
+Authorization: Bearer {{userToken}}
+
+### Períodos ajenos: mismos permisos y exclusión de ocultas.
+GET {{baseUrl}}/api/users/{{username}}/timeline/periods
+Authorization: Bearer {{userToken}}
 
 ### Repetir: debe devolver ambos conteos en cero si no faltan entradas.
 POST {{baseUrl}}/api/admin/timeline/backfill
