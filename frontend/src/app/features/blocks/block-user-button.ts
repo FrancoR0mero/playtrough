@@ -36,11 +36,9 @@ import { BlocksService } from './services/blocks';
         aria-label="Confirmar bloqueo"
         class="mt-4 max-w-2xl border-t border-white/10 pt-5"
       >
-        <h2 class="font-semibold text-white">¿Bloquear a {{ username() }}?</h2>
-        <p class="mt-2 text-sm leading-relaxed text-slate-300">
-          Se eliminará la amistad y se cancelarán las solicitudes pendientes. No podrán ver sus
-          perfiles ni bibliotecas ni enviarse nuevas solicitudes. No se enviará una notificación.
-        </p>
+        <h2 class="font-semibold text-white">
+          Se bloqueará al usuario {{ username() }}. ¿Está seguro?
+        </h2>
         <div class="mt-4 flex flex-wrap gap-3">
           <button
             #confirmButton
@@ -50,7 +48,7 @@ import { BlocksService } from './services/blocks';
             [disabled]="busy() || cooldown.remaining() > 0"
             class="ui-button min-h-11 border border-red-400 px-4 py-2 text-red-200 disabled:opacity-50"
           >
-            {{ busy() ? 'Bloqueando…' : 'Sí, bloquear' }}
+            {{ busy() ? 'Bloqueando…' : 'Bloquear' }}
           </button>
           <button
             type="button"
@@ -58,7 +56,7 @@ import { BlocksService } from './services/blocks';
             [disabled]="busy()"
             class="ui-button min-h-11 border border-slate-600 px-4 py-2 text-white"
           >
-            Cancelar bloqueo
+            Cancelar
           </button>
         </div>
       </div>

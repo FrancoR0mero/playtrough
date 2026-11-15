@@ -82,14 +82,14 @@ describe('Block user button', () => {
     vi.useRealTimers();
   });
 
-  it('requires confirmation, explains consequences and restores focus on cancel', async () => {
+  it('confirms the target username and restores focus on cancel', async () => {
     const f = setup();
     f.click('Bloquear usuario');
-    expect(f.root.textContent).toContain('Se eliminará la amistad');
+    expect(f.root.textContent).toContain('Se bloqueará al usuario bea. ¿Está seguro?');
     expect(f.blocks.block).not.toHaveBeenCalled();
     await f.fixture.whenStable();
     expect(document.activeElement?.getAttribute('data-action')).toBe('confirm-block');
-    f.click('Cancelar bloqueo');
+    f.click('Cancelar');
     await f.fixture.whenStable();
     expect(document.activeElement?.getAttribute('data-action')).toBe('block-user');
     expect(f.blocks.block).not.toHaveBeenCalled();
@@ -100,7 +100,7 @@ describe('Block user button', () => {
     const pending = new Subject<void>();
     f.blocks.block.mockReturnValue(pending);
     f.click('Bloquear usuario');
-    f.click('Sí, bloquear');
+    f.click('Bloquear');
     f.root.querySelector<HTMLButtonElement>('[data-action="confirm-block"]')!.click();
     expect(f.blocks.block).toHaveBeenCalledExactlyOnceWith('bea');
     expect(f.done).not.toHaveBeenCalled();
@@ -113,11 +113,11 @@ describe('Block user button', () => {
     const f = setup();
     f.blocks.block.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 0 })));
     f.click('Bloquear usuario');
-    f.click('Sí, bloquear');
+    f.click('Bloquear');
     expect(f.root.querySelector('[role="alert"]')?.textContent).toContain('Revisá tu conexión');
     expect(f.done).not.toHaveBeenCalled();
     f.blocks.block.mockReturnValue(of(undefined));
-    f.click('Sí, bloquear');
+    f.click('Bloquear');
     expect(f.done).toHaveBeenCalledTimes(1);
   });
 
@@ -136,7 +136,7 @@ describe('Block user button', () => {
       ),
     );
     f.click('Bloquear usuario');
-    f.click('Sí, bloquear');
+    f.click('Bloquear');
     expect(f.root.querySelector<HTMLButtonElement>('[data-action="confirm-block"]')!.disabled).toBe(
       true,
     );
