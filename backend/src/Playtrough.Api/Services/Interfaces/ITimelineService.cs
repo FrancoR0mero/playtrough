@@ -1,0 +1,9 @@
+using Playtrough.Api.Dtos.Timeline;
+
+namespace Playtrough.Api.Services.Interfaces;
+
+public interface ITimelineService
+{
+    Task<TimelinePageDto> ListAsync(int viewerId, string? username, TimelineListRequest request, CancellationToken ct = default);
+    Task<TimelinePeriodsDto> PeriodsAsync(int viewerId, string? username, string? type, CancellationToken ct = default);
+}
