@@ -5,7 +5,7 @@
     tabindex="-1"
     class="page-heading w-fit max-w-full break-words text-white"
   >
-    {{ own() ? 'Mi perfil' : 'Perfil de jugador' }}
+    {{ own() ? 'Mi perfil' : 'Perfil de ' + (profile()?.username ?? 'jugador') }}
   </h1>
   <div role="status" aria-live="polite" class="mt-3 text-sm text-emerald-300">
     {{ loggingOut() ? 'Cerrando sesión…' : status() }}
@@ -44,10 +44,10 @@
       >
     </div>
   } @else if (profile(); as user) {
-    @if (own()) {
+    @if (!restricted()) {
       <div
         role="tablist"
-        aria-label="Secciones de mi perfil"
+        [attr.aria-label]="own() ? timelineText.ownSections : timelineText.otherSections"
         class="mt-6 flex border-b border-slate-700"
       >
         <button
@@ -88,10 +88,10 @@
     }
     <div
       class="mt-7 max-w-2xl"
-      [hidden]="own() && tab() !== 'profile'"
-      [attr.role]="own() ? 'tabpanel' : null"
-      [attr.id]="own() ? 'profile-panel-profile' : null"
-      [attr.aria-labelledby]="own() ? 'profile-tab-profile' : null"
+      [hidden]="!restricted() && tab() !== 'profile'"
+      [attr.role]="!restricted() ? 'tabpanel' : null"
+      [attr.id]="!restricted() ? 'profile-panel-profile' : null"
+      [attr.aria-labelledby]="!restricted() ? 'profile-tab-profile' : null"
     >
       <div class="flex flex-wrap items-center gap-5">
         <app-user-avatar
@@ -212,7 +212,7 @@
         </button>
       }
     </div>
-    @if (own()) {
+    @if (!restricted()) {
       <div
         id="profile-panel-timeline"
         role="tabpanel"
@@ -220,7 +220,13 @@
         [hidden]="tab() !== 'timeline'"
       >
         @if (timelineVisited()) {
-          <app-timeline source="me" [active]="tab() === 'timeline'" />
+          <app-timeline
+            [source]="own() ? 'me' : user.username"
+            [readonly]="!own()"
+            [relationship]="relationship()"
+            [active]="tab() === 'timeline'"
+            (accessChanged)="refreshSocial()"
+          />
         }
       </div>
     }
