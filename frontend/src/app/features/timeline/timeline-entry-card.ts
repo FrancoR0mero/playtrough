@@ -1,5 +1,16 @@
 import { Dialog, DialogRef } from '@angular/cdk/dialog';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  afterNextRender,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { StarRatingComponent } from '../../shared/components/star-rating/star-rating';
@@ -7,6 +18,10 @@ import { UserAvatarComponent } from '../../shared/components/user-avatar/user-av
 import { GameDetailComponent } from '../games/game-detail';
 import { GameImageComponent } from '../games/game-image';
 import { GameSummary } from '../games/models/game';
+import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
+import { profileError } from '../profile/profile-error';
+import { TimelineService } from './services/timeline';
+import { TimelineEntryMenuComponent } from './timeline-entry-menu';
 import { FeedEntryDto, TimelineEntryDto, TimelinePerspective } from './models/timeline';
 import {
   TIMELINE_IMAGE_ASPECT_RATIO,
@@ -17,7 +32,13 @@ import {
 
 @Component({
   selector: 'app-timeline-entry-card',
-  imports: [RouterLink, GameImageComponent, StarRatingComponent, UserAvatarComponent],
+  imports: [
+    RouterLink,
+    GameImageComponent,
+    StarRatingComponent,
+    UserAvatarComponent,
+    TimelineEntryMenuComponent,
+  ],
   templateUrl: './timeline-entry-card.html',
   host: { class: 'block min-w-0' },
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -27,6 +48,15 @@ export class TimelineEntryCardComponent {
   readonly perspective = input<TimelinePerspective>('self');
   readonly showAuthor = input(false);
   readonly showActions = input(false);
+  readonly updated = output<TimelineEntryDto>();
+  readonly missing = output<number>();
+  protected readonly busy = signal(false);
+  protected readonly visibilityError = signal(false);
+  protected readonly status = signal('');
+  protected readonly cooldown = createRateLimitCooldown();
+  private readonly timeline = inject(TimelineService);
+  private readonly injector = inject(Injector);
+  private readonly menu = viewChild(TimelineEntryMenuComponent);
   protected readonly text = TIMELINE_TEXT;
   protected readonly aspectRatio = TIMELINE_IMAGE_ASPECT_RATIO;
   protected readonly action = entryAction;
@@ -41,8 +71,41 @@ export class TimelineEntryCardComponent {
   protected author() {
     return (this.entry() as Partial<FeedEntryDto>).author;
   }
+  protected changeVisibility(hidden: boolean): void {
+    if (
+      !this.showActions() ||
+      this.perspective() !== 'self' ||
+      this.busy() ||
+      this.cooldown.remaining()
+    )
+      return;
+    this.busy.set(true);
+    this.visibilityError.set(false);
+    this.status.set('');
+    this.timeline
+      .setVisibility(this.entry().id, hidden)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (entry) => {
+          this.busy.set(false);
+          this.status.set(entry.isHidden ? this.text.hiddenDone : this.text.shownDone);
+          this.updated.emit(entry);
+          afterNextRender(() => this.menu()?.focusTrigger(), { injector: this.injector });
+        },
+        error: (error: unknown) => {
+          this.busy.set(false);
+          if (profileError(error).code === 'entry_not_found') {
+            this.missing.emit(this.entry().id);
+            return;
+          }
+          this.cooldown.handle(error);
+          this.visibilityError.set(true);
+          afterNextRender(() => this.menu()?.focusTrigger(), { injector: this.injector });
+        },
+      });
+  }
   protected openGame(origin: HTMLButtonElement): void {
-    if (this.preview) return;
+    if (this.preview || this.busy()) return;
     const game: GameSummary = { ...this.entry().game, platforms: [] };
     this.preview = this.dialogs.open<void, GameSummary, GameDetailComponent>(GameDetailComponent, {
       data: game,
