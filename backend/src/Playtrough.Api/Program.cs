@@ -56,6 +56,8 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     var defaultResponse = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (context.ActionDescriptor is ControllerActionDescriptor visibilityAction && visibilityAction.ControllerTypeInfo.AsType() == typeof(TimelineVisibilityController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Visibilidad de entrada inválida", Extensions = { ["code"] = "invalid_body" } });
         if (context.ActionDescriptor is ControllerActionDescriptor timelineAction && timelineAction.ControllerTypeInfo.AsType() == typeof(TimelineController))
             return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Consulta de línea de tiempo inválida", Extensions = { ["code"] = "invalid_filter" } });
         if (context.ActionDescriptor is ControllerActionDescriptor blocksAction && blocksAction.ControllerTypeInfo.AsType() == typeof(BlocksController))
@@ -368,6 +370,7 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<UsersExamplesFilter>();
     options.SchemaFilter<FriendsExamplesFilter>();
     options.OperationFilter<FriendsExamplesFilter>();
+    options.SchemaFilter<TimelineExamplesFilter>();
     options.OperationFilter<TimelineExamplesFilter>();
     options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();

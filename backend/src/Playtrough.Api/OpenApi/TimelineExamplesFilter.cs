@@ -3,15 +3,37 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using Playtrough.Api.Controllers;
+using Playtrough.Api.Dtos.Timeline;
 using Playtrough.Api.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Playtrough.Api.OpenApi;
 
-public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, TimeProvider time) : IOperationFilter
+public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, TimeProvider time) : IOperationFilter, ISchemaFilter
 {
+    public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
+    {
+        if (context.Type != typeof(UpdateTimelineVisibilityRequest) || schema is not OpenApiSchema body) return;
+        body.Type = JsonSchemaType.Object;
+        body.Required = new HashSet<string> { "hidden" };
+        body.Properties = new Dictionary<string, IOpenApiSchema>
+        {
+            ["hidden"] = new OpenApiSchema { Type = JsonSchemaType.Boolean, Description = "true oculta; false vuelve a mostrar." },
+        };
+        body.Example = JsonNode.Parse("""{"hidden":true}""");
+    }
+
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
+        if (context.MethodInfo.DeclaringType == typeof(TimelineVisibilityController))
+        {
+            if (operation.RequestBody is OpenApiRequestBody body) body.Required = true;
+            if (operation.Responses?.TryGetValue("400", out var badBody) == true && badBody is OpenApiResponse invalidBody)
+                invalidBody.Description = "invalid_body: cuerpo ausente, JSON inválido o hidden no booleano.";
+            if (operation.Responses?.TryGetValue("404", out var missingEntry) == true && missingEntry is OpenApiResponse notFoundEntry)
+                notFoundEntry.Description = "entry_not_found: entrada inexistente o ajena. No revela si otro usuario es su dueño.";
+            return;
+        }
         if (context.MethodInfo.DeclaringType != typeof(TimelineController)) return;
         if (operation.Parameters is { } parameters)
             foreach (var parameter in parameters.OfType<OpenApiParameter>())
