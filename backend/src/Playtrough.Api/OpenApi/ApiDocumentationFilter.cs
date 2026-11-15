@@ -17,6 +17,7 @@ public sealed class ApiDocumentationFilter : IOperationFilter, IDocumentFilter
             new OpenApiTag { Name = "Reviews", Description = "Reseñas y puntuación de juegos locales. Requiere autenticación; escrituras limitadas por usuario." },
             new OpenApiTag { Name = "Friends", Description = "Solicitudes y amistades mutuas. Requiere autenticación; política friends-write." },
             new OpenApiTag { Name = "Users", Description = "Perfiles sociales y edición del perfil propio. Requiere autenticación." },
+            new OpenApiTag { Name = "Timeline", Description = "Línea de tiempo y períodos por fecha efectiva; privacidad de cuenta y política timeline-read." },
         };
 
     public void Apply(OpenApiOperation operation, OperationFilterContext context)

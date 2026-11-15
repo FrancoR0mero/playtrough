@@ -17,6 +17,7 @@ public sealed class RateLimitSettingsValidator : IValidateOptions<RateLimitSetti
             (nameof(settings.FriendsWrite), settings.FriendsWrite),
             (nameof(settings.ProfileWrite), settings.ProfileWrite),
             (nameof(settings.ReviewsWrite), settings.ReviewsWrite),
+            (nameof(settings.TimelineRead), settings.TimelineRead),
         })
         {
             if (policy is null)
