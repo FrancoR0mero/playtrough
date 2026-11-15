@@ -10,6 +10,7 @@ import {
   output,
   signal,
   viewChild,
+  computed,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -22,6 +23,13 @@ import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { profileError } from '../profile/profile-error';
 import { TimelineService } from './services/timeline';
 import { TimelineEntryMenuComponent } from './timeline-entry-menu';
+import {
+  FEED_TEXT,
+  effectiveFeedDate,
+  feedTimestamp,
+  fullFeedDate,
+  relativeFeedTime,
+} from '../feed/feed-text';
 import { FeedEntryDto, TimelineEntryDto, TimelinePerspective } from './models/timeline';
 import {
   TIMELINE_IMAGE_ASPECT_RATIO,
@@ -48,6 +56,14 @@ export class TimelineEntryCardComponent {
   readonly perspective = input<TimelinePerspective>('self');
   readonly showAuthor = input(false);
   readonly showActions = input(false);
+  readonly referenceTime = input(Date.now());
+  protected readonly feedText = FEED_TEXT;
+  protected readonly publishedAt = computed(() => feedTimestamp(this.entry().recordedAt));
+  protected readonly relativeTime = computed(() =>
+    relativeFeedTime(this.entry().recordedAt, this.referenceTime()),
+  );
+  protected readonly fullDate = fullFeedDate;
+  protected readonly effectiveDate = effectiveFeedDate;
   readonly updated = output<TimelineEntryDto>();
   readonly missing = output<number>();
   protected readonly busy = signal(false);

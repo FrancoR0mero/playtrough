@@ -19,9 +19,28 @@
     </div>
     <div class="min-w-0 flex-1">
       <div class="flex items-start justify-between gap-3">
-        <time [attr.datetime]="entry().occurredOn" class="text-sm text-slate-400">{{
-          date(entry().occurredOn)
-        }}</time>
+        @if (showAuthor()) {
+          <div class="text-sm text-slate-400">
+            <time
+              [attr.datetime]="publishedAt()"
+              [title]="fullDate(entry().recordedAt)"
+              data-publication-date
+              >{{ relativeTime() }}</time
+            >
+            @if (entry().occurredOn !== publishedAt().slice(0, 10)) {
+              <span class="mt-1 block" data-effective-date
+                >{{ feedText.played }}
+                <time [attr.datetime]="entry().occurredOn">{{
+                  effectiveDate(entry().occurredOn)
+                }}</time></span
+              >
+            }
+          </div>
+        } @else {
+          <time [attr.datetime]="entry().occurredOn" class="text-sm text-slate-400">{{
+            date(entry().occurredOn)
+          }}</time>
+        }
         @if (showActions() && perspective() === 'self') {
           <app-timeline-entry-menu
             [hidden]="entry().isHidden"
