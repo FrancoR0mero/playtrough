@@ -17,11 +17,12 @@ import { ProfileRestriction } from './models/user';
         <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
       </svg>
       <span>{{
-        restriction() === 'private'
-          ? 'Este perfil es privado'
-          : restriction() === 'friends_only'
-            ? 'El contenido de este perfil es solo para amigos'
-            : 'Este perfil tiene acceso restringido'
+        message() ??
+          (restriction() === 'private'
+            ? 'Este perfil es privado'
+            : restriction() === 'friends_only'
+              ? 'El contenido de este perfil es solo para amigos'
+              : 'Este perfil tiene acceso restringido')
       }}</span>
     </p>
   `,
@@ -29,4 +30,5 @@ import { ProfileRestriction } from './models/user';
 })
 export class ProfileRestrictionComponent {
   readonly restriction = input<ProfileRestriction | null>(null);
+  readonly message = input<string | null>(null);
 }

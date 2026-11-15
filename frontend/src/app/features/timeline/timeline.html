@@ -43,7 +43,36 @@
       }
     </div>
   }
-  @if (error(); as message) {
+  @if (notFound()) {
+    <div class="py-8">
+      <p role="alert" class="text-lg text-slate-200">{{ text.notFound }}</p>
+      <a
+        routerLink="/games"
+        class="ui-button mt-5 inline-flex min-h-11 items-center border border-slate-600 px-5 py-3 text-white"
+        >{{ text.games }}</a
+      >
+    </div>
+  } @else if (restricted()) {
+    <app-profile-restriction
+      [restriction]="restriction()"
+      [message]="
+        restriction() === 'private'
+          ? text.privateHistory
+          : restriction() === 'friends_only'
+            ? text.friendsHistory
+            : text.restrictedHistory
+      "
+    />
+    @if (relationship(); as relation) {
+      <div class="mt-5">
+        <app-friendship-button
+          [username]="source()"
+          [relationship]="relation"
+          (relationshipChanged)="relationshipChanged()"
+        />
+      </div>
+    }
+  } @else if (error(); as message) {
     <div class="py-6">
       <p role="alert" class="text-red-300">{{ cooldown.message() || message }}</p>
       <button

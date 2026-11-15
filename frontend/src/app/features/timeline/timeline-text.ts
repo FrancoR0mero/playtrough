@@ -4,6 +4,12 @@ export const TIMELINE_IMAGE_ASPECT_RATIO = '16 / 9';
 export const TIMELINE_TEXT = {
   profile: 'Perfil',
   timeline: 'Línea de tiempo',
+  ownSections: 'Secciones de mi perfil',
+  otherSections: 'Secciones del perfil',
+  privateHistory: 'El historial de este jugador es privado',
+  friendsHistory: 'El historial es solo para amigos',
+  restrictedHistory: 'El historial de este jugador tiene acceso restringido',
+  notFound: 'No encontramos a este jugador',
   list: 'Actividad de juegos',
   empty: 'Tu línea de tiempo está vacía',
   emptyOther: 'Todavía no hay actividad para mostrar',
