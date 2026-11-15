@@ -45,7 +45,7 @@ dotnet build backend/Playtrough.sln --no-restore --disable-build-servers -m:1
 dotnet test backend/Playtrough.sln --no-restore --disable-build-servers -m:1
 ```
 
-Usar tres cuentas de prueba confirmadas: A (Admin, para ejecutar el backfill), B y C. Obtener sus JWT por login y completar las variables de [Timeline-three-users.http](../Timeline-three-users.http). A y B serán amigos; C será desconocido. Elegir dos juegos locales que esas cuentas todavía no tengan en su biblioteca, o usar el cambio de estado para juegos ya agregados.
+Usar tres cuentas de prueba confirmadas: A (Admin, para ejecutar el backfill), B y C. Obtener sus JWT por login y ejecutar los pasos siguientes desde Swagger, autorizando cada petición con el token correspondiente. A y B serán amigos; C será desconocido. Elegir dos juegos locales que esas cuentas todavía no tengan en su biblioteca, o usar el cambio de estado para juegos ya agregados.
 
 1. Con A, ejecutar el backfill y repetirlo: la segunda ejecución devuelve cero creaciones si no hubo nuevas fuentes faltantes. No aplica migraciones.
 2. A envía una solicitud a B; B la acepta usando el requestId de la respuesta.

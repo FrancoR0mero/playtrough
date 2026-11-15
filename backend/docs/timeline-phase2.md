@@ -44,4 +44,4 @@ dotnet build backend/Playtrough.sln --no-restore --disable-build-servers -m:1
 dotnet test backend/Playtrough.sln --no-restore --disable-build-servers -m:1
 ```
 
-Los ejemplos de lectura están en [Timeline.http](../Timeline.http). La fase 3 agregará la escritura de visibilidad; por ahora las pruebas de ocultas preparan ese estado directamente en sus bases aisladas.
+Las lecturas se pueden probar desde Swagger con los endpoints documentados arriba. La fase 3 agregará la escritura de visibilidad; por ahora las pruebas de ocultas preparan ese estado directamente en sus bases aisladas.

@@ -35,7 +35,7 @@ Los límites admiten 1–50 y DefaultLimit no puede superar MaxLimit. ExcerptLen
 
 Busca solo eventos Added/StatusChanged y reseñas sin entrada, ordenados por ID, en lotes de hasta 500. Cada lote se guarda en una transacción; si se interrumpe, los lotes confirmados permanecen y se puede repetir. Los índices únicos protegen también frente a dos cargas simultáneas; una colisión comprobada vuelve a seleccionar las fuentes faltantes. Las entradas existentes, sus IDs y su visibilidad no cambian. El log del servicio registra únicamente los conteos de creación.
 
-Con la migración aprobada y aplicada, [Timeline.http](../Timeline.http) permite ejecutar y repetir la carga con un token Admin. Los listados todavía no están implementados.
+Con la migración aprobada y aplicada, ejecutar y repetir `POST /api/admin/timeline/backfill` con un token Admin. Los listados todavía no están implementados en esta fase.
 
 ## Verificación
 

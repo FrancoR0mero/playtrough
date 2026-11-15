@@ -35,4 +35,4 @@ dotnet build backend/Playtrough.sln --no-restore --disable-build-servers -m:1
 dotnet test backend/Playtrough.sln --no-restore --disable-build-servers -m:1
 ```
 
-Los ejemplos de ocultar y mostrar están en [Timeline.http](../Timeline.http).
+Para ocultar o mostrar desde Swagger, usar `PUT /api/timeline/entries/{id}/visibility` con `{ "hidden": true }` o `{ "hidden": false }` y el token del dueño.
