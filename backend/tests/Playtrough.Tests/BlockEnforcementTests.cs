@@ -24,8 +24,8 @@ public class BlockEnforcementTests
         using var a = await c.AuthenticatedClientAsync();
         using var b = await c.AuthenticatedClientAsync();
         using var stranger = await c.AuthenticatedClientAsync();
-        await PrivacyEndpointsTests.Set(a, "public", "public");
-        await PrivacyEndpointsTests.Set(b, "public", "public");
+        await PrivacyEndpointsTests.Set(a, "public");
+        await PrivacyEndpointsTests.Set(b, "public");
         await BlockEndpointsTests.Block(reverse ? b : a, reverse ? "games_user_1" : "games_user_2");
         foreach (var (client, target) in new[] { (a, "games_user_2"), (b, "games_user_1") })
         {
@@ -96,7 +96,7 @@ public class BlockEnforcementTests
     }
 
     [Fact]
-    public async Task PublishedReviewsRemainVisible()
+    public async Task BlockedAccountsReviewsAreHidden()
     {
         using var c = new GamesApiTestContext();
         using var a = await c.AuthenticatedClientAsync();
@@ -106,7 +106,7 @@ public class BlockEnforcementTests
         await BlockEndpointsTests.Block(b, "games_user_1");
         using var response = await b.GetAsync($"/api/games/{game.Id}/reviews");
         response.EnsureSuccessStatusCode();
-        Assert.Contains("public review", await response.Content.ReadAsStringAsync());
+        Assert.DoesNotContain("public review", await response.Content.ReadAsStringAsync());
     }
 
     [Theory]

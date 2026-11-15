@@ -1,10 +1,9 @@
 import { RelationshipDto } from '../../friends/models/friend';
 
-export type Visibility = 'public' | 'friends' | 'private';
+export type Visibility = 'public' | 'private';
 export type ProfileRestriction = 'private' | 'friends_only';
 export interface PrivacyDto {
-  profileVisibility: Visibility;
-  historyVisibility: Visibility;
+  visibility: Visibility;
 }
 
 export interface UserSummaryDto {

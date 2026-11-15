@@ -18,17 +18,16 @@ namespace Playtrough.Tests;
 public class PrivacyConfigurationTests
 {
     [Theory]
-    [InlineData(Visibility.Public, Visibility.Friends)]
-    [InlineData(Visibility.Private, Visibility.Public)]
-    public async Task RegistrationAndAdminSeeding_UseConfiguredDefaults(Visibility profile, Visibility history)
+    [InlineData(Visibility.Public)]
+    [InlineData(Visibility.Private)]
+    public async Task RegistrationAndAdminSeeding_UseConfiguredDefaults(Visibility visibility)
     {
         using var c = new GamesApiTestContext();
         using var factory = c.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.PostConfigure<ProfileSettings>(settings =>
             {
-                settings.DefaultProfileVisibility = profile;
-                settings.DefaultHistoryVisibility = history;
+                settings.DefaultVisibility = visibility;
             });
             services.PostConfigure<AdminSeedSettings>(settings =>
             {
@@ -48,8 +47,8 @@ public class PrivacyConfigurationTests
         Assert.Equal(2, rows.Count);
         Assert.All(rows, u =>
         {
-            Assert.Equal(profile, u.ProfileVisibility);
-            Assert.Equal(history, u.HistoryVisibility);
+            Assert.Equal(visibility, u.ProfileVisibility);
+            Assert.Equal(visibility, u.HistoryVisibility);
         });
     }
 
@@ -93,12 +92,12 @@ public class PrivacyConfigurationTests
         using var scope = c.Factory.Services.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var stale = (await users.FindByNameAsync("games_user_1"))!;
-        await PrivacyEndpointsTests.Set(client, "private", "public");
+        await PrivacyEndpointsTests.Set(client, "private");
         stale.Bio = "stale update";
         var update = await users.UpdateAsync(stale);
         Assert.False(update.Succeeded);
         Assert.Contains(update.Errors, error => error.Code == "ConcurrencyFailure");
-        Assert.Equal(new PrivacyDto("private", "public"), await client.GetFromJsonAsync<PrivacyDto>("/api/users/me/privacy"));
+        Assert.Equal(new PrivacyDto("private"), await client.GetFromJsonAsync<PrivacyDto>("/api/users/me/privacy"));
     }
 
     [Fact]
@@ -116,9 +115,9 @@ public class PrivacyConfigurationTests
             .GetProperty("responses").GetProperty("403").GetProperty("description").GetString());
         var schemas = root.GetProperty("components").GetProperty("schemas");
         var request = schemas.GetProperty("UpdatePrivacyRequest");
-        Assert.Equal(2, request.GetProperty("required").GetArrayLength());
+        Assert.Equal(1, request.GetProperty("required").GetArrayLength());
         foreach (var property in request.GetProperty("properties").EnumerateObject())
-            Assert.Equal(new[] { "public", "friends", "private" }, property.Value.GetProperty("enum").EnumerateArray().Select(v => v.GetString()));
+            Assert.Equal(new[] { "public", "private" }, property.Value.GetProperty("enum").EnumerateArray().Select(v => v.GetString()));
         Assert.Equal(new[] { "avatarUrl", "isRestricted", "relationship", "restriction", "username" },
             schemas.GetProperty("RestrictedProfileDto").GetProperty("properties").EnumerateObject().Select(p => p.Name).Order());
         Assert.Contains("bio", schemas.GetProperty("ProfileDto").GetProperty("required").EnumerateArray().Select(p => p.GetString()));

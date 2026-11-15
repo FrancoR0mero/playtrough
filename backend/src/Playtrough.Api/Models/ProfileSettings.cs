@@ -5,8 +5,7 @@ namespace Playtrough.Api.Models;
 public sealed class ProfileSettings
 {
     public const string SectionName = "Profile";
-    public Visibility DefaultProfileVisibility { get; set; } = Visibility.Public;
-    public Visibility DefaultHistoryVisibility { get; set; } = Visibility.Friends;
+    public Visibility DefaultVisibility { get; set; } = Visibility.Public;
     [Range(1, 36500)]
     public int UsernameChangeCooldownDays { get; set; } = 30;
     [Required]

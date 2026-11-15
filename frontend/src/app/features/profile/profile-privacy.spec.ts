@@ -38,38 +38,39 @@ describe('Privacy preferences', () => {
   it('loads current preferences, shows a skeleton and disables unchanged values', () => {
     const f = setup(true);
     expect(f.root.querySelector('[aria-label="Cargando privacidad"]')).not.toBeNull();
-    f.pending.next({ profileVisibility: 'friends', historyVisibility: 'private' });
+    f.pending.next({ visibility: 'private' });
     f.pending.complete();
     f.fixture.detectChanges();
     expect(
-      f.root.querySelector<HTMLInputElement>('input[name="profileVisibility"][value="friends"]')!
-        .checked,
+      f.root.querySelector<HTMLInputElement>('input[name="visibility"][value="private"]')!.checked,
     ).toBe(true);
     expect(
-      f.root.querySelector<HTMLInputElement>('input[name="historyVisibility"][value="private"]')!
-        .checked,
+      f.root.querySelector<HTMLInputElement>('input[name="visibility"][value="private"]')!.checked,
     ).toBe(true);
+    expect(f.root.querySelectorAll('[role="radiogroup"]')).toHaveLength(1);
+    expect(f.root.querySelectorAll('input[type="radio"]')).toHaveLength(2);
+    expect(f.root.textContent).toContain('Solo vos y tus amigos.');
     expect(f.submit().disabled).toBe(true);
     f.save();
     expect(f.users.updatePrivacy).not.toHaveBeenCalled();
-    expect(f.root.textContent).toContain('Esta preferencia controla el acceso a tu biblioteca.');
+    expect(f.root.textContent).toContain(
+      'Esta opción se aplica a tu perfil, amigos, biblioteca, historial y reseñas.',
+    );
   });
-  it('sends both changed preferences and announces success', () => {
+  it('sends the single account preference and announces success', () => {
     const f = setup();
-    f.select('profileVisibility', 'friends');
-    f.select('historyVisibility', 'private');
+    f.select('visibility', 'private');
     expect(f.submit().disabled).toBe(false);
     f.save();
     expect(f.users.updatePrivacy).toHaveBeenCalledWith({
-      profileVisibility: 'friends',
-      historyVisibility: 'private',
+      visibility: 'private',
     });
     expect(f.root.querySelector('[role="status"]')!.textContent).toContain(
       'Privacidad actualizada',
     );
     expect(f.submit().disabled).toBe(true);
-    f.select('profileVisibility', 'public');
-    f.select('profileVisibility', 'friends');
+    f.select('visibility', 'public');
+    f.select('visibility', 'private');
     expect(f.submit().disabled).toBe(true);
   });
   it('supports arrows, wrapping, Home and End within each labeled radio group', () => {
@@ -81,11 +82,11 @@ describe('Privacy preferences', () => {
       radios[0].focus();
       for (const [key, index] of [
         ['ArrowRight', 1],
-        ['ArrowDown', 2],
-        ['ArrowRight', 0],
-        ['ArrowLeft', 2],
+        ['ArrowDown', 0],
+        ['ArrowRight', 1],
+        ['ArrowLeft', 0],
         ['Home', 0],
-        ['End', 2],
+        ['End', 1],
       ] as const) {
         group.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
         f.fixture.detectChanges();
@@ -107,10 +108,10 @@ describe('Privacy preferences', () => {
             }),
         ),
       );
-      f.select('profileVisibility', 'private');
+      f.select('visibility', 'private');
       f.save();
       expect(f.root.querySelector('[role="alert"]')!.textContent).toContain(
-        code === 'network' ? 'Revisá tu conexión' : 'Elegí una opción válida',
+        code === 'network' ? 'Revisá tu conexión' : 'Elegí Público o Privado',
       );
       expect(f.root.querySelector<HTMLInputElement>('input[value="private"]')!.checked).toBe(true);
       expect(f.submit().disabled).toBe(false);
@@ -121,7 +122,7 @@ describe('Privacy preferences', () => {
     const f = setup();
     const pending = new Subject<PrivacyDto>();
     f.users.updatePrivacy.mockReturnValue(pending);
-    f.select('profileVisibility', 'private');
+    f.select('visibility', 'private');
     f.save();
     f.save();
     expect(f.users.updatePrivacy).toHaveBeenCalledOnce();
@@ -142,7 +143,7 @@ describe('Privacy preferences', () => {
           ),
       ),
     );
-    f.select('historyVisibility', 'friends');
+    f.select('visibility', 'private');
     f.save();
     expect(f.submit().disabled).toBe(true);
     vi.advanceTimersByTime(2000);

@@ -22,13 +22,13 @@ public sealed class UsersExamplesFilter : ISchemaFilter, IOperationFilter
         if ((context.Type == typeof(UpdatePrivacyRequest) || context.Type == typeof(PrivacyDto)) && schema is OpenApiSchema privacy)
         {
             privacy.Type = JsonSchemaType.Object;
-            privacy.Required = new HashSet<string> { "profileVisibility", "historyVisibility" };
+            privacy.Required = new HashSet<string> { "visibility" };
             privacy.Properties = new Dictionary<string, IOpenApiSchema>();
             foreach (var name in privacy.Required)
                 privacy.Properties[name] = new OpenApiSchema
                 {
                     Type = JsonSchemaType.String,
-                    Enum = [JsonValue.Create("public")!, JsonValue.Create("friends")!, JsonValue.Create("private")!],
+                    Enum = [JsonValue.Create("public")!, JsonValue.Create("private")!],
                 };
             return;
         }
@@ -82,7 +82,7 @@ public sealed class UsersExamplesFilter : ISchemaFilter, IOperationFilter
         if (operation.RequestBody?.Content is { } content)
             foreach (var media in content.Values)
                 media.Example = JsonNode.Parse(context.MethodInfo.Name == nameof(UsersController.UpdatePrivacy)
-                    ? """{"profileVisibility":"public","historyVisibility":"friends"}"""
+                    ? """{"visibility":"private"}"""
                     : """{"username":"gamer_nuevo","bio":"Me gustan los RPG 🎮"}""");
         if (responses.TryGetValue("429", out var response) && response is OpenApiResponse limited)
         {

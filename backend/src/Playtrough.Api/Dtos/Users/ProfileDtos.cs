@@ -13,11 +13,10 @@ public sealed record ProfileDto(string Username, string? AvatarUrl, string? Bio,
 public sealed record RestrictedProfileDto(string Username, string? AvatarUrl, bool IsRestricted,
     string Restriction, RelationshipDto Relationship);
 
-public sealed record PrivacyDto(string ProfileVisibility, string HistoryVisibility);
+public sealed record PrivacyDto(string Visibility);
 public sealed class UpdatePrivacyRequest
 {
-    public JsonElement ProfileVisibility { get; init; }
-    public JsonElement HistoryVisibility { get; init; }
+    public JsonElement Visibility { get; init; }
 }
 
 // Undefined distinguishes omitted properties from explicit null in a partial update.

@@ -24,15 +24,11 @@ export class ProfilePrivacyComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly saved = signal<PrivacyDto | null>(null);
   protected readonly form = new FormGroup({
-    profileVisibility: new FormControl<Visibility>('public', { nonNullable: true }),
-    historyVisibility: new FormControl<Visibility>('public', { nonNullable: true }),
+    visibility: new FormControl<Visibility>('public', { nonNullable: true }),
   });
   private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.value });
   protected readonly changed = computed(
-    () =>
-      !!this.saved() &&
-      (this.saved()!.profileVisibility !== this.value().profileVisibility ||
-        this.saved()!.historyVisibility !== this.value().historyVisibility),
+    () => !!this.saved() && this.saved()!.visibility !== this.value().visibility,
   );
   protected readonly loaded = signal(false);
   protected readonly loading = signal(false);
@@ -40,20 +36,6 @@ export class ProfilePrivacyComponent {
   protected readonly error = signal<string | null>(null);
   protected readonly status = signal<string | null>(null);
   protected readonly cooldown = createRateLimitCooldown();
-  protected readonly groups = [
-    {
-      key: 'profileVisibility' as const,
-      label: 'Perfil',
-      description:
-        'Elegí quién puede ver tu biografía, fecha de alta y amigos. Tu nombre y avatar seguirán visibles.',
-    },
-    {
-      key: 'historyVisibility' as const,
-      label: 'Biblioteca e historial',
-      description:
-        'Elegí quién puede ver tu biblioteca y el estado de tus juegos. Esta opción es independiente de la privacidad del perfil.',
-    },
-  ];
   protected readonly options = [
     {
       value: 'public' as const,
@@ -61,11 +43,10 @@ export class ProfilePrivacyComponent {
       description: 'Cualquier jugador con sesión iniciada.',
     },
     {
-      value: 'friends' as const,
-      label: 'Solo amigos',
-      description: 'Vos y las personas que sean tus amigas.',
+      value: 'private' as const,
+      label: 'Privado',
+      description: 'Solo vos y tus amigos.',
     },
-    { value: 'private' as const, label: 'Privado', description: 'Solo vos.' },
   ];
 
   constructor() {
@@ -115,22 +96,26 @@ export class ProfilePrivacyComponent {
       });
   }
 
-  protected keyboard(event: KeyboardEvent, key: keyof PrivacyDto): void {
+  protected keyboard(event: KeyboardEvent): void {
     if (this.saving()) return;
     const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
     if (!keys.includes(event.key)) return;
     event.preventDefault();
     const index = this.options.findIndex(
-      (option) => option.value === this.form.controls[key].value,
+      (option) => option.value === this.form.controls.visibility.value,
     );
     const next =
       event.key === 'Home'
         ? 0
         : event.key === 'End'
-          ? 2
-          : (index + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : 2)) % 3;
-    this.form.controls[key].setValue(this.options[next].value);
-    this.form.controls[key].markAsDirty();
+          ? this.options.length - 1
+          : (index +
+              (event.key === 'ArrowRight' || event.key === 'ArrowDown'
+                ? 1
+                : this.options.length - 1)) %
+            this.options.length;
+    this.form.controls.visibility.setValue(this.options[next].value);
+    this.form.controls.visibility.markAsDirty();
     (event.currentTarget as HTMLElement).querySelectorAll<HTMLInputElement>('input')[next]?.focus();
     this.status.set(null);
   }
@@ -142,7 +127,7 @@ export class ProfilePrivacyComponent {
     }
     this.error.set(
       profileError(error).code === 'invalid_visibility'
-        ? 'Elegí una opción válida para el perfil y el historial.'
+        ? 'Elegí Público o Privado para tu cuenta.'
         : saving
           ? 'No pudimos guardar la privacidad. Revisá tu conexión e intentá de nuevo.'
           : 'No pudimos cargar la privacidad. Revisá tu conexión y reintentá.',

@@ -25,9 +25,9 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
     {
         var user = await FindVisibleAccountAsync(viewerId, username, ct);
         var relationship = await friends.RelationshipAsync(viewerId, user.Id, ct);
-        if (!privacy.CanView(viewerId, user.Id, user.ProfileVisibility, relationship.Status == "friends"))
+        if (!await privacy.CanViewAsync(viewerId, user.Id, PrivacyScope.Profile, ct))
             return new(user.UserName!, AvatarUrls.FromFile(user.AvatarFileName), null, null, null, relationship, true,
-                user.ProfileVisibility == Visibility.Friends ? "friends_only" : "private");
+                "private");
         var summary = await friends.SummaryAsync(user.Id, ct);
         return new(user.UserName!, AvatarUrls.FromFile(user.AvatarFileName), user.Bio, user.CreatedAt, summary.FriendsCount, relationship, false, null);
     }

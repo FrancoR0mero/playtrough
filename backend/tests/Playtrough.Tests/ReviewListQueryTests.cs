@@ -22,7 +22,7 @@ public class ReviewListQueryTests
         Assert.Equal(2, result.RatingSummary.Count);
         Assert.True(result.HasMore);
         Assert.Empty(db.ChangeTracker.Entries());
-        var sql = Assert.Single(context.Observer.Commands, command => command.Contains("JOIN \"Users\""));
+        var sql = Assert.Single(context.Observer.Commands, command => command.Contains("FROM \"Reviews\""));
         Assert.Contains("\"UserName\"", sql);
         Assert.Contains("LIMIT", sql);
         foreach (var field in new[] { "Email", "NormalizedEmail", "NormalizedUserName", "PasswordHash", "PhoneNumber", "SecurityStamp", "ConcurrencyToken" })

@@ -327,8 +327,8 @@ builder.Services.AddOptions<FriendsSettings>().BindConfiguration(FriendsSettings
     .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddOptions<ProfileSettings>()
     .BindConfiguration(ProfileSettings.SectionName).ValidateDataAnnotations()
-    .Validate(settings => Enum.IsDefined(settings.DefaultProfileVisibility) && Enum.IsDefined(settings.DefaultHistoryVisibility),
-        "Profile visibility defaults must be Public, Friends or Private.")
+    .Validate(settings => settings.DefaultVisibility is Visibility.Public or Visibility.Private,
+        "Profile default visibility must be Public or Private.")
     .Validate(settings => settings.ReservedUsernames is not null &&
         settings.ReservedUsernames.All(name => !string.IsNullOrWhiteSpace(name)), "Reserved usernames cannot be blank.")
     .ValidateOnStart();

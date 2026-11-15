@@ -109,7 +109,7 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time, TimelineWr
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var summary = await GetSummaryAsync(gameId, ct);
             var query = from review in db.Reviews.AsNoTracking()
-                        join author in db.Users.AsNoTracking() on review.UserId equals author.Id
+                        join author in PrivacyService.VisibleUsers(db, userId) on review.UserId equals author.Id
                         where review.GameId == gameId
                         select new
                         {

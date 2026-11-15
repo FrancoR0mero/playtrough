@@ -17,13 +17,10 @@ public class UserLibraryPrivacyTests
     [InlineData("public", 0, true)]
     [InlineData("public", 1, true)]
     [InlineData("public", 2, true)]
-    [InlineData("friends", 0, true)]
-    [InlineData("friends", 1, true)]
-    [InlineData("friends", 2, false)]
     [InlineData("private", 0, true)]
-    [InlineData("private", 1, false)]
+    [InlineData("private", 1, true)]
     [InlineData("private", 2, false)]
-    public async Task HistoryMatrix_IsIndependentOfProfile_AndDoesNotLeakCounts(string visibility, int viewer, bool allowed)
+    public async Task AccountPrivacyMatrix_ProtectsLibraryAndCounts(string visibility, int viewer, bool allowed)
     {
         using var c = new GamesApiTestContext();
         using var owner = await c.AuthenticatedClientAsync();
@@ -34,7 +31,7 @@ public class UserLibraryPrivacyTests
         (await friend.PostAsync($"/api/friends/requests/{request.Id}/accept", null)).EnsureSuccessStatusCode();
         var game = await ReviewEndpointsTests.OpenGameAsync(owner);
         (await owner.PostAsJsonAsync("/api/library", new { gameId = game.Id, status = "playing" })).EnsureSuccessStatusCode();
-        await PrivacyEndpointsTests.Set(owner, "private", visibility);
+        await PrivacyEndpointsTests.Set(owner, visibility);
         var client = new[] { owner, friend, stranger }[viewer];
         using var response = await client.GetAsync(Path);
         if (allowed)
@@ -62,7 +59,7 @@ public class UserLibraryPrivacyTests
         using var c = new GamesApiTestContext();
         using var owner = await c.AuthenticatedClientAsync();
         using var viewer = await c.AuthenticatedClientAsync();
-        await PrivacyEndpointsTests.Set(owner, "public", "friends");
+        await PrivacyEndpointsTests.Set(owner, "private");
         await ProfileEndpointsTests.Error(await viewer.GetAsync(Path), 403, "history_restricted");
         using var sent = await viewer.PostAsJsonAsync("/api/friends/requests", new { username = "games_user_1" });
         var request = (await sent.Content.ReadFromJsonAsync<SentFriendRequestDto>())!;
@@ -70,9 +67,9 @@ public class UserLibraryPrivacyTests
         Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync(Path)).StatusCode);
         (await viewer.DeleteAsync("/api/friends/games_user_1")).EnsureSuccessStatusCode();
         await ProfileEndpointsTests.Error(await viewer.GetAsync(Path), 403, "history_restricted");
-        await PrivacyEndpointsTests.Set(owner, "private", "public");
+        await PrivacyEndpointsTests.Set(owner, "public");
         Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync(Path)).StatusCode);
-        await PrivacyEndpointsTests.Set(owner, "public", "private");
+        await PrivacyEndpointsTests.Set(owner, "private");
         await ProfileEndpointsTests.Error(await viewer.GetAsync(Path), 403, "history_restricted");
         Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync("/api/library")).StatusCode);
     }
@@ -86,7 +83,7 @@ public class UserLibraryPrivacyTests
         var game = await ReviewEndpointsTests.OpenGameAsync(owner);
         (await owner.PostAsJsonAsync("/api/library", new { gameId = game.Id, status = "completed" })).EnsureSuccessStatusCode();
         (await viewer.PostAsJsonAsync("/api/library", new { gameId = game.Id, status = "backlog" })).EnsureSuccessStatusCode();
-        await PrivacyEndpointsTests.Set(owner, "public", "public");
+        await PrivacyEndpointsTests.Set(owner, "public");
         var page = (await viewer.GetFromJsonAsync<LibraryListResponseDto>(Path + "?status=completed&pageSize=1&sort=name"))!;
         Assert.Equal("completed", Assert.Single(page.Items).Status);
         Assert.Equal(1, page.PageSize);

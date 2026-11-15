@@ -53,7 +53,7 @@ public class AvatarTests
         }
         Assert.Single(Directory.GetFiles(f.Root));
         Assert.Equal(first.AvatarUrl, (await owner.GetFromJsonAsync<MyProfileDto>("/api/users/me"))!.AvatarUrl);
-        await PrivacyEndpointsTests.Set(owner, "private", "private");
+        await PrivacyEndpointsTests.Set(owner, "private");
         Assert.Equal(first.AvatarUrl, (await viewer.GetFromJsonAsync<ProfileDto>("/api/users/games_user_1"))!.AvatarUrl);
         Assert.Equal(first.AvatarUrl, Assert.Single((await viewer.GetFromJsonAsync<UserSearchResponse>("/api/users/search?q=games_user_1"))!.Items).AvatarUrl);
         using var sent = await owner.PostAsJsonAsync("/api/friends/requests", new { username = "games_user_2" });

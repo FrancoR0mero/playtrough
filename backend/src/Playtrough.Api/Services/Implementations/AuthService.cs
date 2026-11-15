@@ -308,7 +308,7 @@ public class AuthService(
             var user = new ApplicationUser
             {
                 UserName = username, Email = email, CreatedAt = (time ?? TimeProvider.System).GetUtcNow().UtcDateTime,
-                ProfileVisibility = defaults.DefaultProfileVisibility, HistoryVisibility = defaults.DefaultHistoryVisibility,
+                ProfileVisibility = defaults.DefaultVisibility, HistoryVisibility = defaults.DefaultVisibility,
             };
             var createResult = await userRepository.CreateAsync(user, dto.Password, ct);
             if (!createResult.Succeeded)

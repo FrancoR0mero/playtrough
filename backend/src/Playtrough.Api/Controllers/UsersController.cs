@@ -39,7 +39,7 @@ public sealed class UsersController(IProfileService profiles, IUserSearchService
 
     /// <summary>Consultar un perfil por username sin distinguir mayúsculas. Nunca expone email.</summary>
     /// <remarks>Si está restringido devuelve 200 con username, avatarUrl, relationship, isRestricted=true
-    /// y restriction=private o friends_only. Omite bio, createdAt y friendsCount. El dueño siempre puede verlo.</remarks>
+    /// y restriction=private. Omite bio, createdAt y friendsCount. El dueño siempre puede verlo.</remarks>
     /// <response code="404">user_not_found: no existe o no confirmó su email (salvo el dueño).</response>
     [HttpGet("{username:regex(^(?!(?i:me|search)$).+$)}")]
     [ProducesResponseType(typeof(ProfileDto), 200)]
@@ -53,16 +53,17 @@ public sealed class UsersController(IProfileService profiles, IUserSearchService
             : Ok(profile);
     }
 
-    /// <summary>Consultar la configuración propia de privacidad de perfil e historial.</summary>
-    /// <remarks>Valores: public, friends, private. Historial controla la biblioteca; las reseñas de juegos siguen públicas.</remarks>
+    /// <summary>Consultar la privacidad de toda la cuenta.</summary>
+    /// <remarks>visibility: public o private. Privado permite acceso al dueño y sus amigos.
+    /// Se aplica a perfil, amigos, biblioteca, historial y reseñas.</remarks>
     [HttpGet("me/privacy")]
     [ProducesResponseType(typeof(PrivacyDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 404)]
     public async Task<IActionResult> GetPrivacy(CancellationToken ct)
         => UserId() is { } id ? Ok(await privacy.GetAsync(id, ct)) : Challenge();
 
-    /// <summary>Actualizar la privacidad propia de perfil e historial.</summary>
-    /// <remarks>Ambos campos son obligatorios y aceptan public, friends o private. Efecto inmediato.
+    /// <summary>Actualizar la privacidad de toda la cuenta.</summary>
+    /// <remarks>visibility es obligatorio: public o private (dueño y amigos). Efecto inmediato.
     /// Comparte el límite profile-write con la edición del perfil (10 por minuto por usuario).</remarks>
     /// <response code="400">invalid_visibility: valor inválido, campo ausente o cuerpo inválido.</response>
     [HttpPut("me/privacy"), EnableRateLimiting(RateLimitPolicies.ProfileWrite)]
@@ -85,8 +86,8 @@ public sealed class UsersController(IProfileService profiles, IUserSearchService
     public async Task<IActionResult> Friends(string username, [FromQuery] FriendsPageRequest request, CancellationToken ct)
         => UserId() is { } id ? Ok(await profiles.FriendsAsync(id, username, request, ct)) : Challenge();
 
-    /// <summary>Consultar la biblioteca y estados de juegos según la privacidad del historial.</summary>
-    /// <remarks>Solo lectura. La visibilidad del historial es independiente de la del perfil.
+    /// <summary>Consultar la biblioteca y estados de juegos según la privacidad de la cuenta.</summary>
+    /// <remarks>Solo lectura. La misma privacidad se aplica al perfil, amigos, biblioteca, historial y reseñas.
     /// El dueño siempre puede acceder. Admite los filtros y paginación de la biblioteca propia.</remarks>
     [HttpGet("{username:regex(^(?!(?i:me|search)$).+$)}/library")]
     [ProducesResponseType(typeof(LibraryListResponseDto), 200)]

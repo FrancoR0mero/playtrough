@@ -23,7 +23,7 @@ describe('UsersService', () => {
     remove.flush(null, { status: 204, statusText: 'No Content' });
   });
 
-  it('loads and updates both privacy preferences', () => {
+  it('loads and updates account privacy', () => {
     TestBed.inject(UsersService)
       .getPrivacy()
       .subscribe((value) => expect(value).toEqual(DEFAULT_PRIVACY));
@@ -33,8 +33,7 @@ describe('UsersService', () => {
     expect(read.request.method).toBe('GET');
     read.flush(DEFAULT_PRIVACY);
     const privacy = {
-      profileVisibility: 'friends' as const,
-      historyVisibility: 'private' as const,
+      visibility: 'private' as const,
     };
     TestBed.inject(UsersService)
       .updatePrivacy(privacy)
