@@ -20,7 +20,13 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/auth/forgot-password').then((m) => m.ForgotPasswordComponent),
   },
+  // /feed could become the authenticated home; keep the existing default for now.
   { path: '', pathMatch: 'full', redirectTo: 'library' },
+  {
+    path: 'feed',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/feed/feed').then((m) => m.FeedComponent),
+  },
   {
     path: 'auth/login',
     canActivate: [guestGuard],

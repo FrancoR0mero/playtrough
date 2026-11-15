@@ -1,0 +1,138 @@
+<section class="page-container" aria-labelledby="feed-title">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <h1 #title id="feed-title" tabindex="-1" class="page-heading text-white">{{ text.title }}</h1>
+    <div class="text-right">
+      <button
+        type="button"
+        (click)="check(true)"
+        [disabled]="loading() || checking() || !loaded() || refreshWait() > 0"
+        class="ui-button min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-50"
+        data-feed-refresh
+      >
+        {{ text.refresh }}
+      </button>
+      @if (refreshWait() > 0 && loaded()) {
+        <p class="mt-2 text-xs text-slate-400">{{ text.refreshWait(refreshWait()) }}</p>
+      }
+    </div>
+  </div>
+  <p class="sr-only" aria-live="polite" aria-atomic="true">{{ announcement() }}</p>
+  <div class="mt-6 max-w-3xl" [attr.aria-busy]="loading()">
+    @if (pending()) {
+      <div
+        class="mb-5 flex flex-wrap items-center justify-between gap-3 border-y border-slate-700 py-3"
+      >
+        <p role="status" class="text-sm text-slate-200">{{ text.news }}</p>
+        <button
+          type="button"
+          (click)="seeNews()"
+          class="ui-button min-h-11 border border-violet-300 px-5 py-2 text-white"
+          data-feed-see
+        >
+          {{ text.see }}
+        </button>
+      </div>
+    }
+    @if (items().length) {
+      <ol [attr.aria-label]="text.list" class="divide-y divide-slate-700/60">
+        @for (entry of items(); track entry.id) {
+          <li>
+            <app-timeline-entry-card
+              [entry]="entry"
+              perspective="other"
+              [showAuthor]="true"
+              [referenceTime]="displayTime()"
+            />
+          </li>
+        }
+      </ol>
+    }
+    @if (loading()) {
+      <div
+        role="status"
+        [attr.aria-label]="text.loading"
+        class="space-y-6 py-6 motion-safe:animate-pulse"
+        data-feed-skeleton
+      >
+        @for (index of [0, 1, 2]; track index) {
+          <div aria-hidden="true" class="space-y-3">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 rounded-full bg-slate-800"></div>
+              <div class="h-4 w-24 rounded bg-slate-800"></div>
+            </div>
+            <div class="flex flex-col gap-4 sm:flex-row">
+              <div
+                class="w-full rounded-xl bg-slate-800 sm:w-44"
+                [style.aspect-ratio]="aspectRatio"
+              ></div>
+              <div class="h-6 flex-1 rounded bg-slate-800"></div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+    @if (error(); as message) {
+      <div class="py-6">
+        <p role="alert" class="text-red-300">{{ cooldown.message() || message }}</p>
+        <button
+          type="button"
+          (click)="retry()"
+          [disabled]="
+            loading() ||
+            checking() ||
+            cooldown.remaining() > 0 ||
+            (failed === 'refresh' && refreshWait() > 0)
+          "
+          class="ui-button mt-4 min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-50"
+          data-feed-retry
+        >
+          {{ text.retry }}
+        </button>
+      </div>
+    } @else if (loaded() && !items().length) {
+      <div class="py-12">
+        @if (friends.summary(); as summary) {
+          <h2 class="text-xl font-semibold text-white">
+            {{ summary.friendsCount === 0 ? text.noFriends : text.noActivity }}
+          </h2>
+          @if (summary.friendsCount === 0) {
+            <a
+              routerLink="/people"
+              class="ui-button mt-6 inline-flex min-h-11 items-center bg-accent px-5 py-3 text-white"
+              >{{ text.people }}</a
+            >
+          }
+        } @else {
+          <h2 class="text-xl font-semibold text-white">{{ text.unknownActivity }}</h2>
+          @if (friends.loading()) {
+            <p role="status" class="mt-3 text-sm text-slate-400">{{ text.checkingFriends }}</p>
+          }
+          @if (friends.error(); as message) {
+            <p role="alert" class="mt-3 text-red-300">
+              {{ friends.cooldown.message() || message }}
+            </p>
+            <button
+              type="button"
+              (click)="friends.refresh()"
+              [disabled]="friends.loading() || friends.cooldown.remaining() > 0"
+              class="min-h-11 text-violet-300 underline"
+            >
+              {{ text.retryFriends }}
+            </button>
+          }
+        }
+      </div>
+    }
+    @if (hasMore() && !error()) {
+      <button
+        type="button"
+        (click)="more()"
+        [disabled]="loading() || checking()"
+        class="ui-button mt-6 min-h-11 border border-slate-600 px-6 py-3 text-white disabled:opacity-50"
+        data-feed-more
+      >
+        {{ text.more }}
+      </button>
+    }
+  </div>
+</section>

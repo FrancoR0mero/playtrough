@@ -131,6 +131,12 @@
   <app-site-footer />
   @if (auth.isAuthenticated()) {
     <nav aria-label="Navegación móvil" class="mobile-game-navigation">
+      <a routerLink="/feed" routerLinkActive="nav-active" ariaCurrentWhenActive="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8" />
+        </svg>
+        <span>Inicio</span>
+      </a>
       <a routerLink="/games" routerLinkActive="nav-active" ariaCurrentWhenActive="page">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M6 7h12l3 10-3 2-4-4h-4l-4 4-3-2 3-10Z" />

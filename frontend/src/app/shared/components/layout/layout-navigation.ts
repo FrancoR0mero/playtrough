@@ -9,6 +9,7 @@ export interface NavigationItem {
 
 // Visibility improves UX; the backend is responsible for enforcing permissions.
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
+  { label: 'Inicio', path: '/feed', minRole: 'User', enabled: true },
   { label: 'Juegos', path: '/games', minRole: 'User', enabled: true },
   { label: 'Mi biblioteca', path: '/library', minRole: 'User', enabled: true },
   { label: 'Amigos', path: '/friends', minRole: 'User', enabled: true },
