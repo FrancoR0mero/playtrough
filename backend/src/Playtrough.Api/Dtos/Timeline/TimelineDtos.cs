@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Playtrough.Api.Dtos.Timeline;
@@ -11,6 +12,11 @@ public sealed record TimelinePageDto(IReadOnlyList<TimelineEntryDto> Items, stri
 public sealed record TimelineMonthDto(int Month, int Count);
 public sealed record TimelineYearDto(int Year, int Count, IReadOnlyList<TimelineMonthDto> Months);
 public sealed record TimelinePeriodsDto(IReadOnlyList<TimelineYearDto> Years);
+
+public sealed class UpdateTimelineVisibilityRequest
+{
+    public JsonElement Hidden { get; init; }
+}
 
 public sealed class TimelineListRequest
 {

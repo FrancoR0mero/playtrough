@@ -6,4 +6,5 @@ public interface ITimelineService
 {
     Task<TimelinePageDto> ListAsync(int viewerId, string? username, TimelineListRequest request, CancellationToken ct = default);
     Task<TimelinePeriodsDto> PeriodsAsync(int viewerId, string? username, string? type, CancellationToken ct = default);
+    Task<TimelineEntryDto> SetVisibilityAsync(int ownerId, long id, UpdateTimelineVisibilityRequest request, CancellationToken ct = default);
 }

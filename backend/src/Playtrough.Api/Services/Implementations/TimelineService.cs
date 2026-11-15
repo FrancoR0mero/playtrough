@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Playtrough.Api.Data;
@@ -12,6 +13,23 @@ namespace Playtrough.Api.Services.Implementations;
 public sealed class TimelineService(AppDbContext db, ILookupNormalizer normalizer, IPrivacyService privacy,
     TimelineQuery query, TimelineCursorCodec cursors) : ITimelineService
 {
+    public Task<TimelineEntryDto> SetVisibilityAsync(int ownerId, long id, UpdateTimelineVisibilityRequest request, CancellationToken ct = default)
+    {
+        if (request.Hidden.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new TimelineException("invalid_body");
+        var hidden = request.Hidden.GetBoolean();
+        return db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            // Ownership is part of the UPDATE predicate, never an author supplied in the body.
+            await db.TimelineEntries.Where(e => e.Id == id && e.UserId == ownerId)
+                .ExecuteUpdateAsync(update => update.SetProperty(e => e.IsHidden, hidden), ct);
+            // Read even when no value changed: affected-row semantics vary by MySQL configuration.
+            var entry = await query.EntryAsync(ownerId, id, ct) ?? throw new TimelineException("entry_not_found");
+            await transaction.CommitAsync(ct);
+            return entry;
+        });
+    }
+
     public async Task<TimelinePageDto> ListAsync(int viewerId, string? username, TimelineListRequest request, CancellationToken ct = default)
     {
         var filters = query.Filters(request.Year, request.Month, request.Type);

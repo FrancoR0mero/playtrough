@@ -71,6 +71,15 @@ public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> se
         var entries = ApplyFilters(db.TimelineEntries.AsNoTracking(), ownerId, includeHidden, filters, position)
             .OrderByDescending(e => e.OccurredOn).ThenByDescending(e => e.RecordedAt).ThenByDescending(e => e.Id)
             .Take(limit + 1);
+        return Project(entries, includeHidden);
+    }
+
+    public Task<TimelineEntryDto?> EntryAsync(int ownerId, long id, CancellationToken ct)
+        => Project(ApplyFilters(db.TimelineEntries.AsNoTracking(), ownerId, true, new(null, null, []))
+            .Where(e => e.Id == id), true).SingleOrDefaultAsync(ct);
+
+    private IQueryable<TimelineEntryDto> Project(IQueryable<TimelineEntry> entries, bool includeHidden)
+    {
         var excerptLength = settings.Value.ExcerptLength;
         return (from e in entries
                 join game in db.Games.AsNoTracking() on e.GameId equals game.Id
