@@ -26,6 +26,8 @@ import { ProfileEditComponent, ProfileEditResult } from './profile-edit';
 import { ProfileRestrictionComponent } from './profile-restriction';
 import { BlockUserButtonComponent } from '../blocks/block-user-button';
 import { visibleSocialRefresh } from './social-refresh';
+import { TimelineComponent } from '../timeline/timeline';
+import { TIMELINE_TEXT } from '../timeline/timeline-text';
 
 @Component({
   selector: 'app-profile',
@@ -36,6 +38,7 @@ import { visibleSocialRefresh } from './social-refresh';
     FriendsPreviewComponent,
     ProfileRestrictionComponent,
     BlockUserButtonComponent,
+    TimelineComponent,
   ],
   templateUrl: './profile.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,8 +65,16 @@ export class ProfileComponent {
   protected readonly status = signal<string | null>(null);
   protected readonly warning = signal<string | null>(null);
   protected readonly cooldown = createRateLimitCooldown();
+  protected readonly timelineText = TIMELINE_TEXT;
+  protected readonly tab = signal<'profile' | 'timeline'>('profile');
+  protected readonly timelineVisited = signal(false);
 
   constructor() {
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const tab = params.get('tab') === 'timeline' ? 'timeline' : 'profile';
+      this.tab.set(tab);
+      if (tab === 'timeline') this.timelineVisited.set(true);
+    });
     visibleSocialRefresh()
       .pipe(takeUntilDestroyed())
       .subscribe(() => {
@@ -92,6 +103,30 @@ export class ProfileComponent {
       this.socialRequest?.unsubscribe();
       this.editor?.close();
     });
+  }
+
+  protected selectTab(tab: 'profile' | 'timeline'): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  protected tabKey(event: KeyboardEvent, tab: 'profile' | 'timeline'): void {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const next =
+      event.key === 'Home'
+        ? 'profile'
+        : event.key === 'End'
+          ? 'timeline'
+          : tab === 'profile'
+            ? 'timeline'
+            : 'profile';
+    this.selectTab(next);
+    const list = (event.currentTarget as HTMLElement).closest('[role="tablist"]');
+    list?.querySelector<HTMLButtonElement>(`#profile-tab-${next}`)?.focus();
   }
 
   protected relationship(): RelationshipDto | null {

@@ -37,7 +37,11 @@ describe('Social profile screen', () => {
         { provide: Dialog, useValue: dialog },
         {
           provide: ActivatedRoute,
-          useValue: { paramMap: params, snapshot: { paramMap: params.value } },
+          useValue: {
+            paramMap: params,
+            queryParamMap: of(convertToParamMap({})),
+            snapshot: { paramMap: params.value },
+          },
         },
       ],
     });

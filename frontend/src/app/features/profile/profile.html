@@ -44,7 +44,55 @@
       >
     </div>
   } @else if (profile(); as user) {
-    <div class="mt-7 max-w-2xl">
+    @if (own()) {
+      <div
+        role="tablist"
+        aria-label="Secciones de mi perfil"
+        class="mt-6 flex border-b border-slate-700"
+      >
+        <button
+          id="profile-tab-profile"
+          type="button"
+          role="tab"
+          aria-controls="profile-panel-profile"
+          [attr.aria-selected]="tab() === 'profile'"
+          [attr.tabindex]="tab() === 'profile' ? 0 : -1"
+          (click)="selectTab('profile')"
+          (keydown)="tabKey($event, 'profile')"
+          class="min-h-11 border-b-2 px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-accent"
+          [class.border-violet-300]="tab() === 'profile'"
+          [class.border-transparent]="tab() !== 'profile'"
+          [class.text-white]="tab() === 'profile'"
+          [class.text-slate-400]="tab() !== 'profile'"
+        >
+          {{ timelineText.profile }}
+        </button>
+        <button
+          id="profile-tab-timeline"
+          type="button"
+          role="tab"
+          aria-controls="profile-panel-timeline"
+          [attr.aria-selected]="tab() === 'timeline'"
+          [attr.tabindex]="tab() === 'timeline' ? 0 : -1"
+          (click)="selectTab('timeline')"
+          (keydown)="tabKey($event, 'timeline')"
+          class="min-h-11 border-b-2 px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-accent"
+          [class.border-violet-300]="tab() === 'timeline'"
+          [class.border-transparent]="tab() !== 'timeline'"
+          [class.text-white]="tab() === 'timeline'"
+          [class.text-slate-400]="tab() !== 'timeline'"
+        >
+          {{ timelineText.timeline }}
+        </button>
+      </div>
+    }
+    <div
+      class="mt-7 max-w-2xl"
+      [hidden]="own() && tab() !== 'profile'"
+      [attr.role]="own() ? 'tabpanel' : null"
+      [attr.id]="own() ? 'profile-panel-profile' : null"
+      [attr.aria-labelledby]="own() ? 'profile-tab-profile' : null"
+    >
       <div class="flex flex-wrap items-center gap-5">
         <app-user-avatar
           [username]="user.username"
@@ -164,6 +212,18 @@
         </button>
       }
     </div>
+    @if (own()) {
+      <div
+        id="profile-panel-timeline"
+        role="tabpanel"
+        aria-labelledby="profile-tab-timeline"
+        [hidden]="tab() !== 'timeline'"
+      >
+        @if (timelineVisited()) {
+          <app-timeline source="me" [active]="tab() === 'timeline'" />
+        }
+      </div>
+    }
   } @else {
     <div class="mt-8">
       <p role="alert" class="text-red-300">
