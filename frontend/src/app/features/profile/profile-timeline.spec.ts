@@ -21,6 +21,7 @@ describe('Profile timeline tabs', () => {
     const library = new Subject();
     const reviews = new Subject();
     const timeline = {
+      getMyPeriods: vi.fn().mockReturnValue(of({ years: [] })),
       getMine: vi.fn().mockReturnValue(of({ items: [], nextCursor: null, hasMore: false })),
     };
     TestBed.configureTestingModule({

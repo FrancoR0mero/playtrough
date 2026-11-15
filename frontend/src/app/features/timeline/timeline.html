@@ -1,5 +1,32 @@
-<div class="mt-6 max-w-3xl" [attr.aria-busy]="loading()">
+<div #timelineRoot tabindex="-1" class="mt-6 max-w-3xl" [attr.aria-busy]="loading()">
   <p class="sr-only" aria-live="polite" aria-atomic="true">{{ announcement() }}</p>
+  @if (!restricted() && !notFound()) {
+    <app-timeline-filter-panel
+      [filters]="filters()"
+      [periods]="periods()"
+      (changed)="changeFilters($event)"
+    />
+    @if (periodsLoading()) {
+      <p role="status" class="mb-4 text-sm text-slate-400">{{ text.loadingPeriods }}</p>
+    }
+    @if (periodsError()) {
+      <p role="alert" class="text-sm text-red-300">{{ cooldown.message() || text.periodsError }}</p>
+      <button
+        type="button"
+        (click)="loadPeriods()"
+        [disabled]="cooldown.remaining() > 0"
+        class="min-h-11 text-sm text-violet-300 underline"
+      >
+        {{ text.retryPeriods }}
+      </button>
+    }
+  }
+  @if (filterWarning()) {
+    <p role="alert" class="my-4 text-sm text-amber-200">{{ text.invalidFilters }}</p>
+  }
+  @if (entryNotice()) {
+    <p role="alert" class="my-4 text-sm text-amber-200">{{ text.missingEntry }}</p>
+  }
   @if (items().length) {
     <ol [attr.aria-label]="text.list" class="ml-2 border-l border-slate-700 pl-5 sm:pl-8">
       @for (entry of items(); track entry.id; let index = $index) {
@@ -16,6 +43,8 @@
               [entry]="entry"
               [perspective]="source() === 'me' ? 'self' : 'other'"
               [showActions]="source() === 'me' && !readonly()"
+              (updated)="entryUpdated($event)"
+              (missing)="entryMissing($event)"
             />
           </div>
         </li>
@@ -78,6 +107,7 @@
       <button
         type="button"
         (click)="retry()"
+        data-timeline-retry
         [disabled]="loading() || cooldown.remaining() > 0"
         class="ui-button mt-4 min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-50"
       >
@@ -87,9 +117,23 @@
   } @else if (loaded() && !items().length) {
     <div class="py-12">
       <h2 class="text-xl font-semibold text-white">
-        {{ source() === 'me' ? text.empty : text.emptyOther }}
+        {{
+          hasFilters(filters())
+            ? text.emptyFilters
+            : source() === 'me'
+              ? text.empty
+              : text.emptyOther
+        }}
       </h2>
-      @if (source() === 'me') {
+      @if (hasFilters(filters())) {
+        <button
+          type="button"
+          (click)="changeFilters({})"
+          class="ui-button mt-5 min-h-11 border border-slate-600 px-5 py-3 text-white"
+        >
+          {{ text.clearFilters }}
+        </button>
+      } @else if (source() === 'me') {
         <div class="mt-6 flex flex-wrap gap-3">
           <a
             routerLink="/games"
@@ -109,6 +153,7 @@
     <button
       type="button"
       (click)="more()"
+      data-timeline-more
       [disabled]="loading()"
       class="ui-button mt-6 min-h-11 border border-slate-600 px-6 py-3 text-white disabled:opacity-50"
     >

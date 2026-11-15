@@ -2,15 +2,19 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  afterNextRender,
+  Injector,
   effect,
   inject,
   input,
   output,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, Subscription, auditTime, merge } from 'rxjs';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
@@ -22,7 +26,9 @@ import { ProfileRestriction } from '../profile/models/user';
 import { ProfileRestrictionComponent } from '../profile/profile-restriction';
 import { profileError } from '../profile/profile-error';
 import { ReviewService } from '../reviews/services/review';
-import { TimelineEntryDto } from './models/timeline';
+import { TimelineEntryDto, TimelinePeriods } from './models/timeline';
+import { TimelineFilterPanelComponent } from './timeline-filter-panel';
+import { TimelineFilters, hasTimelineFilters, parseTimelineFilters } from './timeline-filters';
 import { TimelineService } from './services/timeline';
 import { TimelineEntryCardComponent } from './timeline-entry-card';
 import { TIMELINE_IMAGE_ASPECT_RATIO, TIMELINE_TEXT, timelineDate } from './timeline-text';
@@ -34,6 +40,7 @@ import { TIMELINE_IMAGE_ASPECT_RATIO, TIMELINE_TEXT, timelineDate } from './time
     TimelineEntryCardComponent,
     ProfileRestrictionComponent,
     FriendshipButtonComponent,
+    TimelineFilterPanelComponent,
   ],
   templateUrl: './timeline.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -56,6 +63,19 @@ export class TimelineComponent {
   protected readonly restriction = signal<ProfileRestriction | null>(null);
   protected readonly notFound = signal(false);
   protected readonly cooldown = createRateLimitCooldown();
+  protected readonly filters = signal<TimelineFilters>({});
+  protected readonly periods = signal<TimelinePeriods>({ years: [] });
+  protected readonly periodsLoading = signal(false);
+  protected readonly periodsError = signal(false);
+  protected readonly filterWarning = signal(false);
+  protected readonly entryNotice = signal(false);
+  protected readonly hasFilters = hasTimelineFilters;
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
+  private readonly root = viewChild<ElementRef<HTMLElement>>('timelineRoot');
+  private periodsRequest?: Subscription;
+  private previousFilters?: string;
   private readonly service = inject(TimelineService);
   private readonly destroyRef = inject(DestroyRef);
   private request?: Subscription;
@@ -67,6 +87,14 @@ export class TimelineComponent {
   private readonly accessRefreshes = new Subject<void>();
 
   constructor() {
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const filters = parseTimelineFilters(params);
+      this.filters.set(filters ?? {});
+      if (filters === null) {
+        this.filterWarning.set(true);
+        this.writeFilters({}, true);
+      }
+    });
     this.accessRefreshes.pipe(auditTime(0), takeUntilDestroyed()).subscribe(() => {
       if (this.active()) this.load(true);
     });
@@ -87,9 +115,14 @@ export class TimelineComponent {
     effect(() => {
       const active = this.active();
       const source = this.source();
+      const filters = JSON.stringify(this.filters());
       untracked(() => {
-        if (source !== this.previousSource) {
+        if (source !== this.previousSource || filters !== this.previousFilters) {
           this.request?.unsubscribe();
+          this.periodsRequest?.unsubscribe();
+          this.periods.set({ years: [] });
+          this.periodsLoading.set(false);
+          this.periodsError.set(false);
           this.loading.set(false);
           this.items.set([]);
           this.loaded.set(false);
@@ -101,17 +134,114 @@ export class TimelineComponent {
           this.error.set(null);
           this.dirty = true;
           this.previousSource = source;
+          this.previousFilters = filters;
         }
         if (!active) {
-          if (this.loading()) {
+          if (this.loading() || this.periodsLoading()) {
             this.request?.unsubscribe();
+            this.periodsRequest?.unsubscribe();
+            this.periodsLoading.set(false);
             this.loading.set(false);
             this.dirty = true;
           }
         } else if (this.dirty) this.load(true);
       });
     });
-    this.destroyRef.onDestroy(() => this.request?.unsubscribe());
+    this.destroyRef.onDestroy(() => {
+      this.request?.unsubscribe();
+      this.periodsRequest?.unsubscribe();
+    });
+  }
+  protected changeFilters(filters: TimelineFilters): void {
+    this.filterWarning.set(false);
+    this.entryNotice.set(false);
+    this.writeFilters(filters);
+  }
+  private writeFilters(filters: TimelineFilters, replaceUrl = false): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParamsHandling: 'merge',
+      replaceUrl,
+      queryParams: {
+        year: filters.year ?? null,
+        month: filters.month ?? null,
+        type: filters.type?.length ? filters.type.join(',') : null,
+      },
+    });
+  }
+  protected entryUpdated(entry: TimelineEntryDto): void {
+    this.items.update((items) => items.map((item) => (item.id === entry.id ? entry : item)));
+    this.loadPeriods();
+  }
+  protected entryMissing(id: number): void {
+    this.items.update((items) => items.filter((item) => item.id !== id));
+    this.entryNotice.set(true);
+    this.loadPeriods();
+    afterNextRender(() => this.root()?.nativeElement.focus(), { injector: this.injector });
+  }
+  protected loadPeriods(): void {
+    this.periodsRequest?.unsubscribe();
+    if (this.cooldown.remaining()) {
+      this.periodsError.set(true);
+      return;
+    }
+    this.periodsError.set(false);
+    this.periodsLoading.set(true);
+    const types = this.filters().type;
+    const request =
+      this.source() === 'me'
+        ? this.service.getMyPeriods(types)
+        : this.service.getUserPeriods(this.source(), types);
+    this.periodsRequest = request.subscribe({
+      next: (periods) => {
+        this.periods.set(periods);
+        this.periodsLoading.set(false);
+      },
+      error: (error: unknown) => {
+        this.periodsLoading.set(false);
+        this.cooldown.handle(error);
+        if (this.handleAccessError(error)) return;
+        if (profileError(error).code === 'invalid_filter') this.invalidFilters();
+        else this.periodsError.set(true);
+      },
+    });
+  }
+  private invalidFilters(): void {
+    this.filterWarning.set(true);
+    if (hasTimelineFilters(this.filters())) this.writeFilters({}, true);
+    else this.error.set(this.text.invalidFilters);
+  }
+  private handleAccessError(error: unknown): boolean {
+    const code = profileError(error).code;
+    if (
+      this.source() === 'me' ||
+      !(error instanceof HttpErrorResponse) ||
+      !(
+        (error.status === 403 && code === 'history_restricted') ||
+        (error.status === 404 && code === 'user_not_found')
+      )
+    )
+      return false;
+    this.request?.unsubscribe();
+    this.periodsRequest?.unsubscribe();
+    this.loading.set(false);
+    this.periodsLoading.set(false);
+    this.periodsError.set(false);
+    this.items.set([]);
+    this.periods.set({ years: [] });
+    this.hasMore.set(false);
+    this.cursor = null;
+    this.loaded.set(false);
+    this.dirty = false;
+    if (error.status === 404) this.notFound.set(true);
+    else {
+      const restriction = error.error?.extensions?.restriction ?? error.error?.restriction;
+      this.restriction.set(
+        restriction === 'private' || restriction === 'friends_only' ? restriction : null,
+      );
+      this.restricted.set(true);
+    }
+    return true;
   }
   protected relationshipChanged(): void {
     this.refreshAccess();
@@ -119,6 +249,9 @@ export class TimelineComponent {
   }
   private refreshAccess(): void {
     this.request?.unsubscribe();
+    this.periodsRequest?.unsubscribe();
+    this.periods.set({ years: [] });
+    this.periodsLoading.set(false);
     this.loading.set(false);
     this.items.set([]);
     this.hasMore.set(false);
@@ -167,8 +300,8 @@ export class TimelineComponent {
     const query = { limit: 20, ...(this.cursor ? { cursor: this.cursor } : {}) };
     const request =
       this.source() === 'me'
-        ? this.service.getMine(query)
-        : this.service.getUser(this.source(), query);
+        ? this.service.getMine({ ...query, ...this.filters() })
+        : this.service.getUser(this.source(), { ...query, ...this.filters() });
     this.request = request.subscribe({
       next: (page) => {
         const entries = new Map(this.items().map((entry) => [entry.id, entry]));
@@ -185,26 +318,9 @@ export class TimelineComponent {
       error: (error: unknown) => {
         this.loading.set(false);
         this.cooldown.handle(error);
-        const code = profileError(error).code;
-        if (
-          this.source() !== 'me' &&
-          error instanceof HttpErrorResponse &&
-          ((error.status === 403 && code === 'history_restricted') ||
-            (error.status === 404 && code === 'user_not_found'))
-        ) {
-          this.items.set([]);
-          this.hasMore.set(false);
-          this.cursor = null;
-          this.loaded.set(false);
-          this.dirty = false;
-          if (error.status === 404) this.notFound.set(true);
-          else {
-            const restriction = error.error?.extensions?.restriction ?? error.error?.restriction;
-            this.restriction.set(
-              restriction === 'private' || restriction === 'friends_only' ? restriction : null,
-            );
-            this.restricted.set(true);
-          }
+        if (this.handleAccessError(error)) return;
+        if (profileError(error).code === 'invalid_filter') {
+          this.invalidFilters();
           return;
         }
         if (profileError(error).code === 'invalid_cursor') {
@@ -213,5 +329,7 @@ export class TimelineComponent {
         } else this.error.set(this.text.error);
       },
     });
+    if (reset && !this.restricted() && !this.notFound() && !this.cooldown.remaining())
+      this.loadPeriods();
   }
 }

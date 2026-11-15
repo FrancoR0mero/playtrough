@@ -27,6 +27,7 @@ describe('Other profile timeline integration', () => {
     };
     const users = { getProfile: vi.fn().mockReturnValue(of(profile)) };
     const timeline = {
+      getUserPeriods: vi.fn().mockReturnValue(of({ years: [] })),
       getMine: vi.fn(),
       getUser: vi
         .fn()

@@ -21,6 +21,8 @@ describe('Other player timeline', () => {
     const auth = createAuthMock();
     auth.currentUser.set(createSession().user);
     const timeline = {
+      getMyPeriods: vi.fn().mockReturnValue(of({ years: [] })),
+      getUserPeriods: vi.fn().mockReturnValue(of({ years: [] })),
       getMine: vi.fn(),
       getUser: vi
         .fn()
@@ -145,7 +147,7 @@ describe('Other player timeline', () => {
     );
     f.fixture.detectChanges();
     f.timeline.getUser.mockReturnValueOnce(denied('friends_only'));
-    f.root.querySelector<HTMLButtonElement>('button:not([aria-haspopup])')!.click();
+    f.root.querySelector<HTMLButtonElement>('[data-timeline-more]')!.click();
     f.fixture.detectChanges();
     expect(f.root.querySelector('ol')).toBeNull();
     expect(f.root.textContent).toContain('El historial es solo para amigos');
@@ -177,7 +179,7 @@ describe('Other player timeline', () => {
     expect(f.root.querySelector('[role="alert"]')?.textContent).toContain(
       'No pudimos cargar la actividad',
     );
-    f.root.querySelector('button')!.click();
+    f.root.querySelector<HTMLButtonElement>('[data-timeline-retry]')!.click();
     f.fixture.detectChanges();
     expect(f.timeline.getUser).toHaveBeenLastCalledWith('bea', { limit: 20 });
     expect(f.root.querySelector('ol')).not.toBeNull();
@@ -197,7 +199,7 @@ describe('Other player timeline', () => {
       ),
     );
     f.fixture.detectChanges();
-    expect(f.root.querySelector('button')!.disabled).toBe(true);
+    expect(f.root.querySelector<HTMLButtonElement>('[data-timeline-retry]')!.disabled).toBe(true);
     f.friends.changes.next({ username: 'bea', action: 'accepted' });
     vi.advanceTimersByTime(0);
     f.fixture.detectChanges();
@@ -205,7 +207,7 @@ describe('Other player timeline', () => {
     expect(f.root.querySelector('[role="alert"]')?.textContent).toContain('2');
     vi.advanceTimersByTime(2000);
     f.fixture.detectChanges();
-    f.root.querySelector('button')!.click();
+    f.root.querySelector<HTMLButtonElement>('[data-timeline-retry]')!.click();
     f.fixture.detectChanges();
     expect(f.timeline.getUser).toHaveBeenCalledTimes(2);
     f.fixture.destroy();

@@ -14,7 +14,12 @@ describe('Own timeline', () => {
   function setup(page: TimelinePage = { items: [], nextCursor: null, hasMore: false }) {
     const library = new Subject();
     const reviews = new Subject();
-    const service = { getMine: vi.fn().mockReturnValue(of(page)), getUser: vi.fn() };
+    const service = {
+      getMine: vi.fn().mockReturnValue(of(page)),
+      getUser: vi.fn(),
+      getMyPeriods: vi.fn().mockReturnValue(of({ years: [] })),
+      getUserPeriods: vi.fn().mockReturnValue(of({ years: [] })),
+    };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -56,7 +61,7 @@ describe('Own timeline', () => {
     f.fixture.detectChanges();
     const pending = new Subject<TimelinePage>();
     f.service.getMine.mockReturnValue(pending);
-    const more = f.root.querySelector<HTMLButtonElement>('button:not([aria-haspopup])')!;
+    const more = f.root.querySelector<HTMLButtonElement>('[data-timeline-more]')!;
     more.click();
     more.click();
     f.fixture.detectChanges();
@@ -71,7 +76,7 @@ describe('Own timeline', () => {
     f.fixture.detectChanges();
     expect(f.root.querySelectorAll('ol > li')).toHaveLength(2);
     expect(f.root.querySelectorAll('h2')).toHaveLength(1);
-    expect(f.root.querySelector<HTMLButtonElement>('button:not([aria-haspopup])')).toBeNull();
+    expect(f.root.querySelector<HTMLButtonElement>('[data-timeline-more]')).toBeNull();
   });
   it('shows skeletons and then the own empty state with both destinations', () => {
     const f = setup();
@@ -95,16 +100,16 @@ describe('Own timeline', () => {
     f.service.getMine.mockReturnValue(
       of({ items: [timelineEntry()], nextCursor: 'next', hasMore: true }),
     );
-    f.root.querySelector('button')!.click();
+    f.root.querySelector<HTMLButtonElement>('[data-timeline-retry]')!.click();
     f.fixture.detectChanges();
     f.service.getMine.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 503 })));
-    f.root.querySelector<HTMLButtonElement>('button:not([aria-haspopup])')!.click();
+    f.root.querySelector<HTMLButtonElement>('[data-timeline-more]')!.click();
     f.fixture.detectChanges();
     expect(f.root.querySelectorAll('ol > li')).toHaveLength(1);
     f.service.getMine.mockReturnValue(
       of({ items: [timelineEntry({ id: 2 })], nextCursor: null, hasMore: false }),
     );
-    f.root.querySelector<HTMLButtonElement>('button:not([aria-haspopup])')!.click();
+    f.root.querySelector<HTMLButtonElement>('[data-timeline-retry]')!.click();
     f.fixture.detectChanges();
     expect(f.service.getMine).toHaveBeenLastCalledWith({ limit: 20, cursor: 'next' });
     expect(f.root.querySelectorAll('ol > li')).toHaveLength(2);
@@ -124,7 +129,7 @@ describe('Own timeline', () => {
       ),
     );
     f.fixture.detectChanges();
-    const retry = f.root.querySelector('button')!;
+    const retry = f.root.querySelector<HTMLButtonElement>('[data-timeline-retry]')!;
     expect(retry.disabled).toBe(true);
     expect(f.root.querySelector('[role="alert"]')?.textContent).toContain('2');
     vi.advanceTimersByTime(2000);
@@ -195,10 +200,10 @@ describe('Own timeline', () => {
           new HttpErrorResponse({ status: 400, error: { extensions: { code: 'invalid_cursor' } } }),
       ),
     );
-    f.root.querySelector<HTMLButtonElement>('button:not([aria-haspopup])')!.click();
+    f.root.querySelector<HTMLButtonElement>('[data-timeline-more]')!.click();
     f.fixture.detectChanges();
     expect(f.root.querySelector('[role="alert"]')?.textContent).toContain('ya no es válida');
-    f.root.querySelector<HTMLButtonElement>('button:not([aria-haspopup])')!.click();
+    f.root.querySelector<HTMLButtonElement>('[data-timeline-retry]')!.click();
     f.fixture.detectChanges();
     expect(f.service.getMine).toHaveBeenLastCalledWith({ limit: 20 });
   });
@@ -210,7 +215,7 @@ describe('Own timeline', () => {
     f.service.getMine.mockReturnValueOnce(
       of({ items: [timelineEntry({ id: 2 })], nextCursor: null, hasMore: false }),
     );
-    f.root.querySelector<HTMLButtonElement>('button:not([aria-haspopup])')!.click();
+    f.root.querySelector<HTMLButtonElement>('[data-timeline-more]')!.click();
     f.fixture.detectChanges();
     f.fixture.componentRef.setInput('active', false);
     f.fixture.detectChanges();
