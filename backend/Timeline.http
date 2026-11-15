@@ -53,3 +53,9 @@ Authorization: Bearer {{userToken}}
 Content-Type: application/json
 
 { "hidden": false }
+
+### Feed de amigos: comparte presupuesto de lecturas con timeline y períodos.
+GET {{baseUrl}}/api/feed?limit=20
+Authorization: Bearer {{userToken}}
+
+# Prueba completa A/B/C y paginación de feed: Timeline-three-users.http.

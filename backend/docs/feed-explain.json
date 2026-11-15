@@ -1,0 +1,317 @@
+{
+  "provider": "MySql.EntityFrameworkCore",
+  "serverVersion": "8.4.13",
+  "timelineRows": 0,
+  "friendships": 2,
+  "returnedRows": 0,
+  "optimizerPlan": {
+    "query_block": {
+      "select_id": 1,
+      "cost_info": {
+        "query_cost": "3.65"
+      },
+      "ordering_operation": {
+        "using_temporary_table": true,
+        "using_filesort": true,
+        "nested_loop": [
+          {
+            "table": {
+              "table_name": "t",
+              "access_type": "ref",
+              "possible_keys": [
+                "IX_TimelineEntries_FeedEligible_UserId_RecordedAt_Id",
+                "IX_TimelineEntries_GameId",
+                "IX_TimelineEntries_UserId_OccurredOn_RecordedAt_Id"
+              ],
+              "key": "IX_TimelineEntries_FeedEligible_UserId_RecordedAt_Id",
+              "used_key_parts": [
+                "FeedEligible"
+              ],
+              "key_length": "1",
+              "ref": [
+                "const"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 1,
+              "filtered": "100.00",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.10",
+                "prefix_cost": "0.35",
+                "data_read_per_join": "240"
+              },
+              "used_columns": [
+                "Id",
+                "UserId",
+                "Type",
+                "GameId",
+                "FromStatus",
+                "ToStatus",
+                "OccurredOn",
+                "RecordedAt",
+                "ReviewId",
+                "IsHidden",
+                "FeedEligible"
+              ],
+              "attached_condition": "(\u0060playtrought_dev\u0060.\u0060t\u0060.\u0060IsHidden\u0060 = 0)"
+            }
+          },
+          {
+            "table": {
+              "table_name": "u0",
+              "access_type": "eq_ref",
+              "possible_keys": [
+                "PRIMARY"
+              ],
+              "key": "PRIMARY",
+              "used_key_parts": [
+                "Id"
+              ],
+              "key_length": "4",
+              "ref": [
+                "playtrought_dev.t.UserId"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "90.00",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.09",
+                "prefix_cost": "0.70",
+                "data_read_per_join": "4K"
+              },
+              "used_columns": [
+                "Id",
+                "UserName",
+                "EmailConfirmed",
+                "AvatarFileName"
+              ],
+              "attached_condition": "(0 \u003C\u003E \u0060playtrought_dev\u0060.\u0060u0\u0060.\u0060EmailConfirmed\u0060)"
+            }
+          },
+          {
+            "table": {
+              "table_name": "u1",
+              "access_type": "index",
+              "possible_keys": [
+                "PRIMARY",
+                "IX_UserBlocks_BlockedId_BlockerId"
+              ],
+              "key": "IX_UserBlocks_BlockedId_BlockerId",
+              "used_key_parts": [
+                "BlockedId",
+                "BlockerId"
+              ],
+              "key_length": "8",
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "100.00",
+              "not_exists": true,
+              "using_index": true,
+              "using_join_buffer": "hash join",
+              "cost_info": {
+                "read_cost": "0.25",
+                "eval_cost": "0.09",
+                "prefix_cost": "1.04",
+                "data_read_per_join": "21"
+              },
+              "used_columns": [
+                "BlockerId",
+                "BlockedId"
+              ],
+              "attached_condition": "(\u003Cif\u003E(is_not_null_compl(u1), (((\u0060playtrought_dev\u0060.\u0060u1\u0060.\u0060BlockedId\u0060 = \u0060playtrought_dev\u0060.\u0060t\u0060.\u0060UserId\u0060) and (\u0060playtrought_dev\u0060.\u0060u1\u0060.\u0060BlockerId\u0060 = 20)) or ((\u0060playtrought_dev\u0060.\u0060u1\u0060.\u0060BlockedId\u0060 = 20) and (\u0060playtrought_dev\u0060.\u0060u1\u0060.\u0060BlockerId\u0060 = \u0060playtrought_dev\u0060.\u0060t\u0060.\u0060UserId\u0060))), true) and \u003Cif\u003E(is_not_null_compl(u1), \u003Cif\u003E(found_match(u1), false, true), true))"
+            }
+          },
+          {
+            "table": {
+              "table_name": "r",
+              "access_type": "eq_ref",
+              "possible_keys": [
+                "PRIMARY"
+              ],
+              "key": "PRIMARY",
+              "used_key_parts": [
+                "Id"
+              ],
+              "key_length": "4",
+              "ref": [
+                "playtrought_dev.t.ReviewId"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "100.00",
+              "cost_info": {
+                "read_cost": "0.90",
+                "eval_cost": "0.09",
+                "prefix_cost": "2.03",
+                "data_read_per_join": "7K"
+              },
+              "used_columns": [
+                "Id",
+                "Rating",
+                "Text"
+              ]
+            }
+          },
+          {
+            "table": {
+              "table_name": "g",
+              "access_type": "eq_ref",
+              "possible_keys": [
+                "PRIMARY"
+              ],
+              "key": "PRIMARY",
+              "used_key_parts": [
+                "Id"
+              ],
+              "key_length": "4",
+              "ref": [
+                "playtrought_dev.t.GameId"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 0,
+              "filtered": "100.00",
+              "cost_info": {
+                "read_cost": "0.90",
+                "eval_cost": "0.09",
+                "prefix_cost": "3.02",
+                "data_read_per_join": "16K"
+              },
+              "used_columns": [
+                "Id",
+                "ExternalId",
+                "Name",
+                "Slug",
+                "CoverImageUrl",
+                "FirstReleaseDate",
+                "GameBrainId"
+              ]
+            }
+          },
+          {
+            "table": {
+              "table_name": "u",
+              "access_type": "ref",
+              "possible_keys": [
+                "\u003Cauto_key0\u003E"
+              ],
+              "key": "\u003Cauto_key0\u003E",
+              "used_key_parts": [
+                "UserHighId"
+              ],
+              "key_length": "4",
+              "ref": [
+                "playtrought_dev.t.UserId"
+              ],
+              "rows_examined_per_scan": 2,
+              "rows_produced_per_join": 1,
+              "filtered": "100.00",
+              "using_index": true,
+              "cost_info": {
+                "read_cost": "0.45",
+                "eval_cost": "0.18",
+                "prefix_cost": "3.65",
+                "data_read_per_join": "28"
+              },
+              "used_columns": [
+                "UserHighId"
+              ],
+              "materialized_from_subquery": {
+                "using_temporary_table": true,
+                "dependent": false,
+                "cacheable": true,
+                "query_block": {
+                  "union_result": {
+                    "using_temporary_table": false,
+                    "query_specifications": [
+                      {
+                        "dependent": false,
+                        "cacheable": true,
+                        "query_block": {
+                          "select_id": 2,
+                          "cost_info": {
+                            "query_cost": "0.35"
+                          },
+                          "table": {
+                            "table_name": "f",
+                            "access_type": "ref",
+                            "possible_keys": [
+                              "PRIMARY",
+                              "IX_Friendships_UserHighId"
+                            ],
+                            "key": "PRIMARY",
+                            "used_key_parts": [
+                              "UserLowId"
+                            ],
+                            "key_length": "4",
+                            "ref": [
+                              "const"
+                            ],
+                            "rows_examined_per_scan": 1,
+                            "rows_produced_per_join": 1,
+                            "filtered": "100.00",
+                            "using_index": true,
+                            "cost_info": {
+                              "read_cost": "0.25",
+                              "eval_cost": "0.10",
+                              "prefix_cost": "0.35",
+                              "data_read_per_join": "24"
+                            },
+                            "used_columns": [
+                              "UserLowId",
+                              "UserHighId"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "dependent": false,
+                        "cacheable": true,
+                        "query_block": {
+                          "select_id": 3,
+                          "cost_info": {
+                            "query_cost": "0.35"
+                          },
+                          "table": {
+                            "table_name": "f0",
+                            "access_type": "ref",
+                            "possible_keys": [
+                              "PRIMARY",
+                              "IX_Friendships_UserHighId"
+                            ],
+                            "key": "IX_Friendships_UserHighId",
+                            "used_key_parts": [
+                              "UserHighId"
+                            ],
+                            "key_length": "4",
+                            "ref": [
+                              "const"
+                            ],
+                            "rows_examined_per_scan": 1,
+                            "rows_produced_per_join": 1,
+                            "filtered": "100.00",
+                            "using_index": true,
+                            "cost_info": {
+                              "read_cost": "0.25",
+                              "eval_cost": "0.10",
+                              "prefix_cost": "0.35",
+                              "data_read_per_join": "24"
+                            },
+                            "used_columns": [
+                              "UserLowId",
+                              "UserHighId"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
