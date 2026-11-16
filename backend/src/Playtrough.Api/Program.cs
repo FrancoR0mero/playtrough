@@ -56,6 +56,14 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     var defaultResponse = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (context.ActionDescriptor is ControllerActionDescriptor feedAction && feedAction.ControllerTypeInfo.AsType() == typeof(FeedController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Consulta de feed inválida", Extensions = { ["code"] = "invalid_filter" } });
+        if (context.ActionDescriptor is ControllerActionDescriptor visibilityAction && visibilityAction.ControllerTypeInfo.AsType() == typeof(TimelineVisibilityController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Visibilidad de entrada inválida", Extensions = { ["code"] = "invalid_body" } });
+        if (context.ActionDescriptor is ControllerActionDescriptor timelineAction && timelineAction.ControllerTypeInfo.AsType() == typeof(TimelineController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Consulta de línea de tiempo inválida", Extensions = { ["code"] = "invalid_filter" } });
+        if (context.ActionDescriptor is ControllerActionDescriptor blocksAction && blocksAction.ControllerTypeInfo.AsType() == typeof(BlocksController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Solicitud inválida", Extensions = { ["code"] = "invalid_query" } });
         if (context.ActionDescriptor is ControllerActionDescriptor friendsAction &&
             friendsAction.ControllerTypeInfo.AsType() == typeof(FriendsController))
         {
@@ -63,12 +71,14 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
             friendsProblem.Extensions["code"] = "invalid_query";
             return new BadRequestObjectResult(friendsProblem);
         }
+        if (context.ActionDescriptor is ControllerActionDescriptor avatarAction && avatarAction.ControllerTypeInfo.AsType() == typeof(AvatarsController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Avatar inválido", Extensions = { ["code"] = "invalid_avatar" } });
         if (context.ActionDescriptor is ControllerActionDescriptor profileAction &&
             profileAction.ControllerTypeInfo.AsType() == typeof(UsersController))
         {
             var profileProblem = new ProblemDetails { Status = 400, Title = "Perfil inválido" };
             profileProblem.Extensions["code"] = profileAction.ActionName == nameof(UsersController.UpdatePrivacy) ? "invalid_visibility" :
-                profileAction.ActionName is nameof(UsersController.Search) or nameof(UsersController.Friends) ? "invalid_query" : context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
+                profileAction.ActionName is nameof(UsersController.Search) or nameof(UsersController.Friends) or nameof(UsersController.Library) ? "invalid_query" : context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
                 entry.Key.Contains("bio", StringComparison.OrdinalIgnoreCase)) ? "invalid_bio" : "invalid_username";
             return new BadRequestObjectResult(profileProblem);
         }
@@ -292,17 +302,33 @@ builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<TimelineWriter>();
+builder.Services.AddScoped<TimelineBackfillService>();
+builder.Services.AddSingleton<TimelineCursorCodec>();
+builder.Services.AddScoped<TimelineQuery>();
+builder.Services.AddScoped<ITimelineService, TimelineService>();
+builder.Services.AddScoped<IFeedService, FeedService>();
+builder.Services.AddOptions<TimelineSettings>().BindConfiguration(TimelineSettings.SectionName)
+    .ValidateDataAnnotations().Validate(s => s.DefaultLimit <= s.MaxLimit,
+        "Timeline:DefaultLimit must not exceed MaxLimit.").ValidateOnStart();
+builder.Services.AddOptions<FeedSettings>().BindConfiguration(FeedSettings.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddOptions<AvatarSettings>().BindConfiguration(AvatarSettings.SectionName).ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddSingleton<IAvatarStorage, LocalAvatarStorage>();
+builder.Services.AddSingleton<AvatarImageProcessor>();
+builder.Services.AddScoped<IAvatarService, AvatarService>();
 builder.Services.AddScoped<IPrivacyService, PrivacyService>();
 builder.Services.AddScoped<IUserSearchService, UserSearchService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddScoped<IBlockService, BlockService>();
 builder.Services.AddSingleton<Playtrough.Api.Events.IDomainEventPublisher, Playtrough.Api.Events.InMemoryDomainEventPublisher>();
 builder.Services.AddOptions<FriendsSettings>().BindConfiguration(FriendsSettings.SectionName)
     .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddOptions<ProfileSettings>()
     .BindConfiguration(ProfileSettings.SectionName).ValidateDataAnnotations()
-    .Validate(settings => Enum.IsDefined(settings.DefaultProfileVisibility) && Enum.IsDefined(settings.DefaultHistoryVisibility),
-        "Profile visibility defaults must be Public, Friends or Private.")
+    .Validate(settings => settings.DefaultVisibility is Visibility.Public or Visibility.Private,
+        "Profile default visibility must be Public or Private.")
     .Validate(settings => settings.ReservedUsernames is not null &&
         settings.ReservedUsernames.All(name => !string.IsNullOrWhiteSpace(name)), "Reserved usernames cannot be blank.")
     .ValidateOnStart();
@@ -347,6 +373,8 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<UsersExamplesFilter>();
     options.SchemaFilter<FriendsExamplesFilter>();
     options.OperationFilter<FriendsExamplesFilter>();
+    options.SchemaFilter<TimelineExamplesFilter>();
+    options.OperationFilter<TimelineExamplesFilter>();
     options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
     options.DocumentFilter<ApiDocumentationFilter>();
@@ -396,6 +424,7 @@ app.UseMiddleware<GameCatalogExceptionMiddleware>();
 app.UseMiddleware<LibraryExceptionMiddleware>();
 app.UseMiddleware<ReviewExceptionMiddleware>();
 app.UseMiddleware<ProfileExceptionMiddleware>();
+app.UseMiddleware<TimelineExceptionMiddleware>();
 app.UseMiddleware<FriendExceptionMiddleware>();
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())

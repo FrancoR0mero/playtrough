@@ -41,6 +41,16 @@ public sealed class ConfigureRateLimiting(
                 ? FixedWindow($"user:{userId}", limits.ReviewsWrite)
                 : RateLimitPartition.GetNoLimiter<string>("reviews-write-anonymous"));
 
+        options.AddPolicy(RateLimitPolicies.TimelineRead, context => limits.Enabled &&
+            context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var timelineUserId)
+                ? FixedWindow($"user:{timelineUserId}", limits.TimelineRead)
+                : RateLimitPartition.GetNoLimiter<string>("timeline-read-anonymous"));
+
+        options.AddPolicy(RateLimitPolicies.TimelineWrite, context => limits.Enabled &&
+            context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var timelineWriterId)
+                ? FixedWindow($"user:{timelineWriterId}", limits.TimelineWrite)
+                : RateLimitPartition.GetNoLimiter<string>("timeline-write-anonymous"));
+
         if (limits.Enabled)
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
             {
@@ -106,6 +116,8 @@ public sealed class ConfigureRateLimiting(
         RateLimitPolicies.FriendsWrite => limits.FriendsWrite.Window,
         RateLimitPolicies.ProfileWrite => limits.ProfileWrite.Window,
         RateLimitPolicies.ReviewsWrite => limits.ReviewsWrite.Window,
+        RateLimitPolicies.TimelineRead => limits.TimelineRead.Window,
+        RateLimitPolicies.TimelineWrite => limits.TimelineWrite.Window,
         _ => limits.Global.Window,
     };
 }

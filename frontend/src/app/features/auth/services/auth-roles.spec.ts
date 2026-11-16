@@ -126,4 +126,15 @@ describe('AuthService reactive role queries', () => {
       expect(auth.hasMinRole(role)).toBe(false);
     });
   });
+  it('persists avatar changes for the current account and ignores other accounts', () => {
+    restoreRole('User');
+    const id = auth.currentUser()!.id;
+    auth.updateCurrentAvatar(id, '/api/avatars/photo.webp');
+    expect(auth.currentUser()?.avatarUrl).toBe('/api/avatars/photo.webp');
+    expect(storage.read()?.user.avatarUrl).toBe('/api/avatars/photo.webp');
+    auth.updateCurrentAvatar(id + 1, null);
+    expect(auth.currentUser()?.avatarUrl).toBe('/api/avatars/photo.webp');
+    auth.updateCurrentAvatar(id, null);
+    expect(storage.read()?.user.avatarUrl).toBeNull();
+  });
 });

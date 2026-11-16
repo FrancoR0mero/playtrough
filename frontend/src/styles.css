@@ -729,7 +729,11 @@ select {
 }
 @media (max-width: 767px) {
   /* Inputs live inside routed components, outside Layout's style encapsulation. */
-  .app-shell:has(input:focus, textarea:focus, [contenteditable='true']:focus)
+  .app-shell:has(
+      input:not([type='radio']):not([type='checkbox']):focus,
+      textarea:focus,
+      [contenteditable='true']:focus
+    )
     .mobile-game-navigation {
     display: none;
   }

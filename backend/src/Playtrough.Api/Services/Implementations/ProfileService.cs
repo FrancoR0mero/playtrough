@@ -7,6 +7,7 @@ using MySql.Data.MySqlClient;
 using Playtrough.Api.Data;
 using Playtrough.Api.Dtos.Users;
 using Playtrough.Api.Dtos.Friends;
+using Playtrough.Api.Dtos.Library;
 using Playtrough.Api.Models;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Services.Interfaces;
@@ -14,7 +15,7 @@ using Playtrough.Api.Services.Interfaces;
 namespace Playtrough.Api.Services.Implementations;
 
 public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser> users,
-    IOptions<ProfileSettings> settings, TimeProvider time, IFriendService friends, IPrivacyService privacy) : IProfileService
+    IOptions<ProfileSettings> settings, TimeProvider time, IFriendService friends, IPrivacyService privacy, ILibraryService library) : IProfileService
 {
     public async Task<MyProfileDto> GetMineAsync(int userId, CancellationToken ct = default)
         => await MineAsync(await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, ct)
@@ -24,11 +25,11 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
     {
         var user = await FindVisibleAccountAsync(viewerId, username, ct);
         var relationship = await friends.RelationshipAsync(viewerId, user.Id, ct);
-        if (!privacy.CanView(viewerId, user.Id, user.ProfileVisibility, relationship.Status == "friends"))
-            return new(user.UserName!, null, null, null, null, relationship, true,
-                user.ProfileVisibility == Visibility.Friends ? "friends_only" : "private");
+        if (!await privacy.CanViewAsync(viewerId, user.Id, PrivacyScope.Profile, ct))
+            return new(user.UserName!, AvatarUrls.FromFile(user.AvatarFileName), null, null, null, relationship, true,
+                "private");
         var summary = await friends.SummaryAsync(user.Id, ct);
-        return new(user.UserName!, null, user.Bio, user.CreatedAt, summary.FriendsCount, relationship, false, null);
+        return new(user.UserName!, AvatarUrls.FromFile(user.AvatarFileName), user.Bio, user.CreatedAt, summary.FriendsCount, relationship, false, null);
     }
 
     public async Task<FriendsPage<FriendDto>> FriendsAsync(int viewerId, string username, FriendsPageRequest request, CancellationToken ct = default)
@@ -36,14 +37,24 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
         var user = await FindVisibleAccountAsync(viewerId, username, ct);
         if (!await privacy.CanViewAsync(viewerId, user.Id, PrivacyScope.Profile, ct))
             throw new ProfileException("profile_restricted");
-        return await friends.ListAsync(user.Id, null, request, ct);
+        return await friends.ListAsync(user.Id, null, request, ct, viewerId);
+    }
+
+    public async Task<LibraryListResponseDto> LibraryAsync(int viewerId, string username, LibraryListRequest request, CancellationToken ct = default)
+    {
+        var user = await FindVisibleAccountAsync(viewerId, username, ct);
+        if (!await privacy.CanViewAsync(viewerId, user.Id, PrivacyScope.History, ct))
+            throw new ProfileException("history_restricted");
+        return await library.ListAsync(user.Id, request, ct);
     }
 
     private async Task<ApplicationUser> FindVisibleAccountAsync(int viewerId, string username, CancellationToken ct)
     {
         var normalized = users.NormalizeName(username);
-        return await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.NormalizedUserName == normalized &&
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.NormalizedUserName == normalized &&
             (u.EmailConfirmed || u.Id == viewerId), ct) ?? throw new ProfileException("user_not_found");
+        if (await privacy.IsBlockedAsync(viewerId, user.Id, ct)) throw new ProfileException("user_not_found");
+        return user;
     }
 
     public async Task<MyProfileDto> UpdateAsync(int userId, UpdateProfileRequest request, CancellationToken ct = default)
@@ -114,7 +125,7 @@ public sealed class ProfileService(AppDbContext db, UserManager<ApplicationUser>
     private async Task<MyProfileDto> MineAsync(ApplicationUser user, CancellationToken ct)
     {
         var summary = await friends.SummaryAsync(user.Id, ct);
-        return new(user.Id, user.UserName!, user.Email, null, user.Bio, user.CreatedAt,
+        return new(user.Id, user.UserName!, user.Email, AvatarUrls.FromFile(user.AvatarFileName), user.Bio, user.CreatedAt,
             summary.FriendsCount, summary.PendingReceivedCount, AvailableAt(user));
     }
 }

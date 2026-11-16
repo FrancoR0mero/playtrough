@@ -1,0 +1,101 @@
+<section class="page-container" aria-labelledby="blocked-users-title">
+  <a
+    routerLink="/profile/settings/privacy"
+    class="ui-button inline-flex min-h-11 items-center text-slate-300 hover:text-white"
+    >Volver a privacidad</a
+  >
+  <h1 #heading id="blocked-users-title" tabindex="-1" class="page-heading mt-4 text-white">
+    Usuarios bloqueados
+  </h1>
+  <p class="mt-3 max-w-2xl leading-relaxed text-slate-400">
+    Administrá los bloqueos que realizaste. Desbloquear no recupera la amistad ni las solicitudes
+    anteriores.
+  </p>
+  <p role="status" aria-live="polite" class="mt-4 text-sm text-emerald-300">{{ status() }}</p>
+  @if (error() || cooldown.message(); as message) {
+    <div role="alert" class="mt-5 text-sm text-red-300">
+      <p>{{ cooldown.message() || message }}</p>
+      @if (!busy() && !confirming()) {
+        <button
+          type="button"
+          data-action="retry-blocks"
+          (click)="retry()"
+          [disabled]="loading() || cooldown.remaining() > 0"
+          class="ui-button mt-3 min-h-11 border border-slate-600 px-4 py-2 text-white"
+        >
+          Reintentar
+        </button>
+      }
+    </div>
+  }
+  <ul class="mt-6 max-w-3xl divide-y divide-white/10" [attr.aria-busy]="loading()">
+    @for (row of items(); track row.user.username) {
+      <li class="py-5">
+        <div class="flex flex-wrap items-center gap-4">
+          <app-user-avatar [username]="row.user.username" [avatarUrl]="row.user.avatarUrl" />
+          <div class="min-w-0 flex-1 basis-36">
+            <p class="break-words font-semibold text-white">{{ row.user.username }}</p>
+            <p class="mt-1 text-sm text-slate-400">Bloqueado el {{ date(row.blockedAt) }}</p>
+          </div>
+          <button
+            #unblockButton
+            type="button"
+            (click)="confirming.set(row.user.username)"
+            [disabled]="loading() || busy() !== null || cooldown.remaining() > 0"
+            [attr.aria-label]="'Desbloquear a ' + row.user.username"
+            class="ui-button min-h-11 border border-slate-600 px-4 py-2 text-white disabled:opacity-50"
+          >
+            Desbloquear
+          </button>
+        </div>
+        @if (confirming() === row.user.username) {
+          <div
+            role="group"
+            [attr.aria-label]="'Confirmar desbloqueo de ' + row.user.username"
+            class="mt-4"
+          >
+            <p class="max-w-2xl text-sm leading-relaxed text-slate-300">
+              ¿Desbloquear a {{ row.user.username }}? Si esa persona también te bloqueó, el acceso
+              seguirá restringido.
+            </p>
+            <div class="mt-3 flex flex-wrap gap-3">
+              <button
+                type="button"
+                data-action="confirm-unblock"
+                (click)="unblock(row)"
+                [disabled]="loading() || busy() !== null || cooldown.remaining() > 0"
+                class="ui-button min-h-11 bg-accent px-4 py-2 text-white disabled:opacity-50"
+              >
+                {{ busy() === row.user.username ? 'Desbloqueando…' : 'Sí, desbloquear' }}
+              </button>
+              <button
+                type="button"
+                (click)="confirming.set(null); unblockButton.focus()"
+                [disabled]="busy() !== null"
+                class="ui-button min-h-11 border border-slate-600 px-4 py-2 text-white"
+              >
+                Conservar bloqueo
+              </button>
+            </div>
+          </div>
+        }
+      </li>
+    }
+  </ul>
+  @if (loading()) {
+    <p role="status" class="mt-5 text-slate-400">Cargando usuarios bloqueados…</p>
+  } @else if (loaded() && !items().length && !error()) {
+    <p class="mt-6 text-slate-300">No tenés usuarios bloqueados.</p>
+  }
+  @if (hasMore() && !error()) {
+    <button
+      type="button"
+      data-action="more-blocks"
+      (click)="more()"
+      [disabled]="loading() || busy() !== null || cooldown.remaining() > 0"
+      class="ui-button mt-6 min-h-11 border border-slate-600 px-5 py-3 text-white"
+    >
+      Cargar más
+    </button>
+  }
+</section>

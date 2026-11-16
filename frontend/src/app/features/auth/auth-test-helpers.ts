@@ -36,6 +36,7 @@ export function createAuthMock() {
       >(),
     clearSession: vi.fn(),
     restoreSession: vi.fn(),
+    updateCurrentAvatar: vi.fn(),
     currentUser,
     isAuthenticated,
     hasRole: (role: AppRole) => isAuthenticated() && currentUser()?.role === role,

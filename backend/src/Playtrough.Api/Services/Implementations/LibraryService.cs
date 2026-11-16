@@ -3,10 +3,11 @@ using Playtrough.Api.Dtos.Library;
 using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Services.Interfaces;
+using Playtrough.Api.Catalog;
 
 namespace Playtrough.Api.Services.Implementations;
 
-public sealed class LibraryService(ILibraryRepository repository, TimeProvider time) : ILibraryService
+public sealed class LibraryService(ILibraryRepository repository, TimeProvider time, IGameService games) : ILibraryService
 {
     public async Task<LibraryEntry> AddAsync(int userId, int gameId, LibraryStatus status, DateOnly? occurredOn = null,
         CancellationToken ct = default)
@@ -67,8 +68,34 @@ public sealed class LibraryService(ILibraryRepository repository, TimeProvider t
     public Task<LibraryEntryDto> DescribeAsync(LibraryEntry entry, CancellationToken ct = default)
         => repository.DescribeAsync(entry, ct);
 
-    public Task<LibraryListResponseDto> ListAsync(int userId, LibraryListRequest request, CancellationToken ct = default)
-        => repository.ListAsync(userId, request, ct);
+    public async Task<LibraryListResponseDto> ListAsync(int userId, LibraryListRequest request, CancellationToken ct = default)
+    {
+        var response = await repository.ListAsync(userId, request, ct);
+        if (response.Items.Count == 0) return response;
+        var ids = await repository.MetadataRefreshIdsAsync(response.Items.Select(item => item.GameId).ToArray(),
+            time.GetUtcNow().UtcDateTime, ct);
+        if (ids.Count == 0) return response;
+
+        // The list's snapshot transaction is already committed. Never hold database locks
+        // across provider requests, or issue parallel operations on the scoped DbContext.
+        foreach (var id in ids)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                var game = await games.GetOrCreateAsync(GameService.GameBrainProvider, id, ct);
+                // GameService returns the local identity on quota/unavailability. Avoid
+                // repeatedly asking an unavailable provider for the rest of this page.
+                if (game.MetadataExpiresAt is not { } expiry || expiry <= time.GetUtcNow().UtcDateTime) break;
+            }
+            catch (GameNotFoundException) { /* Keep the entry even if the provider removed its game. */ }
+            catch (GameCatalogUnavailableException) { break; }
+            catch (GameBrainAuthenticationException) { break; }
+        }
+
+        // Reapply filters and ordering against refreshed names and release dates.
+        return await repository.ListAsync(userId, request, ct);
+    }
 
     private static LibraryEvent Event(LibraryEntry entry, LibraryEventType type, LibraryStatus? from, LibraryStatus? to,
         DateOnly date, DateTime now) => new()

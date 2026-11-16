@@ -55,3 +55,6 @@ appsettings.*.local.json
 
 # Local migration report
 gamebrain-backfill*.jsonl
+
+# User uploaded avatars (persistent runtime storage)
+backend/src/Playtrough.Api/App_Data/

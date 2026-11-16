@@ -1,0 +1,77 @@
+<section class="page-container" aria-labelledby="people-title">
+  <h1 #heading id="people-title" tabindex="-1" class="page-heading w-fit text-white">Personas</h1>
+  <p class="mt-4 max-w-xl text-sm leading-relaxed text-slate-400">
+    Encontrá jugadores y compartí tu próxima partida.
+  </p>
+  <p role="status" aria-live="polite" aria-atomic="true" class="mt-6 text-sm text-slate-400">
+    @if (loading()) {
+      {{ items().length ? 'Cargando más personas…' : 'Buscando personas…' }}
+    } @else if (searched()) {
+      {{ items().length }}
+      {{ items().length === 1 ? 'persona encontrada' : 'personas encontradas' }}
+    }
+  </p>
+  <ul
+    aria-label="Personas encontradas"
+    [attr.aria-busy]="loading()"
+    class="mt-3 max-w-3xl divide-y divide-white/10"
+  >
+    @for (user of items(); track user.username) {
+      <li>
+        <app-friend-row [user]="user">
+          <app-friendship-button
+            [username]="user.username"
+            [relationship]="user.relationship"
+            [compact]="true"
+            (relationshipChanged)="updateRelationship(user.username, $event)"
+          />
+        </app-friend-row>
+      </li>
+    }
+  </ul>
+  @if (loading()) {
+    <div aria-hidden="true" class="mt-5 max-w-3xl space-y-4 motion-safe:animate-pulse">
+      @for (row of [1, 2, 3]; track row) {
+        <div data-skeleton class="h-20 rounded bg-slate-800"></div>
+      }
+    </div>
+  } @else if (!items().length && !error()) {
+    <div class="py-10">
+      <h2 class="text-xl font-semibold text-white">
+        {{ searched() ? 'No encontramos personas' : 'Buscá a otros jugadores' }}
+      </h2>
+      <p class="mt-3 text-sm text-slate-400">
+        {{
+          searched()
+            ? 'Probá con otro nombre o revisá cómo lo escribiste.'
+            : 'Escribí un nombre de usuario en el buscador de arriba para empezar a conectar.'
+        }}
+      </p>
+    </div>
+  }
+  @if (cooldown.message() || error(); as message) {
+    <div id="people-error" role="alert" class="mt-4 max-w-3xl text-sm text-red-300">
+      <p>{{ message }}</p>
+      @if (!invalidQuery()) {
+        <button
+          type="button"
+          (click)="retry()"
+          [disabled]="loading() || cooldown.remaining() > 0"
+          class="ui-button mt-3 min-h-11 border border-slate-600 px-4 py-2 text-white disabled:opacity-50"
+        >
+          Reintentar
+        </button>
+      }
+    </div>
+  }
+  @if (hasMore() && !error()) {
+    <button
+      type="button"
+      (click)="more()"
+      [disabled]="loading() || cooldown.remaining() > 0"
+      class="ui-button mt-5 min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-50"
+    >
+      Cargar más
+    </button>
+  }
+</section>

@@ -158,7 +158,9 @@ export class GamesComponent implements OnInit {
     this.error.set(null);
     this.retryable.set(false);
     this.invalidQuery.set(false);
-    return (this.fullSearch() ? this.catalog.search(q, page, PAGE_SIZE) : this.catalog.suggest(q)).pipe(
+    return (
+      this.fullSearch() ? this.catalog.search(q, page, PAGE_SIZE) : this.catalog.suggest(q)
+    ).pipe(
       catchError((error: unknown) => {
         this.failedPage = page;
         if (error instanceof HttpErrorResponse && error.status === 401) return EMPTY;

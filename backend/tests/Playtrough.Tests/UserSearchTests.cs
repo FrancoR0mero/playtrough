@@ -39,6 +39,8 @@ public class UserSearchTests
     [Theory]
     [InlineData("a_", "a_one", "abone")]
     [InlineData("a%", "a%one", "aone")]
+    [InlineData("a!", "a!one", "aone")]
+    [InlineData("a!_", "a!_one", "a!xone")]
     [InlineData("a\\", "a\\one", "abone")]
     [InlineData("JOSÉ", "José", "Josue")]
     public async Task LiteralWildcardsBackslashAndAccents(string q, string match, string nonMatch)
@@ -108,7 +110,8 @@ public class UserSearchTests
         var sql = service.Query(1, "A_%").Skip(20).Take(21).ToQueryString();
         Assert.Contains("ORDER BY", sql);
         Assert.Contains("CASE", sql);
-        Assert.Contains("ESCAPE", sql);
+        Assert.Contains("ESCAPE '!'", sql);
+        Assert.DoesNotContain("ESCAPE '\\'", sql);
         Assert.Contains("Friendships", sql);
         Assert.Contains("PendingPairKey", sql);
         Assert.Contains("EmailConfirmed", sql);

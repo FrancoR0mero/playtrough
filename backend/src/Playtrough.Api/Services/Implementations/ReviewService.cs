@@ -9,7 +9,7 @@ using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Api.Services.Implementations;
 
-public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewService
+public sealed class ReviewService(AppDbContext db, TimeProvider time, TimelineWriter timeline) : IReviewService
 {
     public Task<ReviewResult> UpsertAsync(int userId, int gameId, decimal rating, string? text, CancellationToken ct = default)
     {
@@ -109,7 +109,7 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewS
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var summary = await GetSummaryAsync(gameId, ct);
             var query = from review in db.Reviews.AsNoTracking()
-                        join author in db.Users.AsNoTracking() on review.UserId equals author.Id
+                        join author in PrivacyService.VisibleUsers(db, userId) on review.UserId equals author.Id
                         where review.GameId == gameId
                         select new
                         {
@@ -139,10 +139,21 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewS
         bool created, bool delete, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        TimelineEntry? timelineEntry = null;
         try
         {
-            if (created) db.Reviews.Add(review);
-            else if (delete) db.Reviews.Remove(review);
+            if (created)
+            {
+                db.Reviews.Add(review);
+                timelineEntry = timeline.AddReview(review);
+            }
+            else if (delete)
+            {
+                // Explicitly delete in this transaction; the FK cascade also protects
+                // deletes performed outside this service (including account removal).
+                await db.TimelineEntries.Where(entry => entry.ReviewId == review.Id).ExecuteDeleteAsync(ct);
+                db.Reviews.Remove(review);
+            }
             else
             {
                 var entry = db.Reviews.Attach(review);
@@ -183,6 +194,7 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewS
         finally
         {
             // Failed writes, execution-strategy retries and later saves cannot reuse stale state.
+            if (timelineEntry is not null) db.Entry(timelineEntry).State = EntityState.Detached;
             db.Entry(review).State = EntityState.Detached;
         }
     }

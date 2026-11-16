@@ -25,6 +25,7 @@ import { RatingSummaryComponent } from './rating-summary';
 import { ReviewContentComponent } from './review-content';
 import { reviewErrorCode } from './review-error';
 import { ReviewService } from './services/review';
+import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar';
 
 type Section = 'detail' | 'mine' | 'list';
 const SORTS = [
@@ -41,6 +42,7 @@ const SORTS = [
     GameImageComponent,
     RatingSummaryComponent,
     ReviewContentComponent,
+    UserAvatarComponent,
   ],
   templateUrl: './game-reviews.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -150,7 +152,11 @@ export class GameReviewsComponent implements OnInit {
       return;
     }
     this.loading.detail.set(true);
-    this.detailRequest = (this.localIdentity ? this.catalog.getLocalDetail(Number(this.externalId)) : this.catalog.getDetail(Number(this.externalId)))
+    this.detailRequest = (
+      this.localIdentity
+        ? this.catalog.getLocalDetail(Number(this.externalId))
+        : this.catalog.getDetail(Number(this.externalId))
+    )
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.detail.set(false)),

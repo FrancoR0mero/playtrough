@@ -14,9 +14,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
+    public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<LibraryEntry> LibraryEntries => Set<LibraryEntry>();
     public DbSet<LibraryEvent> LibraryEvents => Set<LibraryEvent>();
+    public DbSet<TimelineEntry> TimelineEntries => Set<TimelineEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -25,8 +27,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.ApplyConfiguration(new ReviewConfiguration());
         builder.ApplyConfiguration(new FriendRequestConfiguration());
         builder.ApplyConfiguration(new FriendshipConfiguration());
+        builder.ApplyConfiguration(new UserBlockConfiguration());
         builder.ApplyConfiguration(new LibraryEntryConfiguration());
         builder.ApplyConfiguration(new LibraryEventConfiguration());
+        builder.ApplyConfiguration(new TimelineEntryConfiguration());
 
         // Identity tables use domain names, not the framework's AspNet* prefix.
         // Data is preserved by RENAME TABLE (never recreated) in migrations.
@@ -64,6 +68,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         // Identity makes NormalizedUserName unique but not NormalizedEmail.
         builder.Entity<ApplicationUser>(entity =>
         {
+            entity.Property(u => u.AvatarFileName).HasMaxLength(37);
             entity.Property(u => u.Bio).HasMaxLength(300).HasAnnotation("MySQL:Charset", "utf8mb4");
             // Always write explicit values, including Public=0 for history, rather
             // than treating enum zero as a sentinel for the database's Friends default.

@@ -19,6 +19,7 @@ import {
   Observable,
   Subject,
   catchError,
+  combineLatest,
   exhaustMap,
   expand,
   finalize,
@@ -29,6 +30,8 @@ import {
   switchMap,
   timer,
 } from 'rxjs';
+import { visibleSocialRefresh } from '../profile/social-refresh';
+import { FriendsService } from '../friends/services/friends';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { GAME_CARD_ASPECT_RATIO, GameCardComponent } from '../games/game-card';
 import { GameDetailComponent } from '../games/game-detail';
@@ -95,6 +98,8 @@ export class LibraryComponent implements OnInit {
   private failedPage: PageRequest = { page: 1, rebuild: false };
   private preview: DialogRef<void, GameDetailComponent> | null = null;
   private confirmation: DialogRef<boolean, ConfirmLibraryRemovalComponent> | null = null;
+  protected readonly username = signal<string | null>(null);
+  private readonly friends = inject(FriendsService);
   protected readonly states = LIBRARY_STATUSES;
   protected readonly tabs = [
     { value: '' as const, label: 'Todos', count: 'total' as const },
@@ -140,6 +145,7 @@ export class LibraryComponent implements OnInit {
           this.failedPage = { page: 1, rebuild: false };
           this.known.clear();
           this.items.set([]);
+          if (this.username()) this.counts.set({ ...EMPTY_COUNTS });
           this.hasMore.set(false);
           this.loaded.set(false);
           this.error.set(null);
@@ -170,27 +176,38 @@ export class LibraryComponent implements OnInit {
       });
 
     let initialized = false;
-    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      const status = this.states.find((state) => state.value === params.get('status'))?.value ?? '';
-      const sort = SORTS.find((option) => option.value === params.get('sort'))?.value ?? 'recent';
-      const next: Filters = { status, sort, q: (params.get('q') ?? '').trim() };
-      if (initialized && this.sameFilters(next, this.filters())) return;
-      initialized = true;
-      this.search.setValue(next.q, { emitEvent: false });
-      this.sort.setValue(next.sort, { emitEvent: false });
-      this.queries.next({ filters: next, delay: 0 });
-    });
+    combineLatest([this.route.paramMap, this.route.queryParamMap])
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(([routeParams, params]) => {
+        const username = routeParams.get('username');
+        const status =
+          this.states.find((state) => state.value === params.get('status'))?.value ?? '';
+        const sort = SORTS.find((option) => option.value === params.get('sort'))?.value ?? 'recent';
+        const next: Filters = { status, sort, q: (params.get('q') ?? '').trim() };
+        if (initialized && username === this.username() && this.sameFilters(next, this.filters()))
+          return;
+        this.username.set(username);
+        initialized = true;
+        this.search.setValue(next.q, { emitEvent: false });
+        this.sort.setValue(next.sort, { emitEvent: false });
+        this.queries.next({ filters: next, delay: 0 });
+      });
     this.search.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((q) => this.setFilters({ ...this.filters(), q: q.trim() }, 400));
     this.sort.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((sort) => this.setFilters({ ...this.filters(), sort }, 0));
-    this.library.changes$
+    this.library.changes$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((change) => {
+      if (!this.username()) this.applyChange(change);
+    });
+    merge(visibleSocialRefresh(), this.friends.changes$)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((change) => this.applyChange(change));
+      .subscribe(() => {
+        if (this.username() && !this.loading() && !this.cooldown.remaining()) this.reload();
+      });
     this.library.invalidated$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((error) => {
-      if (error instanceof HttpErrorResponse && error.status === 401) return;
+      if (this.username() || (error instanceof HttpErrorResponse && error.status === 401)) return;
       this.actionError.set(
         this.cooldown.handle(error)
           ? 'No se guardó el cambio. Actualizaremos la lista al terminar la espera.'
@@ -212,7 +229,11 @@ export class LibraryComponent implements OnInit {
       status: filters.status || undefined,
       pageSize: PAGE_SIZE,
     };
-    const page = (number: number) => this.library.list({ ...query, page: number });
+    const username = this.username();
+    const page = (number: number) =>
+      username
+        ? this.library.forUser(username, { ...query, page: number })
+        : this.library.list({ ...query, page: number });
     // Mutations can shift offset-based pages. Re-read the prefix before loading more,
     // so a deletion or reordering cannot silently skip the next unseen game.
     const result = request.rebuild
@@ -233,13 +254,26 @@ export class LibraryComponent implements OnInit {
     return result.pipe(
       map((response) => ({ response, replace: request.rebuild || request.page === 1 })),
       catchError((error: unknown) => {
+        if (this.username()) {
+          this.items.set([]);
+          this.counts.set({ ...EMPTY_COUNTS });
+          this.hasMore.set(false);
+          this.loaded.set(false);
+        }
         if (error instanceof HttpErrorResponse && error.status === 401) return EMPTY;
-        this.invalidQuery.set(libraryErrorCode(error) === 'invalid_query');
-        this.retryable.set(!this.invalidQuery());
+        const code = libraryErrorCode(error);
+        this.invalidQuery.set(code === 'invalid_query');
+        this.retryable.set(!this.invalidQuery() && code !== 'user_not_found');
         this.error.set(
           this.cooldown.handle(error)
             ? 'Ya podés reintentar la carga de tu biblioteca.'
-            : libraryErrorMessage(error, false),
+            : code === 'history_restricted'
+              ? 'Esta biblioteca es privada o está disponible solo para amigos.'
+              : code === 'user_not_found'
+                ? 'No encontramos a este jugador.'
+                : this.username()
+                  ? 'No pudimos cargar la biblioteca. Revisá tu conexión e intentá de nuevo.'
+                  : libraryErrorMessage(error, false),
         );
         return EMPTY;
       }),
@@ -341,6 +375,7 @@ export class LibraryComponent implements OnInit {
 
   protected menuAction(entry: LibraryEntryDto, action: LibraryMenuAction): void {
     if (
+      this.username() ||
       this.saving() !== null ||
       this.cooldown.remaining() ||
       this.loading() ||
