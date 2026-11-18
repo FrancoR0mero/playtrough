@@ -32,6 +32,17 @@ const PUBLIC: PublicReviewDto = {
   editedAt: null,
   author: { userId: 2, username: 'otro' },
   isMine: false,
+  likeCount: 2,
+  dislikeCount: 1,
+  myReaction: null,
+};
+const OWN_PUBLIC: PublicReviewDto = {
+  ...PUBLIC,
+  ...MINE,
+  author: { userId: 1, username: 'ana' },
+  isMine: true,
+  likeCount: 7,
+  dislikeCount: 3,
 };
 
 describe('Game reviews screen', () => {
@@ -167,7 +178,7 @@ describe('Game reviews screen', () => {
     expect(el('[data-my-review]')).toBeNull();
   });
 
-  it.each(['top', 'low', 'invalid'])(
+  it.each(['top', 'low', 'helpful', 'invalid'])(
     'restores sort %s from the URL or falls back to recent',
     (value) => {
       start(value);
@@ -186,7 +197,7 @@ describe('Game reviews screen', () => {
     },
   );
 
-  it('resets pagination and cancels old requests when changing sort', () => {
+  it('sets helpful in the URL, resets pagination and cancels the previous sort', () => {
     start();
     detail();
     flushMine();
@@ -194,15 +205,16 @@ describe('Game reviews screen', () => {
     click('load-more');
     const stale = listRequest();
     expect(stale.request.params.get('page')).toBe('2');
-    sort('top');
+    expect(el('option[value="helpful"]').textContent).toContain('Más útiles');
+    sort('helpful');
     expect(stale.cancelled).toBe(true);
     expect(navigate).toHaveBeenCalledWith(
       [],
-      expect.objectContaining({ queryParams: { sort: 'top' }, replaceUrl: true }),
+      expect.objectContaining({ queryParams: { sort: 'helpful' }, replaceUrl: true }),
     );
     expect(el('[data-review-id]')).toBeNull();
     const current = listRequest();
-    expect(current.request.params.get('sort')).toBe('top');
+    expect(current.request.params.get('sort')).toBe('helpful');
     expect(current.request.params.get('page')).toBe('1');
     current.flush({
       items: [{ ...PUBLIC, id: 3 }],
@@ -255,17 +267,24 @@ describe('Game reviews screen', () => {
     expect(button('load-more')).toBeNull();
   });
 
-  it('shows mine once above the public list, in read-only mode', () => {
+  it('shows mine above and in the public list with both sets of reaction controls disabled', () => {
     start();
     detail();
     flushMine(MINE);
-    flushList([{ ...PUBLIC, ...MINE, isMine: true }, PUBLIC]);
+    flushList([OWN_PUBLIC, PUBLIC]);
     expect(el('[data-my-review]').textContent).toContain('Mi opinión');
     expect(el('[data-my-review]').textContent).toContain('(editada)');
     expect(el('[data-my-review]').textContent).toContain('Podés editarla desde la ficha del juego');
     expect(el('[data-my-review] time').textContent).toBe('02/11/2026');
-    expect(fixture.nativeElement.querySelectorAll('[data-review-id]')).toHaveLength(1);
-    expect(el('[data-review-id="1"]')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('[data-review-id]')).toHaveLength(2);
+    for (const container of ['[data-my-review]', '[data-review-id="1"]']) {
+      const like = el<HTMLButtonElement>(container + ' [data-reaction="like"]');
+      const dislike = el<HTMLButtonElement>(container + ' [data-reaction="dislike"]');
+      expect(like.disabled).toBe(true);
+      expect(dislike.disabled).toBe(true);
+      expect(like.getAttribute('aria-label')).toBe('Me gusta (7)');
+      expect(dislike.getAttribute('aria-label')).toBe('No me gusta (3)');
+    }
     expect(el('textarea')).toBeNull();
     expect(el('[data-action="edit-review"]')).toBeNull();
     expect(
@@ -278,9 +297,92 @@ describe('Game reviews screen', () => {
     start();
     detail();
     flushMine(MINE);
-    flushList([{ ...PUBLIC, ...MINE, isMine: true }], { ratingSummary: { average: 4, count: 1 } });
-    expect(el('[data-empty]').textContent).toContain('No hay reseñas de otros jugadores');
+    flushList([OWN_PUBLIC], { ratingSummary: { average: 4, count: 1 } });
+    expect(el('[data-empty]')).toBeNull();
+    expect(el('[data-review-id="1"]')).not.toBeNull();
     expect(el('[data-rating-summary]').textContent).toContain('1 reseña');
+  });
+
+  it('finds the featured review counts on later pages without loading those rows into the list', () => {
+    start('helpful');
+    detail();
+    flushList([PUBLIC], { hasMore: true });
+    flushMine(MINE);
+    expect(el('[data-my-review]').textContent).toContain('Cargando reacciones');
+    const ownPage = listRequest();
+    expect(ownPage.request.params.get('page')).toBe('2');
+    expect(ownPage.request.params.get('sort')).toBe('helpful');
+    ownPage.flush({
+      items: [OWN_PUBLIC, { ...PUBLIC, id: 3 }],
+      page: 2,
+      pageSize: 20,
+      hasMore: true,
+      ratingSummary: DETAIL.ratingSummary,
+    });
+    fixture.detectChanges();
+    expect(el('[data-my-review] [data-reaction="like"]').getAttribute('aria-label')).toBe(
+      'Me gusta (7)',
+    );
+    expect(el('[data-review-id="3"]')).toBeNull();
+    http.expectNone((request) => request.url === listUrl);
+    click('load-more');
+    const publicPage = listRequest();
+    expect(publicPage.request.params.get('page')).toBe('2');
+    publicPage.flush({
+      items: [OWN_PUBLIC],
+      page: 2,
+      pageSize: 20,
+      hasMore: false,
+      ratingSummary: DETAIL.ratingSummary,
+    });
+    fixture.detectChanges();
+    expect(el('[data-review-id="1"] [data-reaction="like"]').getAttribute('aria-label')).toBe(
+      'Me gusta (7)',
+    );
+  });
+
+  it('reacts only to the chosen public review and removes it on 404', () => {
+    start();
+    detail();
+    flushMine();
+    flushList([PUBLIC, { ...PUBLIC, id: 3 }]);
+    const chosen = el<HTMLButtonElement>('[data-review-id="2"] [data-reaction="like"]');
+    const other = el<HTMLButtonElement>('[data-review-id="3"] [data-reaction="like"]');
+    chosen.click();
+    fixture.detectChanges();
+    expect(chosen.getAttribute('aria-pressed')).toBe('true');
+    expect(other.getAttribute('aria-pressed')).toBe('false');
+    const url = `${listUrl}/2/reaction`;
+    http
+      .expectOne({ method: 'PUT', url })
+      .flush({ myReaction: 'like', likeCount: 8, dislikeCount: 1 });
+    fixture.detectChanges();
+    expect(chosen.getAttribute('aria-label')).toBe('Me gusta (8)');
+    expect(other.getAttribute('aria-label')).toBe('Me gusta (2)');
+    chosen.click();
+    http
+      .expectOne({ method: 'DELETE', url })
+      .flush({ code: 'review_not_found' }, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+    expect(el('[data-review-id="2"]')).toBeNull();
+    expect(el('[data-review-id="3"]')).not.toBeNull();
+    expect(el('[role="alert"]').textContent).toContain('Esta reseña ya no está disponible');
+  });
+
+  it('cancels the featured review lookup when the user chooses another order', () => {
+    start();
+    detail();
+    flushMine(MINE);
+    flushList([PUBLIC], { hasMore: true });
+    const stale = listRequest();
+    expect(stale.request.params.get('page')).toBe('2');
+    sort('helpful');
+    expect(stale.cancelled).toBe(true);
+    flushList([OWN_PUBLIC, PUBLIC]);
+    expect(el('[data-my-review] [data-reaction="like"]').getAttribute('aria-label')).toBe(
+      'Me gusta (7)',
+    );
+    http.expectNone((request) => request.url === listUrl);
   });
 
   it('shows a genuine empty state with a link to find the game', () => {
@@ -325,7 +427,8 @@ describe('Game reviews screen', () => {
       'Puntuación 5 de 5',
     );
     expect(el('[data-review-text]')).toBeNull();
-    expect(el('[data-review-id] button')).toBeNull();
+    expect(el('[data-review-id] app-review-content button')).toBeNull();
+    expect(el('[data-review-id] [data-reaction="like"]')).not.toBeNull();
   });
 
   it.each(['detail', 'mine', 'list'] as const)(

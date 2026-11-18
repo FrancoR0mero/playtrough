@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { jwtInterceptor } from '../../core/interceptors/jwt-interceptor';
+import { ReactionsService } from '../reactions/services/reactions';
 import { EntryCommentsComponent } from './entry-comments';
 import { CommentDto } from './models/comment';
 
@@ -310,4 +311,66 @@ describe('Entry comments', () => {
       expect(f.counts).toHaveBeenLastCalledWith(0);
     },
   );
+
+  it('reacts to other comments, keeps own counts disabled and synchronizes only the chosen comment', () => {
+    const f = setup();
+    f.page([
+      comment(1, { likeCount: 3, dislikeCount: 1, canDelete: true }),
+      comment(2, { likeCount: 7, dislikeCount: 4, isMine: true, canDelete: true }),
+    ]);
+    const saved = vi.fn();
+    const changes = TestBed.inject(ReactionsService).changes$.subscribe(saved);
+    const like = (id: number) =>
+      f.row(id).querySelector<HTMLButtonElement>('[data-reaction="like"]')!;
+    const url = `${base}/comments/1/reaction`;
+    expect(like(2).disabled).toBe(true);
+    expect(like(2).getAttribute('aria-label')).toBe('Me gusta (7)');
+    like(2).click();
+    f.http.expectNone(`${base}/comments/2/reaction`);
+    like(1).click();
+    f.fixture.detectChanges();
+    expect(like(1).getAttribute('aria-label')).toBe('Me gusta (4)');
+    f.http
+      .expectOne({ method: 'PUT', url })
+      .flush({ myReaction: 'like', likeCount: 5, dislikeCount: 1 });
+    f.fixture.detectChanges();
+    expect(like(1).getAttribute('aria-label')).toBe('Me gusta (5)');
+    expect(like(2).getAttribute('aria-label')).toBe('Me gusta (7)');
+    expect(saved).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        kind: 'saved',
+        target: { type: 'comment', id: 1 },
+        summary: { myReaction: 'like', likeCount: 5, dislikeCount: 1 },
+      }),
+    );
+    changes.unsubscribe();
+    f.act(1, 'Eliminar');
+    f.button('Cancelar', f.row(1)).click();
+    f.fixture.detectChanges();
+    expect(like(1).getAttribute('aria-pressed')).toBe('true');
+
+    like(1).click();
+    f.http
+      .expectOne({ method: 'DELETE', url })
+      .flush(
+        { code: 'rate_limited' },
+        { status: 429, statusText: 'Too Many Requests', headers: { 'Retry-After': '2' } },
+      );
+    f.fixture.detectChanges();
+    expect(like(1).getAttribute('aria-pressed')).toBe('true');
+    expect(f.row(1).querySelector('[role="alert"]')?.textContent).toContain('2 segundos');
+    vi.advanceTimersByTime(2000);
+    f.fixture.detectChanges();
+    like(1).click();
+    f.http
+      .expectOne({ method: 'DELETE', url })
+      .flush({ code: 'comment_not_found' }, { status: 404, statusText: 'Not Found' });
+    f.fixture.detectChanges();
+    expect(f.row(1)).toBeNull();
+    expect(f.row(2)).not.toBeNull();
+    expect(f.root.querySelector('[role="alert"]')?.textContent).toContain(
+      'Este comentario ya no está disponible',
+    );
+    expect(f.counts).toHaveBeenLastCalledWith(1);
+  });
 });
