@@ -1,0 +1,47 @@
+<div
+  role="group"
+  aria-label="Reacciones"
+  [attr.aria-describedby]="isOwn() || rejectedOwn() ? explanationId : null"
+  class="flex flex-wrap items-center gap-2"
+>
+  @for (value of choices; track value) {
+    <button
+      type="button"
+      [attr.data-reaction]="value"
+      [disabled]="blocked()"
+      [attr.aria-pressed]="state().myReaction === value"
+      [attr.aria-label]="label(value)"
+      [title]="label(value)"
+      (click)="choose(value)"
+      class="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-slate-600 text-sm font-medium text-slate-200 tabular-nums hover:border-violet-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300 disabled:cursor-default disabled:hover:border-slate-600 aria-pressed:border-violet-300 aria-pressed:bg-violet-400/15 aria-pressed:font-semibold aria-pressed:text-violet-100"
+      [class.px-2]="compact()"
+      [class.px-3]="!compact()"
+    >
+      <svg
+        aria-hidden="true"
+        class="size-5 shrink-0"
+        [class.rotate-180]="value === 'dislike'"
+        viewBox="0 0 24 24"
+        [attr.fill]="state().myReaction === value ? 'currentColor' : 'none'"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M7 10v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zm0 0 4-7a2 2 0 0 1 2 2v4h6a2 2 0 0 1 2 2.4l-1.6 7A2 2 0 0 1 17.5 20H7"
+        />
+      </svg>
+      <span aria-hidden="true">{{ formatted(value) }}</span>
+    </button>
+  }
+  @if (isOwn() && !rejectedOwn()) {
+    <span [id]="explanationId" class="sr-only">{{ ownMessage }}</span>
+  }
+</div>
+<span class="sr-only" aria-live="polite" aria-atomic="true">{{ announcement() }}</span>
+@if (error(); as message) {
+  <p role="alert" [id]="rejectedOwn() ? explanationId : null" class="mt-1 text-sm text-red-300">
+    {{ message }}
+  </p>
+}
