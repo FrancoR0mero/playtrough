@@ -11,8 +11,12 @@ using Playtrough.Api.Services.Interfaces;
 namespace Playtrough.Api.Services.Implementations;
 
 public sealed class TimelineService(AppDbContext db, ILookupNormalizer normalizer, IPrivacyService privacy,
-    TimelineQuery query, TimelineCursorCodec cursors) : ITimelineService
+    TimelineQuery query, TimelineCursorCodec cursors, TimelineEntryAccess access) : ITimelineService
 {
+    public async Task<FeedEntryDto> DetailAsync(int viewerId, long id, CancellationToken ct)
+        => await query.DetailAsync(access.VisibleTo(viewerId), viewerId, id, ct)
+            ?? throw new TimelineException("entry_not_found");
+
     public Task<TimelineEntryDto> SetVisibilityAsync(int ownerId, long id, UpdateTimelineVisibilityRequest request, CancellationToken ct = default)
     {
         if (request.Hidden.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new TimelineException("invalid_body");

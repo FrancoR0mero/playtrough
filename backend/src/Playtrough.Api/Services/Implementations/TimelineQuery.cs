@@ -33,17 +33,25 @@ public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> se
         var entries = ApplyFilters(source, null, false, new(null, null, []));
         if (position is { } cursor)
             entries = entries.Where(e => e.RecordedAt < cursor.RecordedAt || e.RecordedAt == cursor.RecordedAt && e.Id < cursor.Id);
-        var excerptLength = settings.Value.ExcerptLength;
         // Every confirmed friend satisfies the unified Public/Private policy.
         // Blocks still deny access in either direction, even with a stale friendship.
-        return (from entry in entries
+        return ProjectWithAuthor(entries, viewerId, forFeed: true).Take(limit + 1);
+    }
+
+    internal Task<FeedEntryDto?> DetailAsync(IQueryable<TimelineEntry> visible, int viewerId, long id, CancellationToken ct)
+        => ProjectWithAuthor(visible.Where(entry => entry.Id == id), viewerId, forFeed: false).SingleOrDefaultAsync(ct);
+
+    private IQueryable<FeedEntryDto> ProjectWithAuthor(IQueryable<TimelineEntry> entries, int viewerId, bool forFeed)
+    {
+        var excerptLength = settings.Value.ExcerptLength;
+        return from entry in entries
                 join author in db.Users.AsNoTracking() on entry.UserId equals author.Id
                 join game in db.Games.AsNoTracking() on entry.GameId equals game.Id
                 join review in db.Reviews.AsNoTracking() on entry.ReviewId equals (int?)review.Id into reviews
                 from review in reviews.DefaultIfEmpty()
                 join mine in ViewerReactions(viewerId) on entry.Id equals mine.EntryId into reactions
                 from mine in reactions.DefaultIfEmpty()
-                where author.EmailConfirmed && !db.UserBlocks.Any(b =>
+                where !forFeed || author.EmailConfirmed && !db.UserBlocks.Any(b =>
                     b.BlockerId == viewerId && b.BlockedId == author.Id || b.BlockerId == author.Id && b.BlockedId == viewerId)
                 orderby entry.RecordedAt descending, entry.Id descending
                 select new FeedEntryDto(entry.Id, TimelineValues.TypeValue(entry.Type), entry.OccurredOn, entry.RecordedAt,
@@ -53,12 +61,11 @@ public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> se
                     entry.ToStatus.HasValue ? LibraryValues.StatusValue(entry.ToStatus.GetValueOrDefault()) : null,
                     entry.Type == TimelineEntryType.Reviewed && review != null
                         ? new TimelineReviewDto(review.Id, review.Rating, Excerpt(review.Text, excerptLength)) : null,
-                    false, new FeedAuthorDto(author.UserName!, AvatarUrls.FromFile(author.AvatarFileName)))
+                    entry.IsHidden && entry.UserId == viewerId, new FeedAuthorDto(author.UserName!, AvatarUrls.FromFile(author.AvatarFileName)))
                 {
                     LikeCount = entry.LikeCount, DislikeCount = entry.DislikeCount, CommentCount = entry.CommentCount,
                     MyReaction = ReactionService.Name((ReactionValue?)mine.Value),
-                })
-            .Take(limit + 1);
+                };
     }
 
     public Task<List<FeedEntryDto>> FeedAsync(int viewerId, FeedPosition? position, int limit, CancellationToken ct)

@@ -20,6 +20,13 @@ namespace Playtrough.Api.Controllers;
 [ProducesResponseType(typeof(ProblemDetails), 429)]
 public sealed class TimelineController(ITimelineService timeline) : ControllerBase
 {
+    /// <summary>Consultar una entrada visible con autor, contadores y reacción propia.</summary>
+    /// <response code="404">entry_not_found: entrada inexistente o no visible para el visitante.</response>
+    [HttpGet("entries/{id:long}")]
+    [ProducesResponseType(typeof(FeedEntryDto), 200)]
+    public async Task<IActionResult> Detail(long id, CancellationToken ct)
+        => UserId() is { } viewer ? Ok(await timeline.DetailAsync(viewer, id, ct)) : Challenge();
+
     /// <summary>Consultar la línea propia, incluidas las entradas ocultas.</summary>
     /// <remarks>Orden: occurredOn, recordedAt e id descendentes. limit: 20 por defecto, máximo 50.
     /// year: 1970 hasta año UTC actual + 1. month: 1–12, con o sin year.

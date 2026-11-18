@@ -20,6 +20,7 @@ public sealed class RateLimitSettingsValidator : IValidateOptions<RateLimitSetti
             (nameof(settings.TimelineRead), settings.TimelineRead),
             (nameof(settings.TimelineWrite), settings.TimelineWrite),
             (nameof(settings.ReactionsWrite), settings.ReactionsWrite),
+            (nameof(settings.CommentsWrite), settings.CommentsWrite),
         })
         {
             if (policy is null)

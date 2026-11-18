@@ -54,6 +54,10 @@ public sealed class ConfigureRateLimiting(
             context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var userId)
                 ? FixedWindow($"user:{userId}", limits.ReactionsWrite)
                 : RateLimitPartition.GetNoLimiter<string>("reactions-write-anonymous"));
+        options.AddPolicy(RateLimitPolicies.CommentsWrite, context => limits.Enabled &&
+            context.Items.TryGetValue(RateLimitIdentityMiddleware.UserPartitionKey, out var userId)
+                ? FixedWindow($"user:{userId}", limits.CommentsWrite)
+                : RateLimitPartition.GetNoLimiter<string>("comments-write-anonymous"));
 
         if (limits.Enabled)
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
@@ -123,6 +127,7 @@ public sealed class ConfigureRateLimiting(
         RateLimitPolicies.TimelineRead => limits.TimelineRead.Window,
         RateLimitPolicies.TimelineWrite => limits.TimelineWrite.Window,
         RateLimitPolicies.ReactionsWrite => limits.ReactionsWrite.Window,
+        RateLimitPolicies.CommentsWrite => limits.CommentsWrite.Window,
         _ => limits.Global.Window,
     };
 }

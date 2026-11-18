@@ -11,10 +11,10 @@ public sealed class TimelineExceptionMiddleware(RequestDelegate next)
         {
             var status = error.Code switch
             {
-                "user_not_found" or "entry_not_found" => 404,
+                "user_not_found" or "entry_not_found" or "comment_not_found" => 404,
                 "history_restricted" => 403,
-                "invalid_cursor" or "invalid_filter" or "invalid_body" or "invalid_reaction" => 400,
-                "cannot_react_to_own_content" => 409,
+                "invalid_cursor" or "invalid_filter" or "invalid_body" or "invalid_reaction" or "invalid_comment" => 400,
+                "cannot_react_to_own_content" or "duplicate_comment" => 409,
                 _ => 500,
             };
             var extensions = new Dictionary<string, object?> { ["code"] = status == 500 ? "internal_error" : error.Code };

@@ -14,6 +14,18 @@ public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, 
     public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
     {
         if (schema is not OpenApiSchema body) return;
+        if (context.Type == typeof(SaveCommentRequest))
+        {
+            body.Type = JsonSchemaType.Object;
+            body.Required = new HashSet<string> { "text" };
+            body.Properties = new Dictionary<string, IOpenApiSchema>
+            {
+                ["text"] = new OpenApiSchema { Type = JsonSchemaType.String,
+                    Description = $"Texto plano de 1 a {TimelineEntryComment.MaxTextLength} caracteres después de normalizarlo." },
+            };
+            body.Example = JsonNode.Parse("""{"text":"A mí también me gustó este juego."}""");
+            return;
+        }
         if (context.Type == typeof(SetReactionRequest))
         {
             body.Type = JsonSchemaType.Object;
@@ -50,7 +62,15 @@ public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, 
                 notFoundEntry.Description = "entry_not_found: entrada inexistente o ajena. No revela si otro usuario es su dueño.";
             return;
         }
-        if (context.MethodInfo.DeclaringType != typeof(TimelineController) && context.MethodInfo.DeclaringType != typeof(FeedController)) return;
+        if (context.MethodInfo.DeclaringType == typeof(TimelineController) && context.MethodInfo.Name == nameof(TimelineController.Detail))
+        {
+            operation.Responses?.Remove("400");
+            operation.Responses?.Remove("403");
+            return;
+        }
+        var isComment = context.MethodInfo.DeclaringType == typeof(TimelineCommentsController);
+        if (!isComment && context.MethodInfo.DeclaringType != typeof(TimelineController) && context.MethodInfo.DeclaringType != typeof(FeedController)) return;
+        if (isComment && operation.RequestBody is OpenApiRequestBody commentBody) commentBody.Required = true;
         if (operation.Parameters is { } parameters)
             foreach (var parameter in parameters.OfType<OpenApiParameter>())
             {
@@ -78,7 +98,7 @@ public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, 
                         break;
                 }
             }
-        if (operation.Responses is not { } responses) return;
+        if (isComment || operation.Responses is not { } responses) return;
         if (responses.TryGetValue("400", out var bad) && bad is OpenApiResponse invalid)
             invalid.Description = "invalid_filter: filtros o límite inválidos. invalid_cursor: cursor inválido, modificado o de otra consulta/versión.";
         if (responses.TryGetValue("403", out var denied) && denied is OpenApiResponse restricted)

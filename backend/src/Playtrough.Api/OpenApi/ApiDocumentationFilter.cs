@@ -20,6 +20,7 @@ public sealed class ApiDocumentationFilter : IOperationFilter, IDocumentFilter
             new OpenApiTag { Name = "Feed", Description = "Actividad visible de amigos por fecha de registro; política timeline-read compartida." },
             new OpenApiTag { Name = "Timeline", Description = "Línea de tiempo y períodos por fecha efectiva; privacidad de cuenta y política timeline-read." },
             new OpenApiTag { Name = "Reactions", Description = "Reacciones a contenido visible. Política reactions-write por usuario." },
+            new OpenApiTag { Name = "Comments", Description = "Comentarios de entradas visibles. Las escrituras comparten la política comments-write." },
         };
 
     public void Apply(OpenApiOperation operation, OperationFilterContext context)

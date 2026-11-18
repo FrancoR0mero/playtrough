@@ -23,7 +23,7 @@ internal sealed class TimelineReadTestContext : IDisposable
         db.Users.ExecuteUpdate(u => u.SetProperty(user => user.EmailConfirmed, true));
     }
     public TimelineQuery Query(AppDbContext db) => new(db, Options.Create(Settings), Store.Clock);
-    public TimelineService Service(AppDbContext db) => new(db, new UpperInvariantLookupNormalizer(), new PrivacyService(db), Query(db), Cursors);
+    public TimelineService Service(AppDbContext db) => new(db, new UpperInvariantLookupNormalizer(), new PrivacyService(db), Query(db), Cursors, new(db));
     public async Task<TimelineEntry> AddAsync(string date = "2026-10-30", DateTime? recorded = null,
         int? owner = null, bool hidden = false, LibraryEventType type = LibraryEventType.Added)
     {
