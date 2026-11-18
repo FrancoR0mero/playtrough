@@ -88,6 +88,8 @@
           [target]="reactionTarget()"
           [summary]="entry()"
           [isOwn]="perspective() === 'self'"
+          [showLikeList]="true"
+          (viewLikes)="openLikes($event)"
           (unavailable)="missing.emit($event.id)"
         />
         @if (detail()) {

@@ -25,6 +25,7 @@ import { ReactionTarget } from '../reactions/models/reaction';
 import { ReactionButtonsComponent } from '../reactions/reaction-buttons';
 import { TimelineService } from './services/timeline';
 import { TimelineEntryMenuComponent } from './timeline-entry-menu';
+import { EntryLikesDialogComponent, EntryLikesDialogData } from './entry-likes-dialog';
 import { EntryOrigin, entryLinkId } from './entry-navigation';
 import {
   FEED_TEXT,
@@ -103,9 +104,13 @@ export class TimelineEntryCardComponent {
   private readonly dialogs = inject(Dialog);
   private readonly destroyRef = inject(DestroyRef);
   private preview?: DialogRef<void, GameDetailComponent>;
+  private likesPanel?: DialogRef<void, EntryLikesDialogComponent>;
 
   constructor() {
-    this.destroyRef.onDestroy(() => this.preview?.close());
+    this.destroyRef.onDestroy(() => {
+      this.preview?.close();
+      this.likesPanel?.close();
+    });
   }
   protected author() {
     return (this.entry() as Partial<FeedEntryDto>).author;
@@ -144,7 +149,7 @@ export class TimelineEntryCardComponent {
       });
   }
   protected openGame(origin: HTMLButtonElement): void {
-    if (this.preview || this.busy()) return;
+    if (this.preview || this.likesPanel || this.busy()) return;
     const game: GameSummary = { ...this.entry().game, platforms: [] };
     this.preview = this.dialogs.open<void, GameSummary, GameDetailComponent>(GameDetailComponent, {
       data: game,
@@ -158,6 +163,27 @@ export class TimelineEntryCardComponent {
     });
     this.preview.closed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.preview = undefined;
+    });
+  }
+
+  protected openLikes(origin: HTMLButtonElement): void {
+    if (this.dialogs.openDialogs.length || this.busy()) return;
+    this.likesPanel = this.dialogs.open<void, EntryLikesDialogData, EntryLikesDialogComponent>(
+      EntryLikesDialogComponent,
+      {
+        data: { entryId: this.entry().id },
+        role: 'dialog',
+        ariaModal: true,
+        ariaLabelledBy: 'entry-likes-title',
+        ariaDescribedBy: 'entry-likes-note',
+        autoFocus: '[data-close-likes]',
+        restoreFocus: origin,
+        width: 'calc(100vw - 2rem)',
+        maxWidth: '28rem',
+      },
+    );
+    this.likesPanel.closed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.likesPanel = undefined;
     });
   }
 }

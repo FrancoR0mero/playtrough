@@ -32,8 +32,26 @@
           d="M7 10v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zm0 0 4-7a2 2 0 0 1 2 2v4h6a2 2 0 0 1 2 2.4l-1.6 7A2 2 0 0 1 17.5 20H7"
         />
       </svg>
-      <span aria-hidden="true">{{ formatted(value) }}</span>
+      @if (value === 'dislike' || !canListLikes()) {
+        <span aria-hidden="true">{{ formatted(value) }}</span>
+      }
     </button>
+    @if (value === 'like' && canListLikes()) {
+      <button
+        #likeList
+        type="button"
+        data-view-likes
+        aria-haspopup="dialog"
+        [attr.aria-label]="'Ver quiénes dieron Me gusta (' + state().likeCount + ')'"
+        [title]="label('like')"
+        [disabled]="!!optimistic()"
+        (click)="viewLikes.emit(likeList)"
+        class="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-600 px-3 text-sm text-violet-300 outline-offset-2 hover:border-violet-300 hover:text-violet-100 disabled:opacity-60"
+      >
+        <span class="font-semibold tabular-nums">{{ formatted('like') }}</span>
+        <span>Ver quiénes</span>
+      </button>
+    }
   }
   @if (isOwn() && !rejectedOwn()) {
     <span [id]="explanationId" class="sr-only">{{ ownMessage }}</span>

@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { environment } from '../../../../environments/environment';
 import { CommentCountDto, CommentCreatedDto, CommentDto, CommentPage } from '../models/comment';
 import {
+  EntryLikeDto,
   FeedEntryDto,
   TimelineEntryDto,
   TimelinePage,
@@ -46,6 +47,11 @@ export class TimelineService {
   }
   getEntry(id: number) {
     return this.http.get<FeedEntryDto>(this.entryUrl(id));
+  }
+  getLikes(entryId: number, query: Pick<TimelineQuery, 'cursor' | 'limit'> = {}) {
+    return this.http.get<TimelinePage<EntryLikeDto>>(`${this.entryUrl(entryId)}/likes`, {
+      params: this.params(query),
+    });
   }
   getComments(entryId: number, query: Pick<TimelineQuery, 'cursor' | 'limit'> = {}) {
     return this.http.get<CommentPage>(`${this.entryUrl(entryId)}/comments`, {

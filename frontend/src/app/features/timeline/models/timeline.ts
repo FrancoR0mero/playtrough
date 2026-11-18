@@ -25,6 +25,10 @@ export interface TimelineEntryDto extends ReactionSummaryDto {
 export interface FeedEntryDto extends TimelineEntryDto {
   author: { username: string; avatarUrl: string | null };
 }
+export interface EntryLikeDto {
+  user: FeedEntryDto['author'];
+  createdAt: string;
+}
 export interface TimelinePage<T = TimelineEntryDto> {
   items: T[];
   nextCursor: string | null;

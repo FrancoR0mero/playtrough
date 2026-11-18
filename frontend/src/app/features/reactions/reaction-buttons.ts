@@ -36,7 +36,9 @@ export class ReactionButtonsComponent {
   readonly summary = input.required<ReactionSummaryDto>();
   readonly isOwn = input(false);
   readonly compact = input(false);
+  readonly showLikeList = input(false);
   readonly unavailable = output<ReactionTarget>();
+  readonly viewLikes = output<HTMLButtonElement>();
 
   private readonly reactions = inject(ReactionsService);
   private readonly changes = signal<{ base: ReactionSummaryDto; change: ReactionChange } | null>(
@@ -51,14 +53,19 @@ export class ReactionButtonsComponent {
   protected readonly choices = ['like', 'dislike'] as const;
   protected readonly explanationId = `reaction-ownership-${++nextId}`;
   protected readonly ownMessage = 'No podés reaccionar a tu propio contenido';
+  protected readonly optimistic = computed(() => {
+    // A change for this target invalidates the snapshot of the in-flight operation.
+    this.last();
+    return this.reactions.optimisticSummary(this.target());
+  });
   protected readonly state = computed(() => {
     const base = this.summary();
     const last = this.last();
-    return (
-      this.reactions.optimisticSummary(this.target()) ??
-      (last && this.changes()?.base === base ? last.summary : base)
-    );
+    return this.optimistic() ?? (last && this.changes()?.base === base ? last.summary : base);
   });
+  protected readonly canListLikes = computed(
+    () => this.showLikeList() && this.target().type === 'entry' && this.state().likeCount > 0,
+  );
   private readonly failure = computed(() => {
     const last = this.last();
     return last?.kind === 'failed' ? last : null;
