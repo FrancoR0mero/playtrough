@@ -173,7 +173,8 @@ public sealed class TimelineReactionTests
     public void MySqlMigration_IsAdditiveAndIncludesCompositeKeyAndZeroDefaults()
     {
         using var db = new AppDbContextFactory().CreateDbContext(["--offline"]);
-        var sql = db.GetService<IMigrator>().GenerateScript("20261115031802_AddTimelineEntries");
+        var sql = db.GetService<IMigrator>().GenerateScript("20261115031802_AddTimelineEntries",
+            "20261118061512_AddTimelineEntryReactions");
         Assert.Contains("PRIMARY KEY (`EntryId`, `UserId`)", sql);
         Assert.Contains("(`EntryId`, `Value`, `CreatedAt`)", sql);
         Assert.Contains("ON DELETE CASCADE", sql);
