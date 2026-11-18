@@ -58,6 +58,7 @@ public sealed class TimelineCommentService(AppDbContext db, TimelineEntryAccess 
                 || comment.CreatedAt == position.RecordedAt && comment.Id < position.Id);
         }
         var page = comments.OrderByDescending(comment => comment.CreatedAt).ThenByDescending(comment => comment.Id).Take(limit + 1);
+        var viewerReactions = db.TimelineEntryCommentReactions.AsNoTracking().Where(reaction => reaction.UserId == viewer);
 
         // The left join keeps the entry header even when the page has no comments.
         // Access, count and page all come from the same database snapshot.
@@ -66,13 +67,16 @@ public sealed class TimelineCommentService(AppDbContext db, TimelineEntryAccess 
                           from comment in pageRows.DefaultIfEmpty()
                           join author in db.Users.AsNoTracking() on comment.AuthorId equals author.Id into authors
                           from author in authors.DefaultIfEmpty()
+                          join reaction in viewerReactions on comment.Id equals reaction.CommentId into reactions
+                          from reaction in reactions.DefaultIfEmpty()
                           orderby comment.CreatedAt descending, comment.Id descending
-                          select new { entry.CommentCount, Owner = entry.UserId, Comment = comment, author.UserName, author.AvatarFileName })
+                          select new { entry.CommentCount, Owner = entry.UserId, Comment = comment, author.UserName, author.AvatarFileName,
+                              MyReaction = (ReactionValue?)reaction.Value })
             .ToListAsync(ct);
         if (rows.Count == 0) throw new TimelineException("entry_not_found");
         var hasMore = rows.Count > limit;
         var items = rows.Where(row => row.Comment is not null).Take(limit)
-            .Select(row => ToDto(row.Comment, row.UserName!, row.AvatarFileName, viewer, row.Owner)).ToArray();
+            .Select(row => ToDto(row.Comment, row.UserName!, row.AvatarFileName, viewer, row.Owner, row.MyReaction)).ToArray();
         var next = hasMore ? cursors.Encode(new(DateOnly.MinValue, items[^1].CreatedAt, items[^1].Id), context) : null;
         return new(items, rows[0].CommentCount, next, hasMore);
     }
@@ -136,9 +140,11 @@ public sealed class TimelineCommentService(AppDbContext db, TimelineEntryAccess 
         return await entries.Select(entry => entry.CommentCount).SingleAsync(ct);
     }
 
-    private static CommentDto ToDto(TimelineEntryComment comment, string username, string? avatarFile, int viewer, int owner)
+    private static CommentDto ToDto(TimelineEntryComment comment, string username, string? avatarFile, int viewer, int owner,
+        ReactionValue? myReaction = null)
         => new(comment.Id, new(username, AvatarUrls.FromFile(avatarFile)), comment.Text, comment.CreatedAt, comment.EditedAt,
-            comment.LikeCount, comment.DislikeCount, null, comment.AuthorId == viewer, comment.AuthorId == viewer || owner == viewer);
+            comment.LikeCount, comment.DislikeCount, ReactionService.Name(myReaction), comment.AuthorId == viewer,
+            comment.AuthorId == viewer || owner == viewer);
 
     private DateTime UtcNow()
     {

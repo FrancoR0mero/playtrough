@@ -62,7 +62,7 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
             return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Solicitud de comentarios inválida",
                 Extensions = { ["code"] = isRead ? "invalid_filter" : "invalid_comment" } });
         }
-        if (context.ActionDescriptor is ControllerActionDescriptor reactionAction && reactionAction.ControllerTypeInfo.AsType() == typeof(TimelineReactionsController))
+        if (context.ActionDescriptor is ControllerActionDescriptor reactionAction && reactionAction.ControllerTypeInfo.AsType() == typeof(ReactionsController))
             return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Reacción inválida", Extensions = { ["code"] = "invalid_reaction" } });
         if (context.ActionDescriptor is ControllerActionDescriptor feedAction && feedAction.ControllerTypeInfo.AsType() == typeof(FeedController))
             return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Consulta de feed inválida", Extensions = { ["code"] = "invalid_filter" } });
@@ -316,6 +316,7 @@ builder.Services.AddSingleton<TimelineCursorCodec>();
 builder.Services.AddScoped<TimelineQuery>();
 builder.Services.AddScoped<TimelineEntryAccess>();
 builder.Services.AddScoped<TimelineReactionTarget>();
+builder.Services.AddScoped<TimelineCommentReactionTarget>();
 builder.Services.AddScoped<ReactionService>();
 builder.Services.AddScoped<TimelineCommentService>();
 builder.Services.AddScoped<ITimelineService, TimelineService>();

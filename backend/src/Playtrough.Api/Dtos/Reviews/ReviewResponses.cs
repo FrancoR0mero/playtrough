@@ -14,6 +14,11 @@ public sealed record DeleteReviewResponse(RatingSummary RatingSummary);
 
 public sealed record ReviewAuthorDto(int UserId, string Username);
 public sealed record ReviewListItemDto(int Id, decimal Rating, string? Text, DateTime CreatedAt, DateTime? EditedAt,
-    ReviewAuthorDto Author, bool IsMine);
+    ReviewAuthorDto Author, bool IsMine)
+{
+    public int LikeCount { get; init; }
+    public int DislikeCount { get; init; }
+    public string? MyReaction { get; init; }
+}
 public sealed record ReviewListResponse(IReadOnlyList<ReviewListItemDto> Items, RatingSummary RatingSummary,
     int Page, int PageSize, bool HasMore);

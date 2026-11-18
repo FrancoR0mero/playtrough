@@ -121,7 +121,7 @@ public class ReviewListEndpointsTests
             json.RootElement.EnumerateObject().Select(property => property.Name).Order().ToArray());
         foreach (var item in json.RootElement.GetProperty("items").EnumerateArray())
         {
-            Assert.Equal(new[] { "author", "createdAt", "editedAt", "id", "isMine", "rating", "text" },
+            Assert.Equal(new[] { "author", "createdAt", "dislikeCount", "editedAt", "id", "isMine", "likeCount", "myReaction", "rating", "text" },
                 item.EnumerateObject().Select(property => property.Name).Order().ToArray());
             Assert.Equal(new[] { "userId", "username" }, item.GetProperty("author").EnumerateObject()
                 .Select(property => property.Name).Order().ToArray());
