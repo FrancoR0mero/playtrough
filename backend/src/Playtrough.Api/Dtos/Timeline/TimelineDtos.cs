@@ -23,6 +23,14 @@ public sealed record FeedEntryDto(long Id, string Type, DateOnly OccurredOn, Dat
     TimelineGameDto Game, string? FromStatus, string? ToStatus, TimelineReviewDto? Review, bool IsHidden,
     FeedAuthorDto Author) : TimelineEntryDto(Id, Type, OccurredOn, RecordedAt, Game, FromStatus, ToStatus, Review, IsHidden);
 public sealed record FeedPageDto(IReadOnlyList<FeedEntryDto> Items, string? NextCursor, bool HasMore);
+public sealed record TimelineLikeDto(FeedAuthorDto User, DateTime CreatedAt);
+public sealed record TimelineLikesPageDto(IReadOnlyList<TimelineLikeDto> Items, string? NextCursor, bool HasMore);
+
+public sealed class TimelineInteractionPageRequest
+{
+    [FromQuery(Name = "cursor"), DisplayFormat(ConvertEmptyStringToNull = false)] public string? Cursor { get; init; }
+    [FromQuery(Name = "limit")] public int? Limit { get; init; }
+}
 
 public sealed class FeedListRequest
 {

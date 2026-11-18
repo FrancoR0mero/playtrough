@@ -17,6 +17,30 @@ public sealed class TimelineService(AppDbContext db, ILookupNormalizer normalize
         => await query.DetailAsync(access.VisibleTo(viewerId), viewerId, id, ct)
             ?? throw new TimelineException("entry_not_found");
 
+    public async Task<TimelineLikesPageDto> LikesAsync(int viewerId, long id, TimelineInteractionPageRequest request, CancellationToken ct)
+    {
+        var limit = query.Limit(request.Limit);
+        var context = FormattableString.Invariant($"entry-likes:{id}:{viewerId}");
+        TimelinePosition? position = null;
+        if (request.Cursor is { } cursor)
+        {
+            position = cursors.Decode(cursor, context);
+            if (position.OccurredOn != DateOnly.MinValue || position.Id > int.MaxValue)
+                throw new TimelineException("invalid_cursor");
+        }
+
+        var rows = await query.EntryLikes(access.VisibleTo(viewerId), viewerId, id, position, limit).ToListAsync(ct);
+        if (rows.Count == 0) throw new TimelineException("entry_not_found");
+        var hasMore = rows.Count > limit;
+        var page = rows.Where(row => row.UserId.HasValue).Take(limit).ToArray();
+        var next = hasMore
+            ? cursors.Encode(new(DateOnly.MinValue, page[^1].CreatedAt!.Value, page[^1].UserId!.Value), context)
+            : null;
+        var items = page.Select(row => new TimelineLikeDto(
+            new FeedAuthorDto(row.Username!, AvatarUrls.FromFile(row.AvatarFileName)), row.CreatedAt!.Value)).ToArray();
+        return new(items, next, hasMore);
+    }
+
     public Task<TimelineEntryDto> SetVisibilityAsync(int ownerId, long id, UpdateTimelineVisibilityRequest request, CancellationToken ct = default)
     {
         if (request.Hidden.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new TimelineException("invalid_body");

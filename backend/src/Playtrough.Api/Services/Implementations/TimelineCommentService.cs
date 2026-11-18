@@ -45,7 +45,7 @@ public sealed class TimelineCommentService(AppDbContext db, TimelineEntryAccess 
         return result;
     }
 
-    public async Task<CommentPageDto> ListAsync(int viewer, long entryId, CommentListRequest request, CancellationToken ct)
+    public async Task<CommentPageDto> ListAsync(int viewer, long entryId, TimelineInteractionPageRequest request, CancellationToken ct)
     {
         var limit = timeline.Limit(request.Limit);
         var context = FormattableString.Invariant($"comments:{entryId}:{viewer}");

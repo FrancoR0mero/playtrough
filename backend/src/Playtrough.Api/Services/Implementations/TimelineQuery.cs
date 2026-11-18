@@ -14,6 +14,7 @@ public sealed record TimelineFilters(int? Year, int? Month, TimelineEntryType[] 
     public string Fingerprint => FormattableString.Invariant($"{Year ?? 0}:{Month ?? 0}:{string.Join(',', Types.Select(t => (int)t))}");
 }
 public sealed record FeedPosition(DateTime RecordedAt, long Id);
+internal sealed record EntryLikeRow(int? UserId, DateTime? CreatedAt, string? Username, string? AvatarFileName);
 
 public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> settings, TimeProvider time)
 {
@@ -40,6 +41,32 @@ public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> se
 
     internal Task<FeedEntryDto?> DetailAsync(IQueryable<TimelineEntry> visible, int viewerId, long id, CancellationToken ct)
         => ProjectWithAuthor(visible.Where(entry => entry.Id == id), viewerId, forFeed: false).SingleOrDefaultAsync(ct);
+
+    internal IQueryable<EntryLikeRow> EntryLikes(IQueryable<TimelineEntry> visible, int viewerId, long id,
+        TimelinePosition? position, int limit)
+    {
+        var likes = db.TimelineEntryReactions.AsNoTracking()
+            .Where(reaction => reaction.EntryId == id && reaction.Value == ReactionValue.Like);
+        if (position is { } cursor)
+        {
+            var userId = (int)cursor.Id;
+            likes = likes.Where(reaction => reaction.CreatedAt < cursor.RecordedAt
+                || reaction.CreatedAt == cursor.RecordedAt && reaction.UserId < userId);
+        }
+
+        // The total LikeCount can include blocked and unconfirmed users excluded from this page.
+        var eligible = from reaction in likes
+                       join user in PrivacyService.UnblockedUsers(db, viewerId) on reaction.UserId equals user.Id
+                       where user.EmailConfirmed
+                       orderby reaction.CreatedAt descending, reaction.UserId descending
+                       select new { reaction.EntryId, reaction.UserId, reaction.CreatedAt, user.UserName, user.AvatarFileName };
+        // A null like row represents a visible entry with an empty page.
+        return from entry in visible.Where(entry => entry.Id == id)
+               join like in eligible.Take(limit + 1) on entry.Id equals like.EntryId into page
+               from like in page.DefaultIfEmpty()
+               orderby like.CreatedAt descending, like.UserId descending
+               select new EntryLikeRow((int?)like.UserId, (DateTime?)like.CreatedAt, like.UserName, like.AvatarFileName);
+    }
 
     private IQueryable<FeedEntryDto> ProjectWithAuthor(IQueryable<TimelineEntry> entries, int viewerId, bool forFeed)
     {

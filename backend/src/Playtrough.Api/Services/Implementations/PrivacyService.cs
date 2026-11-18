@@ -14,15 +14,18 @@ public sealed class PrivacyService(AppDbContext db) : IPrivacyService
         => viewerId > 0 && (viewerId == ownerId || !blocked && (visibility == Visibility.Public ||
             (visibility == Visibility.Friends || visibility == Visibility.Private) && areFriends));
 
+    internal static IQueryable<ApplicationUser> UnblockedUsers(AppDbContext db, int viewerId)
+        => db.Users.AsNoTracking().Where(u => viewerId > 0 && (u.Id == viewerId ||
+            !db.UserBlocks.Any(b => b.BlockerId == viewerId && b.BlockedId == u.Id
+                || b.BlockerId == u.Id && b.BlockedId == viewerId)));
+
     // Keep the existing columns for database compatibility. Any legacy restriction
     // becomes account-wide private; both columns are written together from now on.
     internal static IQueryable<ApplicationUser> VisibleUsers(AppDbContext db, int viewerId)
-        => db.Users.AsNoTracking().Where(u => viewerId > 0 && (u.Id == viewerId ||
-            !db.UserBlocks.Any(b => b.BlockerId == viewerId && b.BlockedId == u.Id
-                || b.BlockerId == u.Id && b.BlockedId == viewerId) &&
+        => UnblockedUsers(db, viewerId).Where(u => u.Id == viewerId ||
             (u.ProfileVisibility == Visibility.Public && u.HistoryVisibility == Visibility.Public ||
                 db.Friendships.Any(f => f.UserLowId == viewerId && f.UserHighId == u.Id
-                    || f.UserHighId == viewerId && f.UserLowId == u.Id))));
+                    || f.UserHighId == viewerId && f.UserLowId == u.Id)));
 
     public Task<bool> IsBlockedAsync(int firstId, int secondId, CancellationToken ct = default)
         => firstId == secondId ? Task.FromResult(false) : db.UserBlocks.AnyAsync(b =>

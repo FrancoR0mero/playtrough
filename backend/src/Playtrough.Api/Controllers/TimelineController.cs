@@ -20,12 +20,29 @@ namespace Playtrough.Api.Controllers;
 [ProducesResponseType(typeof(ProblemDetails), 429)]
 public sealed class TimelineController(ITimelineService timeline) : ControllerBase
 {
+    private static readonly string[] ListParameters = ["cursor", "limit", "year", "month", "type"];
+
     /// <summary>Consultar una entrada visible con autor, contadores y reacción propia.</summary>
     /// <response code="404">entry_not_found: entrada inexistente o no visible para el visitante.</response>
     [HttpGet("entries/{id:long}")]
     [ProducesResponseType(typeof(FeedEntryDto), 200)]
     public async Task<IActionResult> Detail(long id, CancellationToken ct)
         => UserId() is { } viewer ? Ok(await timeline.DetailAsync(viewer, id, ct)) : Challenge();
+
+    /// <summary>Listar quiénes dieron Me gusta a una entrada visible.</summary>
+    /// <remarks>Orden descendente por fecha de creación de la reacción e ID de usuario.
+    /// Incluye cuentas confirmadas sin bloqueo con el visitante. limit: 20 por defecto, máximo 50.
+    /// Usá nextCursor para continuar. Comparte la política timeline-read.</remarks>
+    /// <response code="400">invalid_filter: límite inválido. invalid_cursor: cursor inválido o de otro contexto.</response>
+    /// <response code="404">entry_not_found: entrada inexistente o no visible para el visitante.</response>
+    [HttpGet("entries/{id:long}/likes")]
+    [ProducesResponseType(typeof(TimelineLikesPageDto), 200)]
+    public async Task<IActionResult> Likes(long id, [FromQuery] TimelineInteractionPageRequest request, CancellationToken ct)
+    {
+        if (UserId() is not { } viewer) return Challenge();
+        CheckRepeatedParameters("cursor", "limit");
+        return Ok(await timeline.LikesAsync(viewer, id, request, ct));
+    }
 
     /// <summary>Consultar la línea propia, incluidas las entradas ocultas.</summary>
     /// <remarks>Orden: occurredOn, recordedAt e id descendentes. limit: 20 por defecto, máximo 50.
@@ -65,21 +82,21 @@ public sealed class TimelineController(ITimelineService timeline) : ControllerBa
     private async Task<IActionResult> List(string? username, TimelineListRequest request, CancellationToken ct)
     {
         if (UserId() is not { } viewer) return Challenge();
-        CheckRepeatedParameters();
+        CheckRepeatedParameters(ListParameters);
         return Ok(await timeline.ListAsync(viewer, username, request, ct));
     }
 
     private async Task<IActionResult> Periods(string? username, string? type, CancellationToken ct)
     {
         if (UserId() is not { } viewer) return Challenge();
-        CheckRepeatedParameters();
+        CheckRepeatedParameters(ListParameters);
         if (Request.Query.ContainsKey("type") && string.IsNullOrWhiteSpace(type)) throw new TimelineException("invalid_filter");
         return Ok(await timeline.PeriodsAsync(viewer, username, type, ct));
     }
 
-    private void CheckRepeatedParameters()
+    private void CheckRepeatedParameters(params string[] names)
     {
-        foreach (var name in new[] { "cursor", "limit", "year", "month", "type" })
+        foreach (var name in names)
             if (Request.Query.TryGetValue(name, out var values) && values.Count != 1)
                 throw new TimelineException(name == "cursor" ? "invalid_cursor" : "invalid_filter");
     }

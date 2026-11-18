@@ -69,6 +69,8 @@ public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, 
             return;
         }
         var isComment = context.MethodInfo.DeclaringType == typeof(TimelineCommentsController);
+        var isLikes = context.MethodInfo.DeclaringType == typeof(TimelineController) && context.MethodInfo.Name == nameof(TimelineController.Likes);
+        if (isLikes) operation.Responses?.Remove("403");
         if (!isComment && context.MethodInfo.DeclaringType != typeof(TimelineController) && context.MethodInfo.DeclaringType != typeof(FeedController)) return;
         if (isComment && operation.RequestBody is OpenApiRequestBody commentBody) commentBody.Required = true;
         if (operation.Parameters is { } parameters)
@@ -98,7 +100,7 @@ public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, 
                         break;
                 }
             }
-        if (isComment || operation.Responses is not { } responses) return;
+        if (isComment || isLikes || operation.Responses is not { } responses) return;
         if (responses.TryGetValue("400", out var bad) && bad is OpenApiResponse invalid)
             invalid.Description = "invalid_filter: filtros o límite inválidos. invalid_cursor: cursor inválido, modificado o de otra consulta/versión.";
         if (responses.TryGetValue("403", out var denied) && denied is OpenApiResponse restricted)

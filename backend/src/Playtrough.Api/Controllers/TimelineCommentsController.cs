@@ -39,7 +39,7 @@ public sealed class TimelineCommentsController(TimelineCommentService comments) 
     [EnableRateLimiting(RateLimitPolicies.TimelineRead)]
     [ProducesResponseType(typeof(CommentPageDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 400)]
-    public async Task<IActionResult> List(long id, [FromQuery] CommentListRequest request, CancellationToken ct)
+    public async Task<IActionResult> List(long id, [FromQuery] TimelineInteractionPageRequest request, CancellationToken ct)
     {
         if (UserId() is not { } viewer) return Challenge();
         foreach (var name in new[] { "cursor", "limit" })
