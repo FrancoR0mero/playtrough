@@ -4,6 +4,9 @@ public interface IDomainEvent;
 public sealed record FriendRequestSent(int RequestId, int SenderId, int ReceiverId, DateTime CreatedAt) : IDomainEvent;
 public sealed record FriendRequestAccepted(int RequestId, int SenderId, int ReceiverId, DateTime AcceptedAt) : IDomainEvent;
 
+public sealed record ContentReacted(string ContentType, long ContentId, int ActorId, int OwnerId,
+    string? Value, string? PreviousValue) : IDomainEvent;
+
 public interface IDomainEventPublisher
 {
     Task PublishAsync(IDomainEvent domainEvent, CancellationToken ct = default);
