@@ -14,5 +14,6 @@ public static class RateLimitPolicies
     public const string ReviewsWrite = "reviews-write";
     public const string TimelineRead = "timeline-read";
     public const string TimelineWrite = "timeline-write";
+    public const string ReactionsWrite = "reactions-write";
     public const string Global = "global";
 }

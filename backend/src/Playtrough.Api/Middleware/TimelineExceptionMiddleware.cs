@@ -13,7 +13,8 @@ public sealed class TimelineExceptionMiddleware(RequestDelegate next)
             {
                 "user_not_found" or "entry_not_found" => 404,
                 "history_restricted" => 403,
-                "invalid_cursor" or "invalid_filter" or "invalid_body" => 400,
+                "invalid_cursor" or "invalid_filter" or "invalid_body" or "invalid_reaction" => 400,
+                "cannot_react_to_own_content" => 409,
                 _ => 500,
             };
             var extensions = new Dictionary<string, object?> { ["code"] = status == 500 ? "internal_error" : error.Code };

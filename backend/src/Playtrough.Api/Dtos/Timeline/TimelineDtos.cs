@@ -7,7 +7,13 @@ namespace Playtrough.Api.Dtos.Timeline;
 public sealed record TimelineGameDto(int GameId, int ExternalId, string Name, string Slug, string? CoverUrl, int? ReleaseYear);
 public sealed record TimelineReviewDto(int Id, decimal Rating, string? Excerpt);
 public record TimelineEntryDto(long Id, string Type, DateOnly OccurredOn, DateTime RecordedAt,
-    TimelineGameDto Game, string? FromStatus, string? ToStatus, TimelineReviewDto? Review, bool IsHidden);
+    TimelineGameDto Game, string? FromStatus, string? ToStatus, TimelineReviewDto? Review, bool IsHidden)
+{
+    public int LikeCount { get; init; }
+    public int DislikeCount { get; init; }
+    public int CommentCount { get; init; }
+    public string? MyReaction { get; init; }
+}
 public sealed record TimelinePageDto(IReadOnlyList<TimelineEntryDto> Items, string? NextCursor, bool HasMore);
 public sealed record TimelineMonthDto(int Month, int Count);
 public sealed record TimelineYearDto(int Year, int Count, IReadOnlyList<TimelineMonthDto> Months);

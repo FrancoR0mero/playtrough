@@ -56,6 +56,8 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     var defaultResponse = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (context.ActionDescriptor is ControllerActionDescriptor reactionAction && reactionAction.ControllerTypeInfo.AsType() == typeof(TimelineReactionsController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Reacción inválida", Extensions = { ["code"] = "invalid_reaction" } });
         if (context.ActionDescriptor is ControllerActionDescriptor feedAction && feedAction.ControllerTypeInfo.AsType() == typeof(FeedController))
             return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Consulta de feed inválida", Extensions = { ["code"] = "invalid_filter" } });
         if (context.ActionDescriptor is ControllerActionDescriptor visibilityAction && visibilityAction.ControllerTypeInfo.AsType() == typeof(TimelineVisibilityController))
@@ -306,6 +308,9 @@ builder.Services.AddScoped<TimelineWriter>();
 builder.Services.AddScoped<TimelineBackfillService>();
 builder.Services.AddSingleton<TimelineCursorCodec>();
 builder.Services.AddScoped<TimelineQuery>();
+builder.Services.AddScoped<TimelineEntryAccess>();
+builder.Services.AddScoped<TimelineReactionTarget>();
+builder.Services.AddScoped<ReactionService>();
 builder.Services.AddScoped<ITimelineService, TimelineService>();
 builder.Services.AddScoped<IFeedService, FeedService>();
 builder.Services.AddOptions<TimelineSettings>().BindConfiguration(TimelineSettings.SectionName)

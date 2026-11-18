@@ -19,7 +19,7 @@ public sealed class RateLimitIdentityMiddleware(RequestDelegate next, IOptions<R
         var endpoint = context.GetEndpoint();
         var policy = endpoint?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
         if (settings.Value.Enabled &&
-            (policy is null || policy is RateLimitPolicies.Catalog or RateLimitPolicies.ReviewsWrite or RateLimitPolicies.ProfileWrite or RateLimitPolicies.FriendsWrite or RateLimitPolicies.UserSearch or RateLimitPolicies.TimelineRead or RateLimitPolicies.TimelineWrite) &&
+            (policy is null || policy is RateLimitPolicies.Catalog or RateLimitPolicies.ReviewsWrite or RateLimitPolicies.ProfileWrite or RateLimitPolicies.FriendsWrite or RateLimitPolicies.UserSearch or RateLimitPolicies.TimelineRead or RateLimitPolicies.TimelineWrite or RateLimitPolicies.ReactionsWrite) &&
             endpoint?.Metadata.GetMetadata<DisableRateLimitingAttribute>() is null)
         {
             // Never read an unvalidated token's subject. The real JWT handler validates

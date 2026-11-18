@@ -37,13 +37,13 @@ public class TimelineCursorAndSqlTests
         var clock = new CatalogPersistenceClock();
         var query = new TimelineQuery(db, Options.Create(new TimelineSettings()), clock);
         var sql = query.Entries(1, false, query.Filters(2026, 2, "added,status_changed"),
-            new(new DateOnly(2026, 2, 10), clock.UtcNow.UtcDateTime, 42), 20).ToQueryString();
+            new(new DateOnly(2026, 2, 10), clock.UtcNow.UtcDateTime, 42), 20, 2).ToQueryString();
         Assert.Contains("TimelineEntries", sql);
         Assert.Contains("ORDER BY", sql); Assert.Contains("LIMIT", sql);
         Assert.Contains("LEFT JOIN", sql); Assert.Contains("status_changed", sql);
         Assert.DoesNotContain("ProviderDetailsJson", sql);
         Assert.Equal(System.Data.ConnectionState.Closed, db.Database.GetDbConnection().State);
-        var monthOnly = query.Entries(1, false, query.Filters(null, 2, null), null, 20).ToQueryString();
+        var monthOnly = query.Entries(1, false, query.Filters(null, 2, null), null, 20, 2).ToQueryString();
         Assert.Matches(@"(?i)\bMONTH(?:\(|\s+FROM\s+)[^\r\n]*OccurredOn", monthOnly);
     }
 

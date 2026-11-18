@@ -17,6 +17,7 @@ public sealed class RateLimitSettings
     public RateLimitPolicySettings ReviewsWrite { get; set; } = new(20, TimeSpan.FromMinutes(1));
     public RateLimitPolicySettings TimelineRead { get; set; } = new(60, TimeSpan.FromMinutes(1));
     public RateLimitPolicySettings TimelineWrite { get; set; } = new(30, TimeSpan.FromMinutes(1));
+    public RateLimitPolicySettings ReactionsWrite { get; set; } = new(60, TimeSpan.FromMinutes(1));
     public RateLimitPolicySettings Global { get; set; } = new(100, TimeSpan.FromMinutes(1));
 }
 

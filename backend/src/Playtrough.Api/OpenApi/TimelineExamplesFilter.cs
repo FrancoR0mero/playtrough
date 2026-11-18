@@ -13,7 +13,23 @@ public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, 
 {
     public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
     {
-        if (context.Type != typeof(UpdateTimelineVisibilityRequest) || schema is not OpenApiSchema body) return;
+        if (schema is not OpenApiSchema body) return;
+        if (context.Type == typeof(SetReactionRequest))
+        {
+            body.Type = JsonSchemaType.Object;
+            body.Required = new HashSet<string> { "value" };
+            body.Properties = new Dictionary<string, IOpenApiSchema>
+            {
+                ["value"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Enum = [JsonValue.Create("like")!, JsonValue.Create("dislike")!],
+                },
+            };
+            body.Example = JsonNode.Parse("""{"value":"like"}""");
+            return;
+        }
+        if (context.Type != typeof(UpdateTimelineVisibilityRequest)) return;
         body.Type = JsonSchemaType.Object;
         body.Required = new HashSet<string> { "hidden" };
         body.Properties = new Dictionary<string, IOpenApiSchema>

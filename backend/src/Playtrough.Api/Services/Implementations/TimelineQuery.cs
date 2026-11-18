@@ -41,17 +41,23 @@ public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> se
                 join game in db.Games.AsNoTracking() on entry.GameId equals game.Id
                 join review in db.Reviews.AsNoTracking() on entry.ReviewId equals (int?)review.Id into reviews
                 from review in reviews.DefaultIfEmpty()
+                join mine in ViewerReactions(viewerId) on entry.Id equals mine.EntryId into reactions
+                from mine in reactions.DefaultIfEmpty()
                 where author.EmailConfirmed && !db.UserBlocks.Any(b =>
                     b.BlockerId == viewerId && b.BlockedId == author.Id || b.BlockerId == author.Id && b.BlockedId == viewerId)
                 orderby entry.RecordedAt descending, entry.Id descending
                 select new FeedEntryDto(entry.Id, TimelineValues.TypeValue(entry.Type), entry.OccurredOn, entry.RecordedAt,
                     new TimelineGameDto(game.Id, game.GameBrainId ?? game.ExternalId, game.Name, game.Slug,
-                        game.CoverImageUrl, game.FirstReleaseDate.HasValue ? game.FirstReleaseDate.Value.Year : null),
+                        game.CoverImageUrl, game.FirstReleaseDate.HasValue ? game.FirstReleaseDate.GetValueOrDefault().Year : null),
                     entry.FromStatus.HasValue ? LibraryValues.StatusValue(entry.FromStatus.GetValueOrDefault()) : null,
                     entry.ToStatus.HasValue ? LibraryValues.StatusValue(entry.ToStatus.GetValueOrDefault()) : null,
                     entry.Type == TimelineEntryType.Reviewed && review != null
                         ? new TimelineReviewDto(review.Id, review.Rating, Excerpt(review.Text, excerptLength)) : null,
-                    false, new FeedAuthorDto(author.UserName!, AvatarUrls.FromFile(author.AvatarFileName))))
+                    false, new FeedAuthorDto(author.UserName!, AvatarUrls.FromFile(author.AvatarFileName)))
+                {
+                    LikeCount = entry.LikeCount, DislikeCount = entry.DislikeCount, CommentCount = entry.CommentCount,
+                    MyReaction = ReactionService.Name((ReactionValue?)mine.Value),
+                })
             .Take(limit + 1);
     }
 
@@ -108,38 +114,47 @@ public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> se
     }
 
     public Task<List<TimelineEntryDto>> ListAsync(int ownerId, bool includeHidden, TimelineFilters filters,
-        TimelinePosition? position, int limit, CancellationToken ct)
-        => Entries(ownerId, includeHidden, filters, position, limit).ToListAsync(ct);
+        TimelinePosition? position, int limit, int viewerId, CancellationToken ct)
+        => Entries(ownerId, includeHidden, filters, position, limit, viewerId).ToListAsync(ct);
 
     internal IQueryable<TimelineEntryDto> Entries(int ownerId, bool includeHidden, TimelineFilters filters,
-        TimelinePosition? position, int limit)
+        TimelinePosition? position, int limit, int viewerId)
     {
         var entries = ApplyFilters(db.TimelineEntries.AsNoTracking(), ownerId, includeHidden, filters, position)
             .OrderByDescending(e => e.OccurredOn).ThenByDescending(e => e.RecordedAt).ThenByDescending(e => e.Id)
             .Take(limit + 1);
-        return Project(entries, includeHidden);
+        return Project(entries, includeHidden, viewerId);
     }
 
     public Task<TimelineEntryDto?> EntryAsync(int ownerId, long id, CancellationToken ct)
         => Project(ApplyFilters(db.TimelineEntries.AsNoTracking(), ownerId, true, new(null, null, []))
-            .Where(e => e.Id == id), true).SingleOrDefaultAsync(ct);
+            .Where(e => e.Id == id), true, ownerId).SingleOrDefaultAsync(ct);
 
-    private IQueryable<TimelineEntryDto> Project(IQueryable<TimelineEntry> entries, bool includeHidden)
+    private IQueryable<TimelineEntryReaction> ViewerReactions(int viewerId)
+        => db.TimelineEntryReactions.AsNoTracking().Where(reaction => reaction.UserId == viewerId);
+
+    private IQueryable<TimelineEntryDto> Project(IQueryable<TimelineEntry> entries, bool includeHidden, int viewerId)
     {
         var excerptLength = settings.Value.ExcerptLength;
         return (from e in entries
                 join game in db.Games.AsNoTracking() on e.GameId equals game.Id
                 join review in db.Reviews.AsNoTracking() on e.ReviewId equals (int?)review.Id into reviews
                 from review in reviews.DefaultIfEmpty()
+                join mine in ViewerReactions(viewerId) on e.Id equals mine.EntryId into reactions
+                from mine in reactions.DefaultIfEmpty()
                 orderby e.OccurredOn descending, e.RecordedAt descending, e.Id descending
                 select new TimelineEntryDto(e.Id, TimelineValues.TypeValue(e.Type), e.OccurredOn, e.RecordedAt,
                     new TimelineGameDto(game.Id, game.GameBrainId ?? game.ExternalId, game.Name, game.Slug,
-                        game.CoverImageUrl, game.FirstReleaseDate.HasValue ? game.FirstReleaseDate.Value.Year : null),
-                    e.FromStatus.HasValue ? LibraryValues.StatusValue(e.FromStatus.Value) : null,
-                    e.ToStatus.HasValue ? LibraryValues.StatusValue(e.ToStatus.Value) : null,
+                        game.CoverImageUrl, game.FirstReleaseDate.HasValue ? game.FirstReleaseDate.GetValueOrDefault().Year : null),
+                    e.FromStatus.HasValue ? LibraryValues.StatusValue(e.FromStatus.GetValueOrDefault()) : null,
+                    e.ToStatus.HasValue ? LibraryValues.StatusValue(e.ToStatus.GetValueOrDefault()) : null,
                     e.Type == TimelineEntryType.Reviewed && review != null
                         ? new TimelineReviewDto(review.Id, review.Rating, Excerpt(review.Text, excerptLength)) : null,
-                    includeHidden && e.IsHidden));
+                    includeHidden && e.IsHidden)
+                {
+                    LikeCount = e.LikeCount, DislikeCount = e.DislikeCount, CommentCount = e.CommentCount,
+                    MyReaction = ReactionService.Name((ReactionValue?)mine.Value),
+                });
     }
 
     public async Task<TimelinePeriodsDto> PeriodsAsync(int ownerId, bool includeHidden, TimelineFilters filters, CancellationToken ct)

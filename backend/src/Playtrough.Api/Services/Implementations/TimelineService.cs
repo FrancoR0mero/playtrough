@@ -38,7 +38,7 @@ public sealed class TimelineService(AppDbContext db, ILookupNormalizer normalize
         var own = viewerId == ownerId;
         var context = FormattableString.Invariant($"timeline:{ownerId}:{viewerId}:{own}:{filters.Fingerprint}");
         var position = request.Cursor is null ? null : cursors.Decode(request.Cursor, context);
-        var rows = await query.ListAsync(ownerId, own, filters, position, limit, ct);
+        var rows = await query.ListAsync(ownerId, own, filters, position, limit, viewerId, ct);
         var hasMore = rows.Count > limit;
         var items = rows.Take(limit).ToArray();
         var last = items.LastOrDefault();
