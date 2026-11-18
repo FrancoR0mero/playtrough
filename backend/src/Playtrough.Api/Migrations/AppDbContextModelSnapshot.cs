@@ -690,6 +690,52 @@ namespace Playtrough.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.TimelineEntryComment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("AuthorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("DislikeCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("EditedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("EntryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("LikeCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("EntryId", "CreatedAt", "Id");
+
+                    b.ToTable("TimelineEntryComments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_TimelineEntryComments_InteractionCounts", "LikeCount >= 0 AND DislikeCount >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Playtrough.Api.Models.TimelineEntryReaction", b =>
                 {
                     b.Property<long>("EntryId")
@@ -917,6 +963,21 @@ namespace Playtrough.Api.Migrations
                     b.Navigation("LibraryEvent");
 
                     b.Navigation("Review");
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.TimelineEntryComment", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.TimelineEntry", null)
+                        .WithMany()
+                        .HasForeignKey("EntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.TimelineEntryReaction", b =>

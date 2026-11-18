@@ -20,6 +20,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<LibraryEvent> LibraryEvents => Set<LibraryEvent>();
     public DbSet<TimelineEntry> TimelineEntries => Set<TimelineEntry>();
     public DbSet<TimelineEntryReaction> TimelineEntryReactions => Set<TimelineEntryReaction>();
+    public DbSet<TimelineEntryComment> TimelineEntryComments => Set<TimelineEntryComment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -33,6 +34,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.ApplyConfiguration(new LibraryEventConfiguration());
         builder.ApplyConfiguration(new TimelineEntryConfiguration());
         builder.ApplyConfiguration(new TimelineEntryReactionConfiguration());
+        builder.ApplyConfiguration(new TimelineEntryCommentConfiguration());
 
         // Identity tables use domain names, not the framework's AspNet* prefix.
         // Data is preserved by RENAME TABLE (never recreated) in migrations.
