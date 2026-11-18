@@ -83,6 +83,17 @@
           >
         }
       }
+      <div class="mt-3 flex flex-wrap items-start gap-x-3 gap-y-1 text-sm">
+        <app-reaction-buttons
+          [target]="reactionTarget()"
+          [summary]="entry()"
+          [isOwn]="perspective() === 'self'"
+          (unavailable)="missing.emit($event.id)"
+        />
+        <span class="inline-flex min-h-11 items-center text-slate-300" data-comment-count>
+          {{ commentsLabel() }}
+        </span>
+      </div>
       @if (perspective() === 'self' && entry().isHidden) {
         <p class="mt-3 flex items-center gap-2 text-sm text-slate-300" data-hidden>
           <svg

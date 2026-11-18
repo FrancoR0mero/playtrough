@@ -16,6 +16,9 @@
   </h1>
   <p class="sr-only" role="status">{{ pending() ? text.newsAvailable : '' }}</p>
   <p class="sr-only" aria-live="polite" aria-atomic="true">{{ announcement() }}</p>
+  @if (entryNotice(); as notice) {
+    <p role="alert" class="mt-4 text-sm text-amber-200">{{ notice }}</p>
+  }
   <div class="mt-6 max-w-3xl" [attr.aria-busy]="loading()">
     @if (items().length) {
       <ol [attr.aria-label]="text.list" class="divide-y divide-slate-700/60">
@@ -26,6 +29,7 @@
               perspective="other"
               [showAuthor]="true"
               [referenceTime]="displayTime()"
+              (missing)="entryMissing($event)"
             />
           </li>
         }

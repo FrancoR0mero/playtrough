@@ -18,6 +18,10 @@ export function timelineEntry(overrides: Partial<TimelineEntryDto> = {}): Timeli
     toStatus: 'playing',
     review: null,
     isHidden: false,
+    likeCount: 0,
+    dislikeCount: 0,
+    commentCount: 0,
+    myReaction: null,
     ...overrides,
   };
 }

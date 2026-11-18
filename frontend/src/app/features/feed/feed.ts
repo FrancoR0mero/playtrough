@@ -19,7 +19,7 @@ import { profileError } from '../profile/profile-error';
 import { FeedEntryDto, TimelinePage } from '../timeline/models/timeline';
 import { TimelineService } from '../timeline/services/timeline';
 import { TimelineEntryCardComponent } from '../timeline/timeline-entry-card';
-import { TIMELINE_IMAGE_ASPECT_RATIO } from '../timeline/timeline-text';
+import { TIMELINE_IMAGE_ASPECT_RATIO, TIMELINE_TEXT } from '../timeline/timeline-text';
 import { FEED_REFRESH_INTERVAL_MS, FEED_TEXT, feedTimestamp } from './feed-text';
 
 @Component({
@@ -41,6 +41,7 @@ export class FeedComponent implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly pending = signal<TimelinePage<FeedEntryDto> | null>(null);
   protected readonly announcement = signal('');
+  protected readonly entryNotice = signal('');
   protected readonly displayTime = signal(Date.now());
   private lastCheck = -Infinity;
   private readonly service = inject(TimelineService);
@@ -92,6 +93,18 @@ export class FeedComponent implements OnInit {
   }
   protected retry(): void {
     this.load(this.failed === 'first');
+  }
+  protected entryMissing(id: number): void {
+    this.items.update((items) => items.filter((entry) => entry.id !== id));
+    this.pending.update((page) => {
+      if (!page) return null;
+      const items = page.items.filter((entry) => entry.id !== id);
+      const fresh = items.find((entry) => !entry.isHidden);
+      const current = this.items()[0];
+      return fresh && (!current || isNewer(fresh, current)) ? { ...page, items } : null;
+    });
+    this.entryNotice.set(TIMELINE_TEXT.missingEntry);
+    this.title()?.nativeElement.focus();
   }
   private checkForNews(): void {
     const now = Date.now();

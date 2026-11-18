@@ -21,6 +21,8 @@ import { GameImageComponent } from '../games/game-image';
 import { GameSummary } from '../games/models/game';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { profileError } from '../profile/profile-error';
+import { ReactionTarget } from '../reactions/models/reaction';
+import { ReactionButtonsComponent } from '../reactions/reaction-buttons';
 import { TimelineService } from './services/timeline';
 import { TimelineEntryMenuComponent } from './timeline-entry-menu';
 import {
@@ -46,6 +48,7 @@ import {
     StarRatingComponent,
     UserAvatarComponent,
     TimelineEntryMenuComponent,
+    ReactionButtonsComponent,
   ],
   templateUrl: './timeline-entry-card.html',
   host: { class: 'block min-w-0' },
@@ -77,6 +80,14 @@ export class TimelineEntryCardComponent {
   protected readonly aspectRatio = TIMELINE_IMAGE_ASPECT_RATIO;
   protected readonly action = entryAction;
   protected readonly date = timelineDate;
+  protected readonly reactionTarget = computed<ReactionTarget>(() => ({
+    type: 'entry',
+    id: this.entry().id,
+  }));
+  protected readonly commentsLabel = computed(() => {
+    const count = this.entry().commentCount;
+    return `${count} ${count === 1 ? 'comentario' : 'comentarios'}`;
+  });
   private readonly dialogs = inject(Dialog);
   private readonly destroyRef = inject(DestroyRef);
   private preview?: DialogRef<void, GameDetailComponent>;

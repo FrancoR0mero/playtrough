@@ -1,8 +1,9 @@
 import { LibraryStatus } from '../../library/models/library';
+import { ReactionSummaryDto } from '../../reactions/models/reaction';
 
 export type TimelineType = 'added' | 'status_changed' | 'reviewed';
 export type TimelinePerspective = 'self' | 'other';
-export interface TimelineEntryDto {
+export interface TimelineEntryDto extends ReactionSummaryDto {
   id: number;
   type: TimelineType;
   occurredOn: string;
@@ -19,6 +20,7 @@ export interface TimelineEntryDto {
   toStatus: LibraryStatus | null;
   review: { id: number; rating: number; excerpt: string | null } | null;
   isHidden: boolean;
+  commentCount: number;
 }
 export interface FeedEntryDto extends TimelineEntryDto {
   author: { username: string; avatarUrl: string | null };
