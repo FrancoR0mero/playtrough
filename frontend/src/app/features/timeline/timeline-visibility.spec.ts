@@ -53,7 +53,7 @@ describe('Timeline visibility actions', () => {
     f.fixture.detectChanges();
     const item = f.root.querySelector<HTMLButtonElement>('[role="menuitem"]')!;
     expect(document.activeElement).toBe(item);
-    expect(item.textContent).toContain('Ocultar a otros');
+    expect(item.textContent?.trim()).toBe('Ocultar');
     for (const key of ['ArrowUp', 'ArrowDown', 'Home', 'End']) {
       item.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
       expect(document.activeElement).toBe(item);

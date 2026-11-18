@@ -116,24 +116,34 @@ describe('Timeline filters, URL and periods', () => {
     });
     await f.change('year', '2025');
     expect(f.router.url).toContain('year=2025');
-    expect(f.router.url).not.toContain('month=');
+    expect(f.router.url).toContain('month=3');
     expect(f.router.url).toContain('tab=timeline');
     expect(f.router.url).toContain('keep=yes');
-    expect(f.service.getMine).toHaveBeenLastCalledWith({ limit: 20, year: 2025 });
+    expect(f.service.getMine).toHaveBeenLastCalledWith({ limit: 20, year: 2025, month: 3 });
     await f.change('month', '12');
     expect(f.service.getMine).toHaveBeenLastCalledWith({ limit: 20, year: 2025, month: 12 });
     expect(f.router.url).toContain('month=12');
+    await f.change('year', '');
+    expect(f.router.url).not.toContain('year=');
+    expect(f.service.getMine).toHaveBeenLastCalledWith({ limit: 20, month: 12 });
   });
   it('updates multi-type URL filters, periods counts and clears everything', async () => {
     const f = await setup();
-    for (const type of ['added', 'reviewed']) {
+    for (const type of ['library', 'reviewed']) {
       f.root().querySelector<HTMLButtonElement>(`[data-filter-type="${type}"]`)!.click();
       await f.harness.fixture.whenStable();
       f.harness.detectChanges();
     }
-    expect(f.service.getMine).toHaveBeenLastCalledWith({ limit: 20, type: ['added', 'reviewed'] });
-    expect(f.service.getMyPeriods).toHaveBeenLastCalledWith(['added', 'reviewed']);
-    expect(decodeURIComponent(f.router.url)).toContain('type=added,reviewed');
+    expect(f.service.getMine).toHaveBeenLastCalledWith({
+      limit: 20,
+      type: ['added', 'status_changed', 'reviewed'],
+    });
+    expect(f.service.getMyPeriods).toHaveBeenLastCalledWith([
+      'added',
+      'status_changed',
+      'reviewed',
+    ]);
+    expect(decodeURIComponent(f.router.url)).toContain('type=added,status_changed,reviewed');
     f.root().querySelector<HTMLButtonElement>('[data-clear-filters]')!.click();
     await f.harness.fixture.whenStable();
     f.harness.detectChanges();
@@ -173,7 +183,7 @@ describe('Timeline filters, URL and periods', () => {
       ).length,
     ).toBe(2);
   });
-  it.each(['month=3', 'year=2026&type=unknown'])(
+  it.each(['month=13', 'year=2026&type=unknown'])(
     'clears invalid URL filters and announces the recovery: %s',
     async (query) => {
       const f = await setup(query);

@@ -16,7 +16,7 @@ describe('Timeline filter controls', () => {
             { month: 2, count: 3 },
           ],
         },
-        { year: 2025, count: 1, months: [{ month: 12, count: 1 }] },
+        { year: 2025, count: 1, months: [{ month: 3, count: 1 }] },
       ],
     });
     const changed = vi.fn();
@@ -31,12 +31,15 @@ describe('Timeline filter controls', () => {
     };
     return { fixture, root, changed, select };
   }
-  it('shows period counts and disables month until a year is selected', () => {
+  it('shows combined monthly counts until a year is selected', () => {
     const f = setup();
     expect(f.root.querySelector('[data-filter-year]')?.textContent).toContain('2026 (5)');
-    expect(f.root.querySelector<HTMLSelectElement>('[data-filter-month]')!.disabled).toBe(true);
+    expect(f.root.querySelector<HTMLSelectElement>('[data-filter-month]')!.disabled).toBe(false);
+    expect(f.root.querySelector('[data-filter-month]')?.textContent).toContain('marzo (3)');
+    f.select('month', '3');
+    expect(f.changed).toHaveBeenLastCalledWith({ month: 3 });
     f.select('year', '2026');
-    expect(f.changed).toHaveBeenLastCalledWith({ year: 2026, month: undefined });
+    expect(f.changed).toHaveBeenLastCalledWith({ year: 2026 });
     f.fixture.componentRef.setInput('filters', { year: 2026 });
     f.fixture.detectChanges();
     expect(f.root.querySelector<HTMLSelectElement>('[data-filter-month]')!.disabled).toBe(false);
@@ -44,26 +47,28 @@ describe('Timeline filter controls', () => {
     f.select('month', '3');
     expect(f.changed).toHaveBeenLastCalledWith({ year: 2026, month: 3 });
   });
-  it('clears month when the year changes and preserves types', () => {
+  it('preserves month and types when the year changes', () => {
     const f = setup({ year: 2026, month: 3, type: ['reviewed'] });
     f.select('year', '2025');
     expect(f.changed).toHaveBeenLastCalledWith({
       year: 2025,
-      month: undefined,
+      month: 3,
       type: ['reviewed'],
     });
   });
   it('supports multiple type chips, deselection, and clearing all filters', () => {
-    const f = setup({ type: ['reviewed'] });
-    f.root.querySelector<HTMLButtonElement>('[data-filter-type="added"]')!.click();
-    expect(f.changed).toHaveBeenLastCalledWith({ type: ['added', 'reviewed'] });
-    f.fixture.componentRef.setInput('filters', { type: ['added', 'reviewed'] });
+    const f = setup({ type: ['added', 'reviewed'] });
+    const library = f.root.querySelector<HTMLButtonElement>('[data-filter-type="library"]')!;
+    expect(library.getAttribute('aria-pressed')).toBe('mixed');
+    library.click();
+    expect(f.changed).toHaveBeenLastCalledWith({ type: ['added', 'status_changed', 'reviewed'] });
+    f.fixture.componentRef.setInput('filters', { type: ['added', 'status_changed', 'reviewed'] });
     f.fixture.detectChanges();
-    expect(f.root.querySelector('[data-filter-type="added"]')?.getAttribute('aria-pressed')).toBe(
-      'true',
-    );
+    expect(library.getAttribute('aria-pressed')).toBe('true');
+    library.click();
+    expect(f.changed).toHaveBeenLastCalledWith({ type: ['reviewed'] });
     f.root.querySelector<HTMLButtonElement>('[data-filter-type="reviewed"]')!.click();
-    expect(f.changed).toHaveBeenLastCalledWith({ type: ['added'] });
+    expect(f.changed).toHaveBeenLastCalledWith({ type: ['added', 'status_changed'] });
     f.root.querySelector<HTMLButtonElement>('[data-clear-filters]')!.click();
     expect(f.changed).toHaveBeenLastCalledWith({});
   });

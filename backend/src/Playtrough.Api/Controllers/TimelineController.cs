@@ -22,7 +22,7 @@ public sealed class TimelineController(ITimelineService timeline) : ControllerBa
 {
     /// <summary>Consultar la línea propia, incluidas las entradas ocultas.</summary>
     /// <remarks>Orden: occurredOn, recordedAt e id descendentes. limit: 20 por defecto, máximo 50.
-    /// year: 1970 hasta año UTC actual + 1. month: 1–12, requiere year.
+    /// year: 1970 hasta año UTC actual + 1. month: 1–12, con o sin year.
     /// type: added, status_changed, reviewed, separados por coma. Filtros combinables.
     /// Cursor opaco v1, protegido y vinculado al usuario y filtros. No modificarlo.
     /// Errores: invalid_filter o invalid_cursor (400). Política timeline-read: 60/minuto/usuario.</remarks>

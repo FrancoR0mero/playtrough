@@ -43,6 +43,8 @@ public class TimelineCursorAndSqlTests
         Assert.Contains("LEFT JOIN", sql); Assert.Contains("status_changed", sql);
         Assert.DoesNotContain("ProviderDetailsJson", sql);
         Assert.Equal(System.Data.ConnectionState.Closed, db.Database.GetDbConnection().State);
+        var monthOnly = query.Entries(1, false, query.Filters(null, 2, null), null, 20).ToQueryString();
+        Assert.Matches(@"(?i)\bMONTH(?:\(|\s+FROM\s+)[^\r\n]*OccurredOn", monthOnly);
     }
 
     [Fact]

@@ -1,9 +1,23 @@
-import { ChangeDetectionStrategy, Component, effect, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { TimelinePeriods, TimelineType } from './models/timeline';
 import { TIMELINE_TYPES, TimelineFilters, hasTimelineFilters } from './timeline-filters';
 import { TIMELINE_TEXT } from './timeline-text';
+
+const TYPE_GROUPS = {
+  library: ['added', 'status_changed'],
+  reviewed: ['reviewed'],
+} satisfies Record<string, TimelineType[]>;
+type TypeGroup = keyof typeof TYPE_GROUPS;
 
 @Component({
   selector: 'app-timeline-filter-panel',
@@ -59,13 +73,10 @@ import { TIMELINE_TEXT } from './timeline-text';
             <select
               [formControl]="month"
               data-filter-month
-              class="mt-2 min-h-11 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-white disabled:opacity-50"
+              class="mt-2 min-h-11 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-white"
             >
               <option value="">{{ text.allMonths }}</option>
-              @if (filters().month && !hasMonth()) {
-                <option [value]="filters().month">{{ monthName(filters().month!) }} (0)</option>
-              }
-              @for (period of selectedYear()?.months ?? []; track period.month) {
+              @for (period of months(); track period.month) {
                 <option [value]="period.month">
                   {{ monthName(period.month) }} ({{ period.count }})
                 </option>
@@ -79,13 +90,13 @@ import { TIMELINE_TEXT } from './timeline-text';
             @for (type of types; track type) {
               <button
                 type="button"
-                [attr.aria-pressed]="filters().type?.includes(type) ?? false"
+                [attr.aria-pressed]="typeState(type)"
                 (click)="toggleType(type)"
                 [attr.data-filter-type]="type"
                 class="ui-button min-h-11 border px-4 py-2 text-sm text-white"
-                [class.border-violet-300]="filters().type?.includes(type)"
-                [class.bg-violet-400/15]="filters().type?.includes(type)"
-                [class.border-slate-600]="!filters().type?.includes(type)"
+                [class.border-violet-300]="typeState(type) !== false"
+                [class.bg-violet-400/15]="typeState(type) === true"
+                [class.border-slate-600]="typeState(type) === false"
               >
                 {{ text.typeLabels[type] }}
               </button>
@@ -111,24 +122,30 @@ export class TimelineFilterPanelComponent {
   readonly periods = input<TimelinePeriods>({ years: [] });
   readonly changed = output<TimelineFilters>();
   protected readonly text = TIMELINE_TEXT;
-  protected readonly types = TIMELINE_TYPES;
+  protected readonly types: readonly TypeGroup[] = ['library', 'reviewed'];
   protected readonly expanded = signal(false);
   protected readonly year = new FormControl('', { nonNullable: true });
-  protected readonly month = new FormControl({ value: '', disabled: true }, { nonNullable: true });
+  protected readonly month = new FormControl('', { nonNullable: true });
+  protected readonly months = computed(() => {
+    const year = this.filters().year;
+    const counts = Array<number>(12).fill(0);
+    for (const period of this.periods().years) {
+      if (year !== undefined && period.year !== year) continue;
+      for (const { month, count } of period.months) counts[month - 1] += count;
+    }
+    return counts.map((count, index) => ({ month: index + 1, count }));
+  });
   protected readonly hasFilters = hasTimelineFilters;
   constructor() {
     effect(() => {
       const filters = this.filters();
       this.year.setValue(filters.year?.toString() ?? '', { emitEvent: false });
       this.month.setValue(filters.month?.toString() ?? '', { emitEvent: false });
-      if (filters.year) this.month.enable({ emitEvent: false });
-      else this.month.disable({ emitEvent: false });
     });
     this.year.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) =>
       this.changed.emit({
         ...this.filters(),
         year: value ? +value : undefined,
-        month: undefined,
       }),
     );
     this.month.valueChanges
@@ -140,18 +157,23 @@ export class TimelineFilterPanelComponent {
   protected selectedYear() {
     return this.periods().years.find((period) => period.year === this.filters().year);
   }
-  protected hasMonth() {
-    return this.selectedYear()?.months.some((period) => period.month === this.filters().month);
-  }
   protected monthName(month: number): string {
     return new Intl.DateTimeFormat('es-AR', { month: 'long', timeZone: 'UTC' }).format(
       new Date(Date.UTC(2000, month - 1, 1)),
     );
   }
-  protected toggleType(type: TimelineType): void {
+  protected typeState(group: TypeGroup): boolean | 'mixed' {
+    const types = TYPE_GROUPS[group];
     const current = this.filters().type ?? [];
+    if (types.every((type) => current.includes(type))) return true;
+    return types.some((type) => current.includes(type)) ? 'mixed' : false;
+  }
+  protected toggleType(group: TypeGroup): void {
+    const groupTypes: readonly TimelineType[] = TYPE_GROUPS[group];
+    const current = this.filters().type ?? [];
+    const select = this.typeState(group) !== true;
     const types = TIMELINE_TYPES.filter((value) =>
-      value === type ? !current.includes(value) : current.includes(value),
+      groupTypes.includes(value) ? select : current.includes(value),
     );
     this.changed.emit({ ...this.filters(), type: types.length ? types : undefined });
   }

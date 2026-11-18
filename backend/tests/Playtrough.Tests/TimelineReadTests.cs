@@ -55,6 +55,8 @@ public class TimelineReadTests
     [InlineData(null, null, "status_changed", 1)]
     [InlineData(2025, null, "added,status_changed", 2)]
     [InlineData(2025, 2, "added", 0)]
+    [InlineData(null, 1, "added,status_changed", 2)]
+    [InlineData(null, 2, "added,status_changed", 1)]
     public async Task DateAndTypeFilters_Combine(int? year, int? month, string? type, int count)
     {
         using var c = new TimelineReadTestContext();
@@ -63,6 +65,23 @@ public class TimelineReadTests
         await c.AddAsync("2026-01-01");
         var result = await c.ListAsync(new() { Year = year, Month = month, Type = type });
         Assert.Equal(count, result.Items.Count);
+    }
+
+    [Fact]
+    public async Task MonthWithoutYear_PaginatesAcrossYearsWithExistingVisibilityRules()
+    {
+        using var c = new TimelineReadTestContext();
+        var older = await c.AddAsync("2025-01-01");
+        var newer = await c.AddAsync("2026-01-15", type: LibraryEventType.StatusChanged);
+        await c.AddAsync("2026-01-31", hidden: true);
+        await c.AddAsync("2026-02-01");
+
+        var first = await c.ListAsync(new() { Month = 1, Limit = 1, Type = "added,status_changed" }, viewer: c.Friend, username: "review-1");
+        Assert.Equal(newer.Id, Assert.Single(first.Items).Id);
+        Assert.True(first.HasMore);
+        var second = await c.ListAsync(new() { Month = 1, Limit = 1, Type = "added,status_changed", Cursor = first.NextCursor }, viewer: c.Friend, username: "review-1");
+        Assert.Equal(older.Id, Assert.Single(second.Items).Id);
+        Assert.False(second.HasMore);
     }
 
     [Fact]

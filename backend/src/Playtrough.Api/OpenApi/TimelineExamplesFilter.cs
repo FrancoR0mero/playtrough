@@ -49,7 +49,7 @@ public sealed class TimelineExamplesFilter(IOptions<TimelineSettings> settings, 
                             Maximum = Math.Min(9999, time.GetUtcNow().Year + 1).ToString(CultureInfo.InvariantCulture) };
                         break;
                     case "month":
-                        parameter.Description = "1–12. Requiere year.";
+                        parameter.Description = "1–12. Sin year, incluye el mes en todos los años.";
                         parameter.Schema = new OpenApiSchema { Type = JsonSchemaType.Integer, Minimum = "1", Maximum = "12" };
                         break;
                     case "type":

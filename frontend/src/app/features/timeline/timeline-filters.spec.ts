@@ -16,13 +16,14 @@ describe('Timeline URL filters', () => {
       ),
     ).toEqual({ year: 2026, month: 3, type: ['added', 'reviewed'] });
     expect(parseTimelineFilters(convertToParamMap({}), 2026)).toEqual({});
+    expect(parseTimelineFilters(convertToParamMap({ month: '3' }), 2026)).toEqual({ month: 3 });
   });
   it.each([
     { year: '1969' },
     { year: '2028' },
     { year: 'NaN' },
     { year: '' },
-    { month: '3' },
+    { month: '13' },
     { year: '2026', month: '0' },
     { year: '2026', month: '13' },
     { year: '2026', month: 'x' },

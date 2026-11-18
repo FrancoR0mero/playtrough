@@ -61,7 +61,7 @@ public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> se
     public TimelineFilters Filters(int? year, int? month, string? type)
     {
         if (year is { } y && (y < 1970 || y > Math.Min(9999, time.GetUtcNow().Year + 1))
-            || month is { } m && (year is null || m is < 1 or > 12)) throw new TimelineException("invalid_filter");
+            || month is { } m && m is < 1 or > 12) throw new TimelineException("invalid_filter");
         var types = new List<TimelineEntryType>();
         if (type is not null)
             foreach (var part in type.Split(','))
@@ -94,6 +94,10 @@ public sealed class TimelineQuery(AppDbContext db, IOptions<TimelineSettings> se
             var start = new DateOnly(year, filters.Month ?? 1, 1);
             var end = filters.Month is { } month ? new DateOnly(year, month, DateTime.DaysInMonth(year, month)) : new DateOnly(year, 12, 31);
             source = source.Where(e => e.OccurredOn >= start && e.OccurredOn <= end);
+        }
+        else if (filters.Month is { } month)
+        {
+            source = source.Where(e => e.OccurredOn.Month == month);
         }
         if (filters.Types.Length > 0) source = source.Where(e => filters.Types.Contains(e.Type));
         if (position is { } cursor)

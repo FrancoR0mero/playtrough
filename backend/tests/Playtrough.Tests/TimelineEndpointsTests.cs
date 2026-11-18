@@ -27,7 +27,7 @@ public class TimelineEndpointsTests
     }
 
     [Theory]
-    [InlineData("month=1")]
+    [InlineData("month=13")]
     [InlineData("year=1969")]
     [InlineData("year=9999")]
     [InlineData("year=2025&month=0")]
