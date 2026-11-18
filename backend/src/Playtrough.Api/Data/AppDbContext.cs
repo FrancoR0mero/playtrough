@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RoleChangeLog> RoleChangeLogs => Set<RoleChangeLog>();
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<ReviewReaction> ReviewReactions => Set<ReviewReaction>();
     public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
     public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
@@ -21,12 +22,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<TimelineEntry> TimelineEntries => Set<TimelineEntry>();
     public DbSet<TimelineEntryReaction> TimelineEntryReactions => Set<TimelineEntryReaction>();
     public DbSet<TimelineEntryComment> TimelineEntryComments => Set<TimelineEntryComment>();
+    public DbSet<TimelineEntryCommentReaction> TimelineEntryCommentReactions => Set<TimelineEntryCommentReaction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
         builder.ApplyConfiguration(new GameConfiguration());
         builder.ApplyConfiguration(new ReviewConfiguration());
+        builder.ApplyConfiguration(new ReviewReactionConfiguration());
         builder.ApplyConfiguration(new FriendRequestConfiguration());
         builder.ApplyConfiguration(new FriendshipConfiguration());
         builder.ApplyConfiguration(new UserBlockConfiguration());
@@ -35,6 +38,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.ApplyConfiguration(new TimelineEntryConfiguration());
         builder.ApplyConfiguration(new TimelineEntryReactionConfiguration());
         builder.ApplyConfiguration(new TimelineEntryCommentConfiguration());
+        builder.ApplyConfiguration(new TimelineEntryCommentReactionConfiguration());
 
         // Identity tables use domain names, not the framework's AspNet* prefix.
         // Data is preserved by RENAME TABLE (never recreated) in migrations.

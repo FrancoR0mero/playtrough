@@ -542,11 +542,21 @@ namespace Playtrough.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("DislikeCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTime?>("EditedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<int>("GameId")
                         .HasColumnType("int");
+
+                    b.Property<int>("LikeCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<decimal>("Rating")
                         .HasPrecision(2, 1)
@@ -569,9 +579,39 @@ namespace Playtrough.Api.Migrations
 
                     b.HasIndex("GameId", "CreatedAt", "Id");
 
-                    b.ToTable("Reviews", (string)null);
+                    b.ToTable("Reviews", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Reviews_InteractionCounts", "LikeCount >= 0 AND DislikeCount >= 0");
+                        });
 
                     b.HasAnnotation("MySQL:Charset", "utf8mb4");
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.ReviewReaction", b =>
+                {
+                    b.Property<int>("ReviewId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Value")
+                        .HasColumnType("int");
+
+                    b.HasKey("ReviewId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ReviewReactions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ReviewReactions_Value", "`Value` IN (0, 1)");
+                        });
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.RoleChangeLog", b =>
@@ -733,6 +773,33 @@ namespace Playtrough.Api.Migrations
                     b.ToTable("TimelineEntryComments", null, t =>
                         {
                             t.HasCheckConstraint("CK_TimelineEntryComments_InteractionCounts", "LikeCount >= 0 AND DislikeCount >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.TimelineEntryCommentReaction", b =>
+                {
+                    b.Property<long>("CommentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Value")
+                        .HasColumnType("int");
+
+                    b.HasKey("CommentId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TimelineEntryCommentReactions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_TimelineEntryCommentReactions_Value", "`Value` IN (0, 1)");
                         });
                 });
 
@@ -921,6 +988,21 @@ namespace Playtrough.Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.ReviewReaction", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.Review", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Playtrough.Api.Models.RoleChangeLog", b =>
                 {
                     b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
@@ -977,6 +1059,21 @@ namespace Playtrough.Api.Migrations
                         .WithMany()
                         .HasForeignKey("EntryId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.TimelineEntryCommentReaction", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.TimelineEntryComment", null)
+                        .WithMany()
+                        .HasForeignKey("CommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

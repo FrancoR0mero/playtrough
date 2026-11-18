@@ -8,7 +8,10 @@ internal sealed class ReviewConfiguration : IEntityTypeConfiguration<Review>
 {
     public void Configure(EntityTypeBuilder<Review> entity)
     {
-        entity.ToTable("Reviews");
+        entity.ToTable("Reviews", table => table.HasCheckConstraint(
+            "CK_Reviews_InteractionCounts", "LikeCount >= 0 AND DislikeCount >= 0"));
+        entity.Property(review => review.LikeCount).HasDefaultValue(0);
+        entity.Property(review => review.DislikeCount).HasDefaultValue(0);
         entity.HasAnnotation("MySQL:Charset", "utf8mb4");
         entity.Property(review => review.Rating).HasPrecision(2, 1);
         entity.Property(review => review.Text).HasMaxLength(2000).HasAnnotation("MySQL:Charset", "utf8mb4");
