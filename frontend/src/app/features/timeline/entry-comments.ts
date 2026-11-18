@@ -22,6 +22,7 @@ import { normalizePlainText } from '../../shared/plain-text';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { feedTimestamp, fullFeedDate, relativeFeedTime } from '../feed/feed-text';
 import { profileError } from '../profile/profile-error';
+import { ReactionButtonsComponent } from '../reactions/reaction-buttons';
 import { CommentAction, CommentMenuComponent } from './comment-menu';
 import { CommentDto } from './models/comment';
 import { TimelineService } from './services/timeline';
@@ -31,7 +32,13 @@ const validLength = (length: number) => length > 0 && length <= MAX_LENGTH;
 
 @Component({
   selector: 'app-entry-comments',
-  imports: [RouterLink, ReactiveFormsModule, CommentMenuComponent, UserAvatarComponent],
+  imports: [
+    RouterLink,
+    ReactiveFormsModule,
+    CommentMenuComponent,
+    UserAvatarComponent,
+    ReactionButtonsComponent,
+  ],
   templateUrl: './entry-comments.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -46,6 +53,7 @@ export class EntryCommentsComponent implements OnInit {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly composer = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
   private cursor: string | null = null;
+  private readonly missingComments = new Set<number>();
 
   protected readonly form = new FormControl('', { nonNullable: true });
   protected readonly editForm = new FormControl('', { nonNullable: true });
@@ -63,6 +71,7 @@ export class EntryCommentsComponent implements OnInit {
   protected readonly formError = signal('');
   protected readonly rowError = signal('');
   protected readonly status = signal('');
+  protected readonly reactionNotice = signal('');
   protected readonly pending = signal<'add' | CommentAction | null>(null);
   protected readonly active = signal<{ id: number; action: CommentAction } | null>(null);
   protected readonly writeCooldown = createRateLimitCooldown();
@@ -101,7 +110,8 @@ export class EntryCommentsComponent implements OnInit {
       .subscribe({
         next: (page) => {
           const rows = new Map((cursor ? this.items() : []).map((item) => [item.id, item]));
-          for (const item of page.items) if (!rows.has(item.id)) rows.set(item.id, item);
+          for (const item of page.items)
+            if (!rows.has(item.id) && !this.missingComments.has(item.id)) rows.set(item.id, item);
           this.items.set([...rows.values()]);
           this.countChanged.emit(page.commentCount);
           this.cursor = page.nextCursor;
@@ -226,6 +236,16 @@ export class EntryCommentsComponent implements OnInit {
       });
   }
 
+  protected reactionUnavailable(comment: CommentDto, row: HTMLElement): void {
+    if (!this.items().some((item) => item.id === comment.id)) return;
+    this.reactionNotice.set('Este comentario ya no está disponible.');
+    this.removeRow(
+      comment,
+      Math.max(0, this.count() - 1),
+      row.contains(row.ownerDocument.activeElement),
+    );
+  }
+
   private prepareWrite(action: CommentAction): void {
     this.pending.set(action);
     this.rowError.set('');
@@ -247,14 +267,24 @@ export class EntryCommentsComponent implements OnInit {
 
   private removed(comment: CommentDto, count: number): void {
     this.pending.set(null);
+    this.removeRow(comment, count, true);
+    this.status.set('Comentario eliminado');
+  }
+
+  private removeRow(comment: CommentDto, count: number, restoreFocus: boolean): void {
     const items = this.items();
     const next = items[items.findIndex((item) => item.id === comment.id) + 1];
+    this.missingComments.add(comment.id);
     this.items.set(items.filter((item) => item.id !== comment.id));
-    this.active.set(null);
+    if (this.active()?.id === comment.id) {
+      this.active.set(null);
+      this.rowError.set('');
+    }
     this.countChanged.emit(count);
-    this.status.set('Comentario eliminado');
-    if (next) this.focusRow(next.id);
-    else afterNextRender(() => this.focusComposer(), { injector: this.injector });
+    if (restoreFocus) {
+      if (next) this.focusRow(next.id);
+      else afterNextRender(() => this.focusComposer(), { injector: this.injector });
+    }
   }
 
   private focusRow(id: number, selector?: string): void {
