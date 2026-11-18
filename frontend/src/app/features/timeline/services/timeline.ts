@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../../../environments/environment';
+import { CommentCountDto, CommentCreatedDto, CommentDto, CommentPage } from '../models/comment';
 import {
   FeedEntryDto,
   TimelineEntryDto,
@@ -42,6 +43,29 @@ export class TimelineService {
     return this.http.get<TimelinePage<FeedEntryDto>>(`${this.url}/feed`, {
       params: this.params(query),
     });
+  }
+  getEntry(id: number) {
+    return this.http.get<FeedEntryDto>(this.entryUrl(id));
+  }
+  getComments(entryId: number, query: Pick<TimelineQuery, 'cursor' | 'limit'> = {}) {
+    return this.http.get<CommentPage>(`${this.entryUrl(entryId)}/comments`, {
+      params: this.params(query),
+    });
+  }
+  addComment(entryId: number, text: string) {
+    return this.http.post<CommentCreatedDto>(`${this.entryUrl(entryId)}/comments`, { text });
+  }
+  editComment(id: number, text: string) {
+    return this.http.put<CommentDto>(this.commentUrl(id), { text });
+  }
+  deleteComment(id: number) {
+    return this.http.delete<CommentCountDto>(this.commentUrl(id));
+  }
+  private entryUrl(id: number) {
+    return `${this.url}/timeline/entries/${id}`;
+  }
+  private commentUrl(id: number) {
+    return `${this.url}/timeline/comments/${id}`;
   }
   private userUrl(username: string) {
     return `${this.url}/users/${encodeURIComponent(username)}`;
