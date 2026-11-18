@@ -5,7 +5,6 @@ import {
   ElementRef,
   OnInit,
   afterNextRender,
-  computed,
   inject,
   signal,
   viewChild,
@@ -21,7 +20,7 @@ import { FeedEntryDto, TimelinePage } from '../timeline/models/timeline';
 import { TimelineService } from '../timeline/services/timeline';
 import { TimelineEntryCardComponent } from '../timeline/timeline-entry-card';
 import { TIMELINE_IMAGE_ASPECT_RATIO } from '../timeline/timeline-text';
-import { FEED_REFRESH_INTERVAL_MS, FEED_TEXT } from './feed-text';
+import { FEED_REFRESH_INTERVAL_MS, FEED_TEXT, feedTimestamp } from './feed-text';
 
 @Component({
   selector: 'app-feed',
@@ -43,31 +42,19 @@ export class FeedComponent implements OnInit {
   protected readonly pending = signal<TimelinePage<FeedEntryDto> | null>(null);
   protected readonly announcement = signal('');
   protected readonly displayTime = signal(Date.now());
-  private readonly clock = signal(Date.now());
-  private readonly lastCheck = signal<number | null>(null);
-  protected readonly refreshWait = computed(() =>
-    Math.max(
-      this.cooldown.remaining(),
-      Math.ceil(
-        Math.max(0, (this.lastCheck() ?? -Infinity) + FEED_REFRESH_INTERVAL_MS - this.clock()) /
-          1000,
-      ),
-    ),
-  );
+  private lastCheck = -Infinity;
   private readonly service = inject(TimelineService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly title = viewChild<ElementRef<HTMLHeadingElement>>('title');
   private request?: Subscription;
   private cursor: string | null = null;
-  protected failed: 'first' | 'page' | 'refresh' = 'first';
+  private failed: 'first' | 'page' = 'first';
   private dirty = false;
   constructor() {
     const timer = setInterval(() => {
-      const now = Date.now();
-      this.clock.set(now);
-      if (Math.floor(now / 60_000) !== Math.floor(this.displayTime() / 60_000))
-        this.displayTime.set(now);
-    }, 1000);
+      this.displayTime.set(Date.now());
+      this.checkForNews();
+    }, FEED_REFRESH_INTERVAL_MS);
     this.destroyRef.onDestroy(() => {
       clearInterval(timer);
       this.request?.unsubscribe();
@@ -77,7 +64,7 @@ export class FeedComponent implements OnInit {
       .subscribe(() => {
         if (document.visibilityState !== 'visible') return;
         if (this.dirty) this.load(true);
-        else this.check(false);
+        else this.checkForNews();
       });
     inject(FriendsService)
       .changes$.pipe(takeUntilDestroyed())
@@ -104,33 +91,34 @@ export class FeedComponent implements OnInit {
     if (this.hasMore()) this.load(false);
   }
   protected retry(): void {
-    if (this.failed === 'refresh') this.check(true);
-    else this.load(this.failed === 'first');
+    this.load(this.failed === 'first');
   }
-  protected check(manual: boolean): void {
-    this.clock.set(Date.now());
-    if (!this.loaded() || this.loading() || this.checking() || this.refreshWait()) return;
+  private checkForNews(): void {
+    const now = Date.now();
+    if (
+      document.visibilityState !== 'visible' ||
+      !this.loaded() ||
+      this.loading() ||
+      this.checking() ||
+      this.cooldown.remaining() ||
+      now - this.lastCheck < FEED_REFRESH_INTERVAL_MS
+    )
+      return;
     this.checking.set(true);
-    this.lastCheck.set(Date.now());
-    if (manual) this.error.set(null);
+    this.lastCheck = now;
     this.request = this.service
       .getFeed({ limit: 20 })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
           this.checking.set(false);
-          if (this.failed === 'refresh') this.error.set(null);
-          const current = this.items()[0]?.id,
-            fresh = page.items.find((entry) => !entry.isHidden)?.id;
-          this.pending.set(current !== fresh ? page : null);
+          const current = this.items()[0];
+          const fresh = page.items.find((entry) => !entry.isHidden);
+          this.pending.set(fresh && (!current || isNewer(fresh, current)) ? page : null);
         },
         error: (error: unknown) => {
           this.checking.set(false);
           this.cooldown.handle(error);
-          if (manual) {
-            this.failed = 'refresh';
-            this.error.set(this.text.refreshError);
-          }
         },
       });
   }
@@ -162,8 +150,7 @@ export class FeedComponent implements OnInit {
       this.hasMore.set(false);
       this.loaded.set(false);
       this.pending.set(null);
-      this.lastCheck.set(Date.now());
-      this.clock.set(Date.now());
+      this.lastCheck = Date.now();
     }
     const query = { limit: 20, ...(this.cursor ? { cursor: this.cursor } : {}) };
     this.request = this.service
@@ -193,4 +180,17 @@ export class FeedComponent implements OnInit {
     this.loaded.set(true);
     this.announcement.set(this.text.loaded(this.items().length));
   }
+}
+
+function isNewer(fresh: FeedEntryDto, current: FeedEntryDto): boolean {
+  const byTime =
+    Date.parse(feedTimestamp(fresh.recordedAt)) - Date.parse(feedTimestamp(current.recordedAt));
+  if (byTime !== 0) return byTime > 0;
+  // Preserve the fractional precision that Date truncates before using the server's ID tiebreaker.
+  const fraction = (value: string) => (value.match(/\.(\d+)/)?.[1] ?? '').padEnd(7, '0');
+  const freshFraction = fraction(fresh.recordedAt);
+  const currentFraction = fraction(current.recordedAt);
+  return freshFraction === currentFraction
+    ? fresh.id > current.id
+    : freshFraction > currentFraction;
 }

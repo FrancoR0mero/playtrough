@@ -2,11 +2,10 @@ export const FEED_REFRESH_INTERVAL_MS = 30_000;
 export const FEED_TEXT = {
   title: 'Inicio',
   list: 'Actividad de tus amigos',
-  refresh: 'Actualizar',
   more: 'Cargar más',
   retry: 'Reintentar',
-  news: 'Hay novedades',
-  see: 'Ver',
+  news: 'Ver novedades',
+  newsAvailable: 'Hay publicaciones nuevas en el inicio.',
   loading: 'Cargando novedades',
   noFriends: 'Todavía no tenés amigos',
   people: 'Buscar personas',
@@ -15,9 +14,7 @@ export const FEED_TEXT = {
   checkingFriends: 'Consultando amistades…',
   retryFriends: 'Reintentar amistades',
   error: 'No pudimos cargar las novedades. Volvé a intentarlo.',
-  refreshError: 'No pudimos actualizar las novedades. Volvé a intentarlo.',
   invalidCursor: 'La página de novedades ya no es válida. Volvé a cargar el inicio.',
-  refreshWait: (seconds: number) => `Disponible en ${seconds} s`,
   loaded: (count: number) =>
     `${count} ${count === 1 ? 'entrada disponible' : 'entradas disponibles'}`,
   played: 'jugado el',

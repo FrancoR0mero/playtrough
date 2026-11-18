@@ -1,38 +1,22 @@
 <section class="page-container" aria-labelledby="feed-title">
-  <div class="flex flex-wrap items-start justify-between gap-4">
-    <h1 #title id="feed-title" tabindex="-1" class="page-heading text-white">{{ text.title }}</h1>
-    <div class="text-right">
+  <div class="pointer-events-none sticky top-3 z-20 flex h-0 max-w-3xl justify-end">
+    @if (pending()) {
       <button
         type="button"
-        (click)="check(true)"
-        [disabled]="loading() || checking() || !loaded() || refreshWait() > 0"
-        class="ui-button min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-50"
-        data-feed-refresh
+        (click)="seeNews()"
+        class="pointer-events-auto inline-flex min-h-11 items-center self-start rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-md hover:brightness-90"
+        data-feed-see
       >
-        {{ text.refresh }}
+        {{ text.news }}
       </button>
-      @if (refreshWait() > 0 && loaded()) {
-        <p class="mt-2 text-xs text-slate-400">{{ text.refreshWait(refreshWait()) }}</p>
-      }
-    </div>
+    }
   </div>
+  <h1 #title id="feed-title" tabindex="-1" class="page-heading w-fit text-white">
+    {{ text.title }}
+  </h1>
+  <p class="sr-only" role="status">{{ pending() ? text.newsAvailable : '' }}</p>
   <p class="sr-only" aria-live="polite" aria-atomic="true">{{ announcement() }}</p>
   <div class="mt-6 max-w-3xl" [attr.aria-busy]="loading()">
-    @if (pending()) {
-      <div
-        class="mb-5 flex flex-wrap items-center justify-between gap-3 border-y border-slate-700 py-3"
-      >
-        <p role="status" class="text-sm text-slate-200">{{ text.news }}</p>
-        <button
-          type="button"
-          (click)="seeNews()"
-          class="ui-button min-h-11 border border-violet-300 px-5 py-2 text-white"
-          data-feed-see
-        >
-          {{ text.see }}
-        </button>
-      </div>
-    }
     @if (items().length) {
       <ol [attr.aria-label]="text.list" class="divide-y divide-slate-700/60">
         @for (entry of items(); track entry.id) {
@@ -77,12 +61,7 @@
         <button
           type="button"
           (click)="retry()"
-          [disabled]="
-            loading() ||
-            checking() ||
-            cooldown.remaining() > 0 ||
-            (failed === 'refresh' && refreshWait() > 0)
-          "
+          [disabled]="loading() || checking() || cooldown.remaining() > 0"
           class="ui-button mt-4 min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-50"
           data-feed-retry
         >

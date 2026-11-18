@@ -108,7 +108,7 @@ describe('Friends feed', () => {
       .click();
     expect(f.state.refresh).toHaveBeenCalledOnce();
   });
-  it('keeps first-page focus checks at least 30 seconds apart, including manual checks', () => {
+  it('checks every 30 seconds while visible and does not duplicate a check on focus', () => {
     const f = setup();
     f.fixture.detectChanges();
     f.focus();
@@ -123,19 +123,21 @@ describe('Friends feed', () => {
     f.fixture.detectChanges();
     expect(f.service.getFeed).toHaveBeenCalledTimes(2);
     f.wait();
-    f.button('refresh').click();
-    f.fixture.detectChanges();
     expect(f.service.getFeed).toHaveBeenCalledTimes(3);
     expect(f.service.getFeed).toHaveBeenLastCalledWith({ limit: 20 });
+    expect(f.root.querySelector('[data-feed-refresh]')).toBeNull();
+    expect(f.root.textContent).not.toContain('Disponible en');
   });
-  it('does not poll while reading and ignores visibility changes while hidden', () => {
+  it('pauses checks while hidden and checks on return', () => {
     const f = setup();
     f.fixture.detectChanges();
-    f.wait(120_000);
-    expect(f.service.getFeed).toHaveBeenCalledTimes(1);
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    f.wait(120_000);
     f.focus();
     expect(f.service.getFeed).toHaveBeenCalledTimes(1);
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    f.focus();
+    expect(f.service.getFeed).toHaveBeenCalledTimes(2);
   });
   it('keeps the list and focus unchanged until See accepts a new first page', () => {
     const f = setup({ items: [feedEntry()], nextCursor: 'old', hasMore: true });
@@ -151,7 +153,7 @@ describe('Friends feed', () => {
     );
     f.wait();
     f.focus();
-    expect(f.root.textContent).toContain('Hay novedades');
+    expect(f.button('see').textContent).toContain('Ver novedades');
     expect(f.root.querySelector('ol')?.textContent).not.toContain('NEW GAME');
     expect(document.activeElement).toBe(game);
     f.button('see').click();
@@ -162,20 +164,30 @@ describe('Friends feed', () => {
     f.button('more').click();
     expect(f.service.getFeed).toHaveBeenLastCalledWith({ limit: 20, cursor: 'fresh' });
   });
-  it('does not announce news when the first ID is unchanged, including two empty pages', () => {
+  it('does not announce news when the first entry is unchanged, older or removed', () => {
     const f = setup();
     f.fixture.detectChanges();
     f.wait();
     f.focus();
     expect(f.root.querySelector('[data-feed-see]')).toBeNull();
-    f.service.getFeed.mockReturnValue(of({ items: [], nextCursor: null, hasMore: false }));
+    for (const items of [[feedEntry({ id: 2, recordedAt: '2026-03-12T11:00:00Z' })], []]) {
+      f.service.getFeed.mockReturnValueOnce(of({ items, nextCursor: null, hasMore: false }));
+      f.wait();
+      expect(f.root.querySelector('[data-feed-see]')).toBeNull();
+    }
+    expect(f.root.querySelectorAll('ol > li')).toHaveLength(1);
+  });
+  it('announces the first new entry when the feed was empty', () => {
+    const f = setup({ items: [], nextCursor: null, hasMore: false });
+    f.fixture.detectChanges();
+    f.service.getFeed.mockReturnValueOnce(
+      of({ items: [feedEntry()], nextCursor: null, hasMore: false }),
+    );
     f.wait();
-    f.focus();
+    expect(f.root.querySelector('ol')).toBeNull();
     f.button('see').click();
     f.fixture.detectChanges();
-    f.wait();
-    f.focus();
-    expect(f.root.querySelector('[data-feed-see]')).toBeNull();
+    expect(f.root.querySelectorAll('ol > li')).toHaveLength(1);
   });
   it.each([0, 503, 429])('silently ignores background errors with status %s', (status) => {
     const f = setup();
@@ -192,26 +204,10 @@ describe('Friends feed', () => {
     expect(f.root.querySelector('[role="alert"]')).toBeNull();
     expect(f.root.querySelectorAll('ol > li')).toHaveLength(1);
     if (status === 429) {
-      f.wait();
+      f.wait(29_000);
       f.focus();
       expect(f.service.getFeed).toHaveBeenCalledTimes(2);
     }
-  });
-  it('shows manual refresh errors while keeping current entries, then permits retry', () => {
-    const f = setup();
-    f.fixture.detectChanges();
-    f.wait();
-    f.service.getFeed.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })));
-    f.button('refresh').click();
-    f.fixture.detectChanges();
-    expect(f.root.querySelector('[role="alert"]')?.textContent).toContain('No pudimos actualizar');
-    expect(f.root.querySelector('ol')).not.toBeNull();
-    expect(f.button('retry').disabled).toBe(true);
-    f.wait();
-    f.button('retry').click();
-    f.fixture.detectChanges();
-    expect(f.root.querySelector('[role="alert"]')).toBeNull();
-    expect(f.service.getFeed).toHaveBeenCalledTimes(3);
   });
   it('retries network errors and the same failed pagination cursor', () => {
     const f = setup({ items: [feedEntry()], nextCursor: 'next', hasMore: true });
