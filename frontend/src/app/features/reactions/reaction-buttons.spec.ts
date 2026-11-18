@@ -72,6 +72,17 @@ describe('ReactionButtonsComponent', () => {
     );
   }
 
+  it.each<ReactionTarget>([
+    { type: 'comment', id: 42 },
+    { type: 'review', id: 42, gameId: 7 },
+  ])('does not list people for %j, even with a positive count', (target) => {
+    const view = mount(summary(null, 5, 2), false, target);
+    view.fixture.componentRef.setInput('showLikeList', true);
+    view.fixture.detectChanges();
+    expect(view.root.querySelector('[data-view-likes]')).toBeNull();
+    expect(view.button('like').textContent).toContain('5');
+  });
+
   it.each([
     [null, 'like', summary('like', 11, 5)],
     [null, 'dislike', summary('dislike', 10, 6)],
@@ -223,16 +234,14 @@ describe('ReactionButtonsComponent', () => {
     const view = mount();
     const http = TestBed.inject(HttpTestingController);
     view.click('like');
-    http
-      .expectOne(url)
-      .flush(
-        { code: 'rate_limited' },
-        {
-          status: 429,
-          statusText: 'Too Many Requests',
-          headers: new HttpHeaders({ 'Retry-After': '2' }),
-        },
-      );
+    http.expectOne(url).flush(
+      { code: 'rate_limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '2' }),
+      },
+    );
     expectState(view, summary());
     expect(view.button('like').disabled).toBe(true);
     expect(view.root.querySelector('[role="alert"]')?.textContent).toContain('2 segundos');

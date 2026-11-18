@@ -49,10 +49,10 @@ describe('Timeline entry detail', () => {
     const root = () => harness.routeNativeElement!;
     const button = (title: string) =>
       [...root().querySelectorAll('button')].find((node) => node.textContent?.trim() === title)!;
-    const flushEntry = () => {
+    const flushEntry = (likeCount = 0) => {
       http
         .expectOne({ method: 'GET', url: entryUrl })
-        .flush(feedEntry({ id: 42, commentCount: 1 }));
+        .flush(feedEntry({ id: 42, commentCount: 1, likeCount }));
       harness.detectChanges();
       http
         .expectOne(`${entryUrl}/comments?limit=20`)
@@ -141,6 +141,22 @@ describe('Timeline entry detail', () => {
     f.harness.detectChanges();
     f.button('Reintentar').click();
     f.flushEntry();
+  });
+
+  it('opens the likes list from entry detail', async () => {
+    const f = await setup();
+    f.flushEntry(2);
+    const trigger = f.root().querySelector<HTMLButtonElement>('button[data-view-likes]')!;
+    trigger.click();
+    TestBed.tick();
+    f.http
+      .expectOne(`${entryUrl}/likes?limit=20`)
+      .flush({ items: [], nextCursor: null, hasMore: false });
+    TestBed.tick();
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Les gustó esto');
+    document.querySelector<HTMLButtonElement>('[data-close-likes]')!.click();
+    TestBed.tick();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it('opens the composer from a paginated card and restores focus to its link when going back', async () => {
