@@ -6,6 +6,7 @@ import { RateLimitError } from '../../core/http/rate-limit-error';
 import { createFriendsMock, createFriendsStateMock } from '../friends/friends-test-helpers';
 import { FriendsService } from '../friends/services/friends';
 import { FriendsState } from '../friends/services/friends-state';
+import { ReactionsService } from '../reactions/services/reactions';
 import { FeedEntryDto, TimelinePage } from '../timeline/models/timeline';
 import { TimelineService } from '../timeline/services/timeline';
 import { FeedComponent } from './feed';
@@ -60,6 +61,24 @@ describe('Friends feed', () => {
       '1 entrada disponible',
     );
     expect(f.root.querySelector('[data-feed-more]')).toBeNull();
+  });
+  it('removes only the unavailable card when a reaction returns 404', () => {
+    const f = setup({
+      items: [feedEntry(), feedEntry({ id: 2 })],
+      nextCursor: null,
+      hasMore: false,
+    });
+    f.fixture.detectChanges();
+    vi.spyOn(TestBed.inject(ReactionsService), 'set').mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 404, error: { code: 'entry_not_found' } })),
+    );
+    f.root.querySelector<HTMLButtonElement>('[data-reaction="like"]')!.click();
+    f.fixture.detectChanges();
+    expect(f.root.querySelectorAll('app-timeline-entry-card')).toHaveLength(1);
+    expect(f.root.querySelector('[role="alert"]')?.textContent).toContain(
+      'La entrada ya no está disponible',
+    );
+    expect(document.activeElement).toBe(f.root.querySelector('h1'));
   });
   it('shows skeletons and paginates without duplicate entries or requests', () => {
     const f = setup({ items: [feedEntry()], nextCursor: 'v1.opaque', hasMore: true });

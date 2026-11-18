@@ -2,8 +2,10 @@ import { Dialog } from '@angular/cdk/dialog';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { throwError } from 'rxjs';
+import { Subject, throwError } from 'rxjs';
 import { GameCatalogService } from '../games/services/game-catalog';
+import { ReactionSummaryDto } from '../reactions/models/reaction';
+import { ReactionsService } from '../reactions/services/reactions';
 import { TimelineEntryCardComponent } from './timeline-entry-card';
 import { TIMELINE_IMAGE_ASPECT_RATIO } from './timeline-text';
 import { timelineEntry } from './timeline-test-helpers';
@@ -97,5 +99,47 @@ describe('Timeline entry card', () => {
     await f.fixture.whenStable();
     expect(dialogs.openDialogs).toHaveLength(0);
     expect(document.activeElement).toBe(button);
+  });
+
+  it('shows comment and reaction counts on own cards', () => {
+    const f = setup(timelineEntry({ likeCount: 6, dislikeCount: 2, commentCount: 1 }));
+    expect(f.root.querySelector('[data-comment-count]')?.textContent).toContain('1 comentario');
+    const reactions = f.root.querySelectorAll<HTMLButtonElement>('[data-reaction]');
+    expect(
+      [...reactions].map((button) => [button.getAttribute('aria-label'), button.disabled]),
+    ).toEqual([
+      ['Me gusta (6)', true],
+      ['No me gusta (2)', true],
+    ]);
+  });
+
+  it('synchronizes an entry displayed on the timeline and in the feed', () => {
+    const entry = timelineEntry({ likeCount: 3, commentCount: 4 });
+    const timeline = setup(entry);
+    timeline.fixture.componentRef.setInput('perspective', 'other');
+    timeline.fixture.detectChanges();
+    const feed = TestBed.createComponent(TimelineEntryCardComponent);
+    feed.componentRef.setInput('entry', { ...entry, author: { username: 'bea', avatarUrl: null } });
+    feed.componentRef.setInput('perspective', 'other');
+    feed.componentRef.setInput('showAuthor', true);
+    feed.detectChanges();
+    const response = new Subject<ReactionSummaryDto>();
+    const set = vi.spyOn(TestBed.inject(ReactionsService), 'set').mockReturnValue(response);
+    const button = (root: HTMLElement) =>
+      root.querySelector<HTMLButtonElement>('[data-reaction="like"]')!;
+    const feedRoot = feed.nativeElement as HTMLElement;
+    button(feedRoot).click();
+    timeline.fixture.detectChanges();
+    expect(set).toHaveBeenCalledExactlyOnceWith({ type: 'entry', id: entry.id }, 'like');
+    expect(button(timeline.root).getAttribute('aria-label')).toBe('Me gusta (4)');
+    expect(button(timeline.root).getAttribute('aria-pressed')).toBe('true');
+    response.next({ myReaction: 'like', likeCount: 5, dislikeCount: 1 });
+    response.complete();
+    timeline.fixture.detectChanges();
+    feed.detectChanges();
+    for (const root of [timeline.root, feedRoot]) {
+      expect(button(root).getAttribute('aria-label')).toBe('Me gusta (5)');
+      expect(root.querySelector('[data-comment-count]')?.textContent).toContain('4 comentarios');
+    }
   });
 });
