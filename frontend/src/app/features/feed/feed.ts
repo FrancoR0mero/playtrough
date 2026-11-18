@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
   OnInit,
   afterNextRender,
   inject,
@@ -16,6 +17,7 @@ import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { FriendsService } from '../friends/services/friends';
 import { FriendsState } from '../friends/services/friends-state';
 import { profileError } from '../profile/profile-error';
+import { EntryNavigation } from '../timeline/entry-navigation';
 import { FeedEntryDto, TimelinePage } from '../timeline/models/timeline';
 import { TimelineService } from '../timeline/services/timeline';
 import { TimelineEntryCardComponent } from '../timeline/timeline-entry-card';
@@ -47,6 +49,9 @@ export class FeedComponent implements OnInit {
   private readonly service = inject(TimelineService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly title = viewChild<ElementRef<HTMLHeadingElement>>('title');
+  private readonly navigation = inject(EntryNavigation);
+  private readonly injector = inject(Injector);
+  protected readonly pages = signal(1);
   private request?: Subscription;
   private cursor: string | null = null;
   private failed: 'first' | 'page' = 'first';
@@ -174,6 +179,15 @@ export class FeedComponent implements OnInit {
           this.loading.set(false);
           this.dirty = false;
           this.apply(page, !reset);
+          afterNextRender(
+            () =>
+              this.navigation.restore(
+                this.hasMore(),
+                () => this.more(),
+                () => this.title()?.nativeElement.focus(),
+              ),
+            { injector: this.injector },
+          );
         },
         error: (error: unknown) => {
           this.loading.set(false);
@@ -185,6 +199,7 @@ export class FeedComponent implements OnInit {
       });
   }
   private apply(page: TimelinePage<FeedEntryDto>, append: boolean): void {
+    this.pages.update((pages) => (append ? pages + 1 : 1));
     const entries = new Map((append ? this.items() : []).map((entry) => [entry.id, entry]));
     for (const entry of page.items) if (!entry.isHidden) entries.set(entry.id, entry);
     this.items.set([...entries.values()]);

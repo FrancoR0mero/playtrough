@@ -28,6 +28,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/feed/feed').then((m) => m.FeedComponent),
   },
   {
+    path: 'entries/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/timeline/entry-detail').then((m) => m.EntryDetailComponent),
+  },
+  {
     path: 'auth/login',
     canActivate: [guestGuard],
     runGuardsAndResolvers: 'always',

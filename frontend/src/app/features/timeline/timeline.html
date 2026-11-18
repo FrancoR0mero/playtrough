@@ -43,6 +43,7 @@
               [entry]="entry"
               [perspective]="source() === 'me' ? 'self' : 'other'"
               [showActions]="source() === 'me' && !readonly()"
+              [originPages]="pages()"
               (updated)="entryUpdated($event)"
               (missing)="entryMissing($event)"
             />

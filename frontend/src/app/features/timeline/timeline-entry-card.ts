@@ -13,7 +13,7 @@ import {
   computed,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { StarRatingComponent } from '../../shared/components/star-rating/star-rating';
 import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar';
 import { GameDetailComponent } from '../games/game-detail';
@@ -25,6 +25,7 @@ import { ReactionTarget } from '../reactions/models/reaction';
 import { ReactionButtonsComponent } from '../reactions/reaction-buttons';
 import { TimelineService } from './services/timeline';
 import { TimelineEntryMenuComponent } from './timeline-entry-menu';
+import { EntryOrigin, entryLinkId } from './entry-navigation';
 import {
   FEED_TEXT,
   effectiveFeedDate,
@@ -59,6 +60,10 @@ export class TimelineEntryCardComponent {
   readonly perspective = input<TimelinePerspective>('self');
   readonly showAuthor = input(false);
   readonly showActions = input(false);
+  readonly detail = input(false);
+  readonly originPages = input(1);
+  readonly commentCount = input<number>();
+  readonly compose = output<void>();
   readonly referenceTime = input(Date.now());
   protected readonly feedText = FEED_TEXT;
   protected readonly publishedAt = computed(() => feedTimestamp(this.entry().recordedAt));
@@ -74,6 +79,7 @@ export class TimelineEntryCardComponent {
   protected readonly status = signal('');
   protected readonly cooldown = createRateLimitCooldown();
   private readonly timeline = inject(TimelineService);
+  private readonly router = inject(Router);
   private readonly injector = inject(Injector);
   private readonly menu = viewChild(TimelineEntryMenuComponent);
   protected readonly text = TIMELINE_TEXT;
@@ -85,9 +91,15 @@ export class TimelineEntryCardComponent {
     id: this.entry().id,
   }));
   protected readonly commentsLabel = computed(() => {
-    const count = this.entry().commentCount;
+    const count = this.commentCount() ?? this.entry().commentCount;
     return `${count} ${count === 1 ? 'comentario' : 'comentarios'}`;
   });
+  protected readonly entryLinkId = entryLinkId;
+  protected origin(link: EntryOrigin['link']): { entryOrigin: EntryOrigin } {
+    return {
+      entryOrigin: { url: this.router.url, id: this.entry().id, link, pages: this.originPages() },
+    };
+  }
   private readonly dialogs = inject(Dialog);
   private readonly destroyRef = inject(DestroyRef);
   private preview?: DialogRef<void, GameDetailComponent>;

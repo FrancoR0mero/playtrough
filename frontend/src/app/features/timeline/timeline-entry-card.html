@@ -90,9 +90,35 @@
           [isOwn]="perspective() === 'self'"
           (unavailable)="missing.emit($event.id)"
         />
-        <span class="inline-flex min-h-11 items-center text-slate-300" data-comment-count>
-          {{ commentsLabel() }}
-        </span>
+        @if (detail()) {
+          <span class="inline-flex min-h-11 items-center text-slate-300" data-comment-count>
+            {{ commentsLabel() }}
+          </span>
+          <button
+            type="button"
+            (click)="compose.emit()"
+            class="min-h-11 text-violet-300 hover:underline"
+          >
+            Comentar
+          </button>
+        } @else {
+          <a
+            [id]="entryLinkId(entry().id, 'comments')"
+            [routerLink]="['/entries', entry().id]"
+            [state]="origin('comments')"
+            class="inline-flex min-h-11 items-center text-violet-300 hover:underline"
+            data-comment-count
+            >{{ commentsLabel() }}</a
+          >
+          <a
+            [id]="entryLinkId(entry().id, 'compose')"
+            [routerLink]="['/entries', entry().id]"
+            [queryParams]="{ comment: '1' }"
+            [state]="origin('compose')"
+            class="inline-flex min-h-11 items-center text-violet-300 hover:underline"
+            >Comentar</a
+          >
+        }
       </div>
       @if (perspective() === 'self' && entry().isHidden) {
         <p class="mt-3 flex items-center gap-2 text-sm text-slate-300" data-hidden>

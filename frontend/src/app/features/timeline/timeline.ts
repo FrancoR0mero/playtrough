@@ -26,6 +26,7 @@ import { ProfileRestriction } from '../profile/models/user';
 import { ProfileRestrictionComponent } from '../profile/profile-restriction';
 import { profileError } from '../profile/profile-error';
 import { ReviewService } from '../reviews/services/review';
+import { EntryNavigation } from './entry-navigation';
 import { TimelineEntryDto, TimelinePeriods } from './models/timeline';
 import { TimelineFilterPanelComponent } from './timeline-filter-panel';
 import { TimelineFilters, hasTimelineFilters, parseTimelineFilters } from './timeline-filters';
@@ -69,10 +70,12 @@ export class TimelineComponent {
   protected readonly periodsError = signal(false);
   protected readonly filterWarning = signal(false);
   protected readonly entryNotice = signal(false);
+  protected readonly pages = signal(1);
   protected readonly hasFilters = hasTimelineFilters;
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
+  private readonly navigation = inject(EntryNavigation);
   private readonly root = viewChild<ElementRef<HTMLElement>>('timelineRoot');
   private periodsRequest?: Subscription;
   private previousFilters?: string;
@@ -314,6 +317,16 @@ export class TimelineComponent {
         this.loading.set(false);
         this.dirty = this.snapshotRevision !== this.revision;
         this.announcement.set(this.text.loaded(this.items().length));
+        this.pages.update((pages) => (reset ? 1 : pages + 1));
+        afterNextRender(
+          () =>
+            this.navigation.restore(
+              this.hasMore(),
+              () => this.more(),
+              () => this.root()?.nativeElement.focus(),
+            ),
+          { injector: this.injector },
+        );
       },
       error: (error: unknown) => {
         this.loading.set(false);
