@@ -9,7 +9,11 @@ internal sealed class TimelineEntryConfiguration : IEntityTypeConfiguration<Time
 {
     public void Configure(EntityTypeBuilder<TimelineEntry> entity)
     {
-        entity.ToTable("TimelineEntries");
+        entity.ToTable("TimelineEntries", table => table.HasCheckConstraint("CK_TimelineEntries_InteractionCounts",
+            "LikeCount >= 0 AND DislikeCount >= 0 AND CommentCount >= 0"));
+        entity.Property(entry => entry.LikeCount).HasDefaultValue(0);
+        entity.Property(entry => entry.DislikeCount).HasDefaultValue(0);
+        entity.Property(entry => entry.CommentCount).HasDefaultValue(0);
         entity.Property(entry => entry.Type).HasConversion(
             value => TimelineValues.TypeValue(value), value => TimelineValues.ParseType(value))
             .HasMaxLength(16);

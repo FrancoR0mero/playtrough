@@ -18,4 +18,7 @@ public sealed class TimelineEntry
     public Review? Review { get; set; }
     public bool IsHidden { get; set; }
     public bool FeedEligible { get; set; }
+    public int LikeCount { get; set; }
+    public int DislikeCount { get; set; }
+    public int CommentCount { get; set; }
 }
