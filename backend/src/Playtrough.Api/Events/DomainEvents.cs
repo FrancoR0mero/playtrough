@@ -6,6 +6,7 @@ public sealed record FriendRequestAccepted(int RequestId, int SenderId, int Rece
 
 public sealed record ContentReacted(string ContentType, long ContentId, int ActorId, int OwnerId,
     string? Value, string? PreviousValue) : IDomainEvent;
+public sealed record TimelineEntryCommented(long EntryId, long CommentId, int ActorId, int OwnerId, DateTime CreatedAt) : IDomainEvent;
 
 public interface IDomainEventPublisher
 {

@@ -12,11 +12,8 @@ public sealed class TimelineReactionTarget(AppDbContext db, TimelineEntryAccess 
 
     public async Task<int> LockAndResolveOwnerAsync(long id, int actor, CancellationToken ct)
     {
-        // Lock the parent before any snapshot read so competing requests see the latest reaction.
-        await db.TimelineEntries.Where(entry => entry.Id == id).ExecuteUpdateAsync(setters =>
-            setters.SetProperty(entry => entry.LikeCount, entry => entry.LikeCount), ct);
-        return await access.VisibleTo(actor).Where(entry => entry.Id == id)
-            .Select(entry => (int?)entry.UserId).SingleOrDefaultAsync(ct)
+        await access.LockAsync(id, ct);
+        return await access.OwnerAsync(id, actor, ct)
             ?? throw new TimelineException("entry_not_found");
     }
 
