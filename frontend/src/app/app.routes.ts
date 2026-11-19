@@ -85,6 +85,21 @@ export const routes: Routes = [
     loadComponent: () => import('./features/friends/friends').then((m) => m.FriendsComponent),
   },
   {
+    path: 'groups',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/groups/groups').then((m) => m.GroupsComponent),
+  },
+  {
+    path: 'groups/new',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/groups/group-create').then((m) => m.GroupCreateComponent),
+  },
+  {
+    path: 'groups/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/groups/group-detail').then((m) => m.GroupDetailComponent),
+  },
+  {
     path: 'profile/settings/privacy',
     canActivate: [authGuard],
     loadComponent: () =>

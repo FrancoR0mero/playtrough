@@ -13,6 +13,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   { label: 'Juegos', path: '/games', minRole: 'User', enabled: true },
   { label: 'Mi biblioteca', path: '/library', minRole: 'User', enabled: true },
   { label: 'Amigos', path: '/friends', minRole: 'User', enabled: true },
+  { label: 'Grupos', path: '/groups', minRole: 'User', enabled: true },
   { label: 'Mi perfil', path: '/profile', minRole: 'User', enabled: true },
   { label: 'Roles', path: '/admin/roles', minRole: 'Admin', enabled: true },
   // Enable only when a protected content moderation route and screen exist.

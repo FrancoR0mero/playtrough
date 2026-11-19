@@ -27,6 +27,6 @@ describe('Feed navigation', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('#primary-navigation ul a')?.getAttribute('href')).toBe('/feed');
     expect(root.querySelector('.mobile-game-navigation a')?.getAttribute('href')).toBe('/feed');
-    expect(root.querySelectorAll('.mobile-game-navigation a')).toHaveLength(5);
+    expect(root.querySelectorAll('.mobile-game-navigation a')).toHaveLength(6);
   });
 });
