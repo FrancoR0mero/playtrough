@@ -185,6 +185,40 @@ public sealed class TimelineCommentTests
     }
 
     [Fact]
+    public async Task ListFiltersBothBlockDirectionsBeforePaginating()
+    {
+        using var context = new TimelineReadTestContext();
+        var entry = await context.AddAsync();
+        var otherEntry = await context.AddAsync();
+        await using var db = context.Store.CreateDb();
+        var service = Service(context, db);
+        var viewer = context.Friend;
+        var blockedAuthor = context.Stranger;
+        var blockingAuthor = context.Store.UserIds[3];
+        var visible = (await service.AddAsync(viewer, entry.Id, "visible", default)).Comment;
+        await service.AddAsync(blockedAuthor, entry.Id, "bloqueado", default);
+        await service.AddAsync(blockingAuthor, entry.Id, "bloqueó al visitante", default);
+        await service.AddAsync(blockedAuthor, otherEntry.Id, "también bloqueado", default);
+        var now = context.Store.Clock.UtcNow.UtcDateTime;
+        db.UserBlocks.AddRange(
+            new UserBlock { BlockerId = viewer, BlockedId = blockedAuthor, CreatedAt = now },
+            new UserBlock { BlockerId = blockingAuthor, BlockedId = viewer, CreatedAt = now });
+        await db.SaveChangesAsync();
+
+        var page = await service.ListAsync(viewer, entry.Id, new() { Limit = 1 }, default);
+        Assert.Equal(visible.Id, Assert.Single(page.Items).Id);
+        Assert.Equal(3, page.CommentCount);
+        Assert.False(page.HasMore);
+        Assert.Null(page.NextCursor);
+
+        var empty = await service.ListAsync(viewer, otherEntry.Id, new() { Limit = 1 }, default);
+        Assert.Empty(empty.Items);
+        Assert.Equal(1, empty.CommentCount);
+        Assert.False(empty.HasMore);
+        Assert.Null(empty.NextCursor);
+    }
+
+    [Fact]
     public async Task AuthorCanEditOnlyOnChangeAndOwnerCanDeleteEitherComment()
     {
         using var context = new TimelineReadTestContext();

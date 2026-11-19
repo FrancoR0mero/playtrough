@@ -43,7 +43,11 @@
 
   <div class="mt-5" [attr.aria-busy]="loading()" aria-live="polite">
     @if (loaded() && !items().length) {
-      <p class="py-3 text-slate-300">Todavía no hay comentarios. Sé el primero</p>
+      <p class="py-3 text-slate-300">
+        {{
+          count() ? 'No hay comentarios disponibles' : 'Todavía no hay comentarios. Sé el primero'
+        }}
+      </p>
     }
     @if (items().length) {
       <ol class="divide-y divide-slate-700/60">

@@ -64,11 +64,12 @@ describe('Entry comments', () => {
       items: CommentDto[],
       cursor: string | null = null,
       nextCursor: string | null = null,
+      commentCount = items.length,
     ) => {
       const url = `${listUrl}?${cursor ? 'cursor=' + cursor + '&' : ''}limit=20`;
       http
         .expectOne({ method: 'GET', url })
-        .flush({ items, commentCount: items.length, nextCursor, hasMore: !!nextCursor });
+        .flush({ items, commentCount, nextCursor, hasMore: !!nextCursor });
       fixture.detectChanges();
     };
     const draft = () => root.querySelector<HTMLTextAreaElement>('#entry-comment-draft')!;
@@ -143,6 +144,13 @@ describe('Entry comments', () => {
     expect(f.draft().disabled).toBe(false);
     expect(f.counts).toHaveBeenLastCalledWith(2);
     expect(f.root.querySelector('[role="status"]')?.textContent).toContain('Comentario publicado');
+  });
+
+  it('shows an empty availability message when the total includes filtered comments', () => {
+    const f = setup();
+    f.page([], null, null, 2);
+    expect(f.root.textContent).toContain('No hay comentarios disponibles');
+    expect(f.root.textContent).not.toContain('Sé el primero');
   });
 
   it.each([

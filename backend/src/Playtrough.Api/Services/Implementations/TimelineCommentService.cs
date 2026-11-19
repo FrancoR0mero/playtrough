@@ -57,20 +57,22 @@ public sealed class TimelineCommentService(AppDbContext db, TimelineEntryAccess 
             comments = comments.Where(comment => comment.CreatedAt < position.RecordedAt
                 || comment.CreatedAt == position.RecordedAt && comment.Id < position.Id);
         }
-        var page = comments.OrderByDescending(comment => comment.CreatedAt).ThenByDescending(comment => comment.Id).Take(limit + 1);
+        var eligible = from comment in comments
+                       join author in PrivacyService.UnblockedUsers(db, viewer) on comment.AuthorId equals author.Id
+                       orderby comment.CreatedAt descending, comment.Id descending
+                       select new { Comment = comment, author.UserName, author.AvatarFileName };
+        var page = eligible.Take(limit + 1);
         var viewerReactions = db.TimelineEntryCommentReactions.AsNoTracking().Where(reaction => reaction.UserId == viewer);
 
         // The left join keeps the entry header even when the page has no comments.
         // Access, count and page all come from the same database snapshot.
         var rows = await (from entry in access.VisibleTo(viewer).Where(entry => entry.Id == entryId)
-                          join comment in page on entry.Id equals comment.EntryId into pageRows
-                          from comment in pageRows.DefaultIfEmpty()
-                          join author in db.Users.AsNoTracking() on comment.AuthorId equals author.Id into authors
-                          from author in authors.DefaultIfEmpty()
-                          join reaction in viewerReactions on comment.Id equals reaction.CommentId into reactions
+                          join item in page on entry.Id equals item.Comment.EntryId into pageRows
+                          from item in pageRows.DefaultIfEmpty()
+                          join reaction in viewerReactions on item.Comment.Id equals reaction.CommentId into reactions
                           from reaction in reactions.DefaultIfEmpty()
-                          orderby comment.CreatedAt descending, comment.Id descending
-                          select new { entry.CommentCount, Owner = entry.UserId, Comment = comment, author.UserName, author.AvatarFileName,
+                          orderby item.Comment.CreatedAt descending, item.Comment.Id descending
+                          select new { entry.CommentCount, Owner = entry.UserId, item.Comment, item.UserName, item.AvatarFileName,
                               MyReaction = (ReactionValue?)reaction.Value })
             .ToListAsync(ct);
         if (rows.Count == 0) throw new TimelineException("entry_not_found");
