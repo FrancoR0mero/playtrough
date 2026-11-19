@@ -19,6 +19,13 @@ const group = {
   topic: 'Retro',
   privacy: 'private',
 };
+const ownerMember = {
+  userId: 1,
+  username: 'propietaria',
+  avatarUrl: null,
+  joinedAt: '2026-11-19T12:00:00Z',
+  isOwner: true,
+};
 
 describe('Groups', () => {
   beforeEach(() => {
@@ -97,11 +104,109 @@ describe('Groups', () => {
     );
     request.flush(group, { status: 201, statusText: 'Created' });
     await finished;
-    http.expectOne(url + '/42').flush(group);
+    http.expectOne(url + '/42').flush({ ...group, membership: 'owner' });
     harness.detectChanges();
+    http.expectOne(url + '/42/members').flush({ items: [ownerMember], nextCursor: null });
+    http.expectOne(url + '/42/join-requests').flush({ items: [], nextCursor: null });
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain('Club Retro');
   });
+
+  it('lets a private visitor request and cancel access while keeping the member list hidden', async () => {
+    const harness = await RouterTestingHarness.create('/groups/42');
+    const http = TestBed.inject(HttpTestingController);
+    const root = harness.routeNativeElement!;
+    http.expectOne(url + '/42').flush({ ...group, membership: 'none' });
+    harness.detectChanges();
+    http.expectNone(url + '/42/members');
+    button(root, 'Solicitar acceso').click();
+    http.expectOne({ method: 'PUT', url: url + '/42/membership' }).flush({ status: 'pending' });
+    harness.detectChanges();
+    expect(root.textContent).toContain('Solicitud pendiente');
+    http.expectNone(url + '/42/members');
+
+    button(root, 'Cancelar solicitud').click();
+    harness.detectChanges();
+    confirmDialog().click();
+    http.expectOne({ method: 'DELETE', url: url + '/42/membership' }).flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
+    http.expectOne(url + '/42').flush({ ...group, membership: 'none' });
+    harness.detectChanges();
+    expect(button(root, 'Solicitar acceso')).toBeTruthy();
+  });
+
+  it('shows owner requests, approves after confirmation and refreshes the members', async () => {
+    const harness = await RouterTestingHarness.create('/groups/42');
+    const http = TestBed.inject(HttpTestingController);
+    const root = harness.routeNativeElement!;
+    http.expectOne(url + '/42').flush({ ...group, membership: 'owner' });
+    harness.detectChanges();
+    http.expectOne(url + '/42/members').flush({ items: [ownerMember], nextCursor: null });
+    http.expectOne(url + '/42/join-requests').flush({
+      items: [
+        {
+          id: 3,
+          userId: 2,
+          username: 'solicitante',
+          avatarUrl: null,
+          createdAt: ownerMember.joinedAt,
+        },
+      ],
+      nextCursor: null,
+    });
+    harness.detectChanges();
+    button(root, 'Aprobar').click();
+    harness.detectChanges();
+    const decisionUrl = url + '/42/join-requests/3/decision';
+    http.expectNone(decisionUrl);
+    confirmDialog().click();
+    const decision = http.expectOne({ method: 'POST', url: decisionUrl });
+    expect(decision.request.body).toEqual({ decision: 'approve' });
+    decision.flush(null, { status: 204, statusText: 'No Content' });
+    http.expectOne(url + '/42/members').flush({
+      items: [ownerMember, { ...ownerMember, userId: 2, username: 'solicitante', isOwner: false }],
+      nextCursor: null,
+    });
+    http.expectOne(url + '/42/join-requests').flush({ items: [], nextCursor: null });
+    harness.detectChanges();
+    expect(root.querySelector('[aria-label="Expulsar a solicitante"]')).not.toBeNull();
+    expect(root.textContent).toContain('No hay solicitudes pendientes');
+  });
+
+  it('finishes leaving when a member list request loses access during the operation', async () => {
+    const harness = await RouterTestingHarness.create('/groups/42');
+    const http = TestBed.inject(HttpTestingController);
+    const root = harness.routeNativeElement!;
+    http.expectOne(url + '/42').flush({ ...group, membership: 'member' });
+    harness.detectChanges();
+    const members = http.expectOne(url + '/42/members');
+    button(root, 'Salir del grupo').click();
+    harness.detectChanges();
+    confirmDialog().click();
+
+    const leave = http.expectOne({ method: 'DELETE', url: url + '/42/membership' });
+    members.flush(null, { status: 404, statusText: 'Not Found' });
+    http.expectNone(url + '/42');
+    leave.flush(null, { status: 204, statusText: 'No Content' });
+    http.expectOne(url + '/42').flush({ ...group, membership: 'none' });
+    harness.detectChanges();
+    expect(button(root, 'Solicitar acceso').disabled).toBe(false);
+    expect(root.querySelector('app-group-people')).toBeNull();
+  });
 });
+
+function button(root: HTMLElement, title: string): HTMLButtonElement {
+  return Array.from(root.querySelectorAll('button')).find(
+    (item) => item.textContent?.trim() === title,
+  )!;
+}
+
+function confirmDialog(): HTMLButtonElement {
+  return document.querySelector<HTMLButtonElement>(
+    'app-group-confirmation [data-action="confirm"]',
+  )!;
+}
 
 function changeField(root: HTMLElement, name: string, value: string, event: string): void {
   const field = root.querySelector<HTMLInputElement>(`[formcontrolname="${name}"]`)!;
