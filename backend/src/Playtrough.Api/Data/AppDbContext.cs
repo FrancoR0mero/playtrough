@@ -23,6 +23,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<TimelineEntryReaction> TimelineEntryReactions => Set<TimelineEntryReaction>();
     public DbSet<TimelineEntryComment> TimelineEntryComments => Set<TimelineEntryComment>();
     public DbSet<TimelineEntryCommentReaction> TimelineEntryCommentReactions => Set<TimelineEntryCommentReaction>();
+    public DbSet<SocialGroup> SocialGroups => Set<SocialGroup>();
+    public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -39,6 +41,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.ApplyConfiguration(new TimelineEntryReactionConfiguration());
         builder.ApplyConfiguration(new TimelineEntryCommentConfiguration());
         builder.ApplyConfiguration(new TimelineEntryCommentReactionConfiguration());
+        builder.ApplyConfiguration(new SocialGroupConfiguration());
+        builder.ApplyConfiguration(new GroupMemberConfiguration());
 
         // Identity tables use domain names, not the framework's AspNet* prefix.
         // Data is preserved by RENAME TABLE (never recreated) in migrations.

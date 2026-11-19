@@ -320,6 +320,10 @@ builder.Services.AddScoped<TimelineCommentReactionTarget>();
 builder.Services.AddScoped<ReactionService>();
 builder.Services.AddScoped<TimelineCommentService>();
 builder.Services.AddScoped<ITimelineService, TimelineService>();
+builder.Services.AddScoped<GroupService>();
+builder.Services.AddOptions<GroupSettings>().BindConfiguration(GroupSettings.SectionName)
+    .Validate(settings => settings.HasValidTopics(), "Groups:Topics debe contener temáticas válidas y únicas.")
+    .ValidateOnStart();
 builder.Services.AddScoped<IFeedService, FeedService>();
 builder.Services.AddOptions<TimelineSettings>().BindConfiguration(TimelineSettings.SectionName)
     .ValidateDataAnnotations().Validate(s => s.DefaultLimit <= s.MaxLimit,

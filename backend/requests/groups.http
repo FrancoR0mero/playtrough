@@ -1,0 +1,32 @@
+@baseUrl = http://localhost:5000
+@token = REEMPLAZAR_ACCESS_TOKEN
+@groupId = 1
+@cursor = 1
+
+### Temáticas disponibles (configurables en Groups:Topics)
+GET {{baseUrl}}/api/groups/topics
+Authorization: Bearer {{token}}
+
+### Crear grupo y membresía del propietario (201)
+POST {{baseUrl}}/api/groups
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Club Retro",
+  "description": "Un grupo para compartir juegos de otras generaciones.",
+  "topic": "Retro",
+  "privacy": "private"
+}
+
+### Buscar por nombre o descripción y temática
+GET {{baseUrl}}/api/groups?q=club&topic=Retro&limit=20
+Authorization: Bearer {{token}}
+
+### Continuar con nextCursor y los mismos filtros
+GET {{baseUrl}}/api/groups?q=club&topic=Retro&limit=20&cursor={{cursor}}
+Authorization: Bearer {{token}}
+
+### Ficha básica (copiar el id de la respuesta de creación)
+GET {{baseUrl}}/api/groups/{{groupId}}
+Authorization: Bearer {{token}}

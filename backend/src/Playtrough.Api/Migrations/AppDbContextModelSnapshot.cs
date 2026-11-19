@@ -411,6 +411,24 @@ namespace Playtrough.Api.Migrations
                     b.ToTable("Games", (string)null);
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.GroupMember", b =>
+                {
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("GroupId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("GroupMembers");
+                });
+
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -648,6 +666,57 @@ namespace Playtrough.Api.Migrations
                     b.HasIndex("TargetUserId", "ChangedAt");
 
                     b.ToTable("RoleChangeLogs", (string)null);
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.SocialGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Privacy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Topic")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("DeletedAt", "Id");
+
+                    b.HasIndex("DeletedAt", "Topic", "Id");
+
+                    b.ToTable("SocialGroups");
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.TimelineEntry", b =>
@@ -934,6 +1003,23 @@ namespace Playtrough.Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.GroupMember", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.SocialGroup", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+                });
+
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>
                 {
                     b.HasOne("Playtrough.Api.Models.Game", null)
@@ -1014,6 +1100,15 @@ namespace Playtrough.Api.Migrations
                     b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.SocialGroup", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
