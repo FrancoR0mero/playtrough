@@ -1,7 +1,10 @@
 @baseUrl = http://localhost:5000
 @token = REEMPLAZAR_ACCESS_TOKEN
+@applicantToken = REEMPLAZAR_ACCESS_TOKEN_SOLICITANTE
 @groupId = 1
 @cursor = 1
+@requestId = 1
+@memberId = 2
 
 ### Temáticas disponibles (configurables en Groups:Topics)
 GET {{baseUrl}}/api/groups/topics
@@ -27,6 +30,33 @@ Authorization: Bearer {{token}}
 GET {{baseUrl}}/api/groups?q=club&topic=Retro&limit=20&cursor={{cursor}}
 Authorization: Bearer {{token}}
 
-### Ficha básica (copiar el id de la respuesta de creación)
+### Ficha y estado de membresía propio (copiar el id de la respuesta de creación)
 GET {{baseUrl}}/api/groups/{{groupId}}
 Authorization: Bearer {{token}}
+
+### Unirse a público o solicitar acceso a privado
+PUT {{baseUrl}}/api/groups/{{groupId}}/membership
+Authorization: Bearer {{applicantToken}}
+
+### Listar solicitudes pendientes como propietario (copiar el id de la solicitud)
+GET {{baseUrl}}/api/groups/{{groupId}}/join-requests?limit=20
+Authorization: Bearer {{token}}
+
+### Resolver la solicitud como propietario (approve o reject)
+POST {{baseUrl}}/api/groups/{{groupId}}/join-requests/{{requestId}}/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"decision":"approve"}
+
+### Consultar miembros como integrante del grupo
+GET {{baseUrl}}/api/groups/{{groupId}}/members?limit=20
+Authorization: Bearer {{applicantToken}}
+
+### Expulsar como propietario (copiar el userId del miembro)
+DELETE {{baseUrl}}/api/groups/{{groupId}}/members/{{memberId}}
+Authorization: Bearer {{token}}
+
+### Salir o cancelar una solicitud pendiente
+DELETE {{baseUrl}}/api/groups/{{groupId}}/membership
+Authorization: Bearer {{applicantToken}}

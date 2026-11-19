@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Playtrough.Api.Models;
 using Playtrough.Api.Authorization;
+using Playtrough.Api.Events;
 
 namespace Playtrough.Api.Data;
 
@@ -25,6 +26,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<TimelineEntryCommentReaction> TimelineEntryCommentReactions => Set<TimelineEntryCommentReaction>();
     public DbSet<SocialGroup> SocialGroups => Set<SocialGroup>();
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
+    public DbSet<GroupJoinRequest> GroupJoinRequests => Set<GroupJoinRequest>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -43,6 +46,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.ApplyConfiguration(new TimelineEntryCommentReactionConfiguration());
         builder.ApplyConfiguration(new SocialGroupConfiguration());
         builder.ApplyConfiguration(new GroupMemberConfiguration());
+        builder.ApplyConfiguration(new GroupJoinRequestConfiguration());
+        builder.ApplyConfiguration(new OutboxMessageConfiguration());
 
         // Identity tables use domain names, not the framework's AspNet* prefix.
         // Data is preserved by RENAME TABLE (never recreated) in migrations.

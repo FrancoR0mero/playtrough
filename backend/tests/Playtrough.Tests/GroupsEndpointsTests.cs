@@ -46,8 +46,9 @@ public sealed class GroupsEndpointsTests
         var page = (await visitor.GetFromJsonAsync<GroupPageDto>(Groups))!;
         Assert.Equal(created, Assert.Single(page.Items));
         var detail = await visitor.GetFromJsonAsync<JsonElement>($"{Groups}/{created.Id}");
-        Assert.Equal(new[] { "description", "id", "name", "privacy", "topic" },
+        Assert.Equal(new[] { "description", "id", "membership", "name", "privacy", "topic" },
             detail.EnumerateObject().Select(field => field.Name).OrderBy(name => name).ToArray());
+        Assert.Equal("none", detail.GetProperty("membership").GetString());
     }
 
     [Fact]

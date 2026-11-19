@@ -36,11 +36,14 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
         return await groups.ListAsync(text, selectedTopic, cursor, limit, ct);
     }
 
-    /// <summary>Consultar la ficha básica de un grupo activo.</summary>
+    /// <summary>Consultar la ficha de un grupo y la membresía propia.</summary>
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<GroupDto>> Get(int id, CancellationToken ct)
-        => await groups.FindAsync(id, ct) is { } group ? group : NotFound();
+    public async Task<ActionResult<GroupProfileDto>> Get(int id, CancellationToken ct)
+    {
+        if (UserId() is not { } viewer) return Challenge();
+        return await groups.FindAsync(id, viewer, ct) is { } group ? group : NotFound();
+    }
 
     /// <summary>Crear un grupo y registrar al usuario autenticado como propietario y miembro.</summary>
     [HttpPost]
@@ -48,8 +51,7 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<GroupDto>> Create(CreateGroupRequest request, CancellationToken ct)
     {
-        if (!int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value,
-            NumberStyles.None, CultureInfo.InvariantCulture, out var ownerId) || ownerId <= 0) return Challenge();
+        if (UserId() is not { } ownerId) return Challenge();
 
         var name = PlainText.Sanitize(request.Name);
         var description = PlainText.Sanitize(request.Description);
@@ -74,4 +76,7 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
 
     private string? FindTopic(string? topic)
         => settings.Value.Topics.FirstOrDefault(value => string.Equals(value, topic?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private int? UserId() => int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value,
+        NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0 ? id : null;
 }

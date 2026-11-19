@@ -30,7 +30,24 @@ internal sealed class GroupMemberConfiguration : IEntityTypeConfiguration<GroupM
     {
         entity.HasKey(member => new { member.GroupId, member.UserId });
         entity.Property(member => member.JoinedAt).HasConversion(LibraryConversions.Utc);
+        entity.Property(member => member.RemovedAt).HasConversion(LibraryConversions.Utc);
         entity.HasOne(member => member.Group).WithMany().HasForeignKey(member => member.GroupId);
         entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(member => member.UserId);
+    }
+}
+
+internal sealed class GroupJoinRequestConfiguration : IEntityTypeConfiguration<GroupJoinRequest>
+{
+    public void Configure(EntityTypeBuilder<GroupJoinRequest> entity)
+    {
+        entity.Property(request => request.CreatedAt).HasConversion(LibraryConversions.Utc);
+        entity.Property(request => request.ResolvedAt).HasConversion(LibraryConversions.Utc);
+        entity.Property(request => request.PendingUserId).HasComputedColumnSql(
+            "CASE WHEN `Status` = 0 THEN `UserId` ELSE NULL END", stored: false);
+        entity.HasIndex(request => new { request.GroupId, request.PendingUserId }).IsUnique();
+        entity.HasIndex(request => new { request.GroupId, request.Status, request.Id });
+        entity.HasIndex(request => new { request.GroupId, request.UserId, request.Id });
+        entity.HasOne<SocialGroup>().WithMany().HasForeignKey(request => request.GroupId);
+        entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(request => request.UserId);
     }
 }

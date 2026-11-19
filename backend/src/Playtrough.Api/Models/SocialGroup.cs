@@ -25,4 +25,5 @@ public sealed class GroupMember
     public SocialGroup Group { get; set; } = null!;
     public int UserId { get; set; }
     public DateTime JoinedAt { get; set; }
+    public DateTime? RemovedAt { get; set; }
 }
