@@ -25,7 +25,7 @@
     <button
       type="button"
       (click)="loadOlder()"
-      [disabled]="olderLoading()"
+      [disabled]="olderLoading() || syncing() || state() !== 'ready'"
       class="ui-button my-2 min-h-11 border border-slate-600 px-4 text-sm text-white disabled:opacity-50"
     >
       {{
@@ -79,7 +79,24 @@
                 message.createdAt | date: 'HH:mm'
               }}</time>
             </div>
-            <p class="mt-1 wrap-anywhere whitespace-pre-wrap text-slate-100">{{ message.text }}</p>
+            @if (message.removedAt) {
+              <p class="mt-1 text-sm italic text-slate-400">Mensaje retirado</p>
+            } @else {
+              <p class="mt-1 wrap-anywhere whitespace-pre-wrap text-slate-100">
+                {{ message.text }}
+              </p>
+              @if (canRemove(message)) {
+                <button
+                  type="button"
+                  (click)="confirmRemoval(message)"
+                  [disabled]="removing() !== null"
+                  [attr.aria-label]="'Retirar mensaje de ' + message.username"
+                  class="mt-1 min-h-11 text-sm text-slate-300 underline hover:text-white disabled:opacity-50"
+                >
+                  Retirar
+                </button>
+              }
+            }
           </div>
         </li>
       }
@@ -130,5 +147,8 @@
   }
   @if (error()) {
     <p role="alert" class="mt-2 text-sm text-red-300">{{ error() }}</p>
+  }
+  @if (removalError()) {
+    <p role="alert" class="mt-2 text-sm text-red-300">{{ removalError() }}</p>
   }
 </section>

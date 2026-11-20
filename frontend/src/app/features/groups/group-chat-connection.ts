@@ -9,8 +9,9 @@ export interface ChatMessage {
   groupId: number;
   authorId: number;
   username: string;
-  text: string;
+  text: string | null;
   createdAt: string;
+  removedAt?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

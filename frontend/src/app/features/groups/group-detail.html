@@ -121,7 +121,11 @@
         @if (tab() === 'reviews') {
           <app-group-reviews [groupId]="visible.id" (accessLost)="refresh()" />
         } @else if (tab() === 'chat') {
-          <app-group-chat [groupId]="visible.id" (accessLost)="refresh()" />
+          <app-group-chat
+            [groupId]="visible.id"
+            [owner]="visible.membership === 'owner'"
+            (accessLost)="refresh()"
+          />
         } @else {
           <app-group-people
             [groupId]="visible.id"

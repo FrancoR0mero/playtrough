@@ -1,3 +1,4 @@
+import { Dialog, DialogModule } from '@angular/cdk/dialog';
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
@@ -18,24 +19,27 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HubConnection } from '@microsoft/signalr';
-import { firstValueFrom, Subject, takeUntil } from 'rxjs';
+import { filter, firstValueFrom, Subject, takeUntil } from 'rxjs';
 import { normalizePlainText } from '../../shared/plain-text';
 import { AuthService } from '../auth/services/auth';
 import { ChatMessage, GroupChatConnection } from './group-chat-connection';
+import { GroupConfirmation, GroupConfirmationComponent } from './group-confirmation';
 import { ChatHistoryQuery, GroupsApi } from './groups-api';
 
 @Component({
   selector: 'app-group-chat',
-  imports: [DatePipe, ReactiveFormsModule],
+  imports: [DatePipe, DialogModule, ReactiveFormsModule],
   templateUrl: './group-chat.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GroupChatComponent implements OnInit, OnDestroy {
   readonly groupId = input.required<number>();
+  readonly owner = input(false);
   readonly accessLost = output<void>();
   private readonly client = inject(GroupChatConnection);
   private readonly api = inject(GroupsApi);
   private readonly auth = inject(AuthService);
+  private readonly dialog = inject(Dialog);
   private readonly injector = inject(Injector);
   private readonly stopReads = new Subject<void>();
   private syncGeneration = 0;
@@ -62,12 +66,15 @@ export class GroupChatComponent implements OnInit, OnDestroy {
   protected readonly olderLoading = signal(false);
   protected readonly before = signal<string | null>(null);
   protected readonly sending = signal(false);
+  protected readonly removing = signal<string | null>(null);
+  protected readonly removalError = signal('');
   protected readonly userId = computed(() => this.auth.currentUser()?.id);
 
   ngOnInit(): void {
     const connection = this.client.create();
     this.connection = connection;
     connection.on('MessageCreated', (message: ChatMessage) => this.receive(message));
+    connection.on('MessageRemoved', (message: ChatMessage) => this.receive(message));
     connection.on('ChatAccessRevoked', (groupId: number) => {
       if (groupId === this.groupId()) this.revoke();
     });
@@ -145,6 +152,46 @@ export class GroupChatComponent implements OnInit, OnDestroy {
     }
   }
 
+  protected canRemove(message: ChatMessage): boolean {
+    return !message.removedAt && (this.owner() || message.authorId === this.userId());
+  }
+
+  protected confirmRemoval(message: ChatMessage): void {
+    if (!this.canRemove(message) || !this.active() || this.removing() !== null) return;
+    this.dialog
+      .open<boolean, GroupConfirmation>(GroupConfirmationComponent, {
+        data: {
+          title: 'Retirar mensaje',
+          message: 'El texto se reemplazará por un aviso de retirada para los miembros del grupo.',
+          label: 'Retirar mensaje',
+        },
+        ariaLabelledBy: 'group-confirmation-title',
+        ariaDescribedBy: 'group-confirmation-description',
+      })
+      .closed.pipe(filter(Boolean), takeUntil(this.stopReads))
+      .subscribe(() => void this.removeMessage(message));
+  }
+
+  private async removeMessage(message: ChatMessage): Promise<void> {
+    if (!this.active() || this.removing() !== null || !this.canRemove(message)) return;
+    this.removing.set(message.id);
+    this.removalError.set('');
+    try {
+      const state = await firstValueFrom(
+        this.api.removeChatMessage(this.groupId(), message.id).pipe(takeUntil(this.stopReads)),
+        { defaultValue: null },
+      );
+      if (state?.removedAt && this.active() && this.rows().some((row) => row.id === state.id))
+        this.receive({ ...message, text: null, removedAt: state.removedAt });
+    } catch (error) {
+      if (!this.active()) return;
+      this.removalError.set('No pudimos retirar el mensaje. Volvé a intentarlo.');
+      if (error instanceof HttpErrorResponse && error.status === 404) await this.syncHistory();
+    } finally {
+      this.removing.set(null);
+    }
+  }
+
   private async subscribe(connection: HubConnection): Promise<void> {
     if (!this.active()) return;
     try {
@@ -189,6 +236,7 @@ export class GroupChatComponent implements OnInit, OnDestroy {
         through = page.through;
         if (page.nextCursor === null) {
           this.checkpoint = through;
+          await this.reconcileMessages(current);
           return;
         }
         after = page.nextCursor;
@@ -206,12 +254,13 @@ export class GroupChatComponent implements OnInit, OnDestroy {
 
   protected async loadOlder(): Promise<void> {
     const before = this.before();
-    if (!before || this.olderLoading() || !this.active()) return;
+    if (!before || this.olderLoading() || this.syncing() || this.state() !== 'ready') return;
+    const generation = this.syncGeneration;
     this.olderLoading.set(true);
     this.olderError.set(false);
     try {
       const page = await this.readHistory({ before });
-      if (!page || !this.active()) return;
+      if (!page || !this.active() || generation !== this.syncGeneration) return;
       this.merge(page.items, true);
       this.before.set(page.nextCursor);
     } catch (error) {
@@ -235,12 +284,42 @@ export class GroupChatComponent implements OnInit, OnDestroy {
     if (this.active()) this.merge([message]);
   }
 
+  private async reconcileMessages(current: () => boolean): Promise<void> {
+    const ids = this.rows().map((message) => message.id);
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const batch = ids.slice(offset, offset + 100);
+      const states = await firstValueFrom(
+        this.api.chatMessageStates(this.groupId(), batch).pipe(takeUntil(this.stopReads)),
+        { defaultValue: null },
+      );
+      if (!states || !current()) return;
+      const checked = new Set(batch);
+      const visible = new Map(states.map((state) => [state.id, state]));
+      this.rows.update((rows) =>
+        rows
+          .filter((row) => !checked.has(row.id) || visible.has(row.id))
+          .map((row) => {
+            const removedAt = visible.get(row.id)?.removedAt;
+            return removedAt && !row.removedAt ? { ...row, text: null, removedAt } : row;
+          }),
+      );
+    }
+  }
+
   private merge(messages: ChatMessage[], prepend = false): void {
     const stored = new Map(this.rows().map((item) => [item.id, item]));
-    for (const message of messages)
-      if (message.groupId === this.groupId() && !stored.has(message.id))
+    let changed = false;
+    for (const message of messages) {
+      const existing = stored.get(message.id);
+      if (
+        message.groupId === this.groupId() &&
+        (!existing || (message.removedAt && !existing.removedAt))
+      ) {
         stored.set(message.id, message);
-    if (stored.size === this.rows().length) return;
+        changed = true;
+      }
+    }
+    if (!changed) return;
     const log = this.log()?.nativeElement;
     const logTop = log?.getBoundingClientRect().top ?? 0;
     const anchor =
@@ -272,6 +351,7 @@ export class GroupChatComponent implements OnInit, OnDestroy {
     this.stopReads.next();
     this.syncing.set(false);
     this.historyError.set(false);
+    this.removalError.set('');
     this.olderError.set(false);
     this.before.set(null);
     this.rows.set([]);

@@ -66,6 +66,11 @@ export interface ChatHistoryPage {
 
 export type ChatHistoryQuery = { before: string } | { after: string; through?: string };
 
+export interface ChatMessageState {
+  id: string;
+  removedAt: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GroupsApi {
   private readonly http = inject(HttpClient);
@@ -136,6 +141,18 @@ export class GroupsApi {
       if (query.through !== undefined) params = params.set('through', query.through);
     }
     return this.http.get<ChatHistoryPage>(`${this.url}/${id}/messages`, { params });
+  }
+
+  chatMessageStates(id: number, ids: string[]) {
+    return this.http.get<ChatMessageState[]>(`${this.url}/${id}/messages/state`, {
+      params: { ids },
+    });
+  }
+
+  removeChatMessage(groupId: number, messageId: string) {
+    return this.http.delete<ChatMessageState>(
+      `${this.url}/${groupId}/messages/${encodeURIComponent(messageId)}`,
+    );
   }
 
   decide(id: number, requestId: number, decision: GroupDecision) {

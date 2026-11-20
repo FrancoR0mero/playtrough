@@ -14,6 +14,7 @@ const message: ChatMessage = {
   text: 'Hola 🎮',
   createdAt: '2026-11-19T12:00:00Z',
 };
+const removedAt = '2026-11-19T12:01:00Z';
 
 describe('Group live chat', () => {
   async function setup(
@@ -40,11 +41,18 @@ describe('Group live chat', () => {
         }),
       )
       .mockReturnValueOnce(initial);
+    const states = vi.fn((_group: number, ids: string[]) =>
+      of(ids.map((id) => ({ id, removedAt: null as string | null }))),
+    );
+    const remove = vi.fn((_group: number, id: string) => of({ id, removedAt }));
     TestBed.configureTestingModule({
       providers: [
         { provide: GroupChatConnection, useValue: { create: () => connection } },
         { provide: AuthService, useValue: { currentUser: () => ({ id: 7 }) } },
-        { provide: GroupsApi, useValue: { chatHistory: history } },
+        {
+          provide: GroupsApi,
+          useValue: { chatHistory: history, chatMessageStates: states, removeChatMessage: remove },
+        },
       ],
     });
     const fixture = TestBed.createComponent(GroupChatComponent);
@@ -59,7 +67,19 @@ describe('Group live chat', () => {
     const button = () => root.querySelector<HTMLButtonElement>('button[type="submit"]')!;
     const submit = () =>
       root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
-    return { fixture, root, textarea, button, submit, connection, events, accessLost, history };
+    return {
+      fixture,
+      root,
+      textarea,
+      button,
+      submit,
+      connection,
+      events,
+      accessLost,
+      history,
+      states,
+      remove,
+    };
   }
 
   it('preserves the draft and reuses the same send ID when delivery is uncertain', async () => {
@@ -199,5 +219,63 @@ describe('Group live chat', () => {
     fixture.detectChanges();
     expect(root.querySelectorAll('[data-message-id]')).toHaveLength(0);
     expect(accessLost).toHaveBeenCalledOnce();
+  });
+
+  it('shows removal for authorized rows and asks for confirmation before deleting', async () => {
+    const other = { ...message, authorId: 8, username: 'otro' };
+    const { fixture, root, remove } = await setup(
+      of({ items: [other], nextCursor: null, through: '47' }),
+    );
+    const action = () =>
+      root.querySelector<HTMLButtonElement>('[aria-label="Retirar mensaje de otro"]');
+    expect(action()).toBeNull();
+    fixture.componentRef.setInput('owner', true);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(action()).not.toBeNull();
+    action()!.click();
+    fixture.detectChanges();
+    expect(remove).not.toHaveBeenCalled();
+    document
+      .querySelector<HTMLButtonElement>('app-group-confirmation [data-action="cancel"]')!
+      .click();
+    expect(remove).not.toHaveBeenCalled();
+    action()!.click();
+    fixture.detectChanges();
+    document
+      .querySelector<HTMLButtonElement>('app-group-confirmation [data-action="confirm"]')!
+      .click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(remove).toHaveBeenCalledWith(42, '47');
+    expect(root.textContent).toContain('Mensaje retirado');
+    expect(root.textContent).not.toContain('Hola 🎮');
+  });
+
+  it('revalidates messages older than the catch-up cursor and discards newly hidden rows', async () => {
+    const hidden = { ...message, id: '46', text: 'Solo visible antes del bloqueo' };
+    const { fixture, root, states, history, connection, events } = await setup(
+      of({ items: [hidden, message], nextCursor: null, through: '47' }),
+    );
+    states.mockReturnValueOnce(of([{ id: '47', removedAt }]));
+    await connection.onreconnected.mock.calls[0][0]();
+    events.get('MessageCreated')!(message);
+    fixture.detectChanges();
+    expect(history).toHaveBeenLastCalledWith(42, { after: '47', through: undefined });
+    expect(states).toHaveBeenCalledWith(42, ['46', '47']);
+    expect(root.querySelectorAll('[data-message-id]')).toHaveLength(1);
+    expect(root.textContent).toContain('Mensaje retirado');
+    expect(root.textContent).not.toContain('Hola 🎮');
+    expect(root.textContent).not.toContain(hidden.text);
+  });
+
+  it('does not restore text when a delayed creation event follows a live removal', async () => {
+    const { fixture, root, events } = await setup();
+    events.get('MessageRemoved')!({ ...message, text: null, removedAt });
+    events.get('MessageCreated')!(message);
+    fixture.detectChanges();
+    expect(root.querySelectorAll('[data-message-id]')).toHaveLength(1);
+    expect(root.textContent).toContain('Mensaje retirado');
+    expect(root.textContent).not.toContain('Hola 🎮');
   });
 });
