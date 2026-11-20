@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<SocialGroup> SocialGroups => Set<SocialGroup>();
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
     public DbSet<GroupJoinRequest> GroupJoinRequests => Set<GroupJoinRequest>();
+    public DbSet<GroupMessage> GroupMessages => Set<GroupMessage>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -47,6 +48,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.ApplyConfiguration(new SocialGroupConfiguration());
         builder.ApplyConfiguration(new GroupMemberConfiguration());
         builder.ApplyConfiguration(new GroupJoinRequestConfiguration());
+        builder.ApplyConfiguration(new GroupMessageConfiguration());
         builder.ApplyConfiguration(new OutboxMessageConfiguration());
 
         // Identity tables use domain names, not the framework's AspNet* prefix.

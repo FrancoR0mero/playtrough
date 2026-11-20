@@ -172,6 +172,23 @@ namespace Playtrough.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<int>("Attempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("FailedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("LeaseExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime>("OccurredAt")
                         .HasColumnType("datetime(6)");
 
@@ -179,6 +196,9 @@ namespace Playtrough.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasAnnotation("MySQL:Charset", "utf8mb4");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -188,6 +208,8 @@ namespace Playtrough.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OccurredAt", "Id");
+
+                    b.HasIndex("Type", "ProcessedAt", "FailedAt", "NextAttemptAt");
 
                     b.ToTable("OutboxMessages");
                 });
@@ -501,6 +523,40 @@ namespace Playtrough.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("GroupMembers");
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.GroupMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("AuthorId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ClientMessageId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId", "ClientMessageId")
+                        .IsUnique();
+
+                    b.HasIndex("GroupId", "CreatedAt", "Id");
+
+                    b.ToTable("GroupMessages");
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>
@@ -1107,6 +1163,21 @@ namespace Playtrough.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.GroupMessage", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.SocialGroup", null)
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>

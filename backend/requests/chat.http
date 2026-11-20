@@ -1,0 +1,9 @@
+@baseUrl = http://localhost:5000
+@token = REEMPLAZAR_ACCESS_TOKEN
+
+### Negociar una conexión SignalR autenticada (200)
+POST {{baseUrl}}/hubs/chat/negotiate?negotiateVersion=1
+Authorization: Bearer {{token}}
+
+### Negociar sin un token (401)
+POST {{baseUrl}}/hubs/chat/negotiate?negotiateVersion=1

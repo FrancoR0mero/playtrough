@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -26,8 +27,12 @@ using Playtrough.Api.Controllers;
 using Playtrough.Api.Middleware;
 using Playtrough.Api.RateLimiting;
 using Playtrough.Api.Catalog;
+using Playtrough.Api.Events;
+using Playtrough.Api.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
+// Hosting's request-start log includes the query string used by browser WebSockets.
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
 
 // One-off command: bypass web startup, Identity seeding, JWT/email validation and hosted workers.
 if (args.Contains("--backfill-gamebrain", StringComparer.Ordinal))
@@ -273,6 +278,16 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var request = context.Request;
+                // Negotiate and the REST API keep using Authorization headers.
+                if (HttpMethods.IsGet(request.Method) && request.Path.Equals(ChatHub.Path, StringComparison.OrdinalIgnoreCase)
+                    && !request.Headers.ContainsKey("Authorization")
+                    && request.Query.TryGetValue("access_token", out var token) && token.Count == 1)
+                    context.Token = token[0];
+                return Task.CompletedTask;
+            },
             OnChallenge = async context =>
             {
                 context.HandleResponse();
@@ -417,8 +432,10 @@ builder.Services.AddOptions<CorsOptions>().Configure<IOptions<CorsSettings>>((op
     });
 });
 
-// SignalR services (no hub yet — Sprint 0 registers the framework only)
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, JwtHubUserIdProvider>();
+builder.Services.AddScoped<ChatOutboxProcessor>();
+builder.Services.AddHostedService<ChatOutboxWorker>();
 
 // Health checks
 builder.Services.AddHealthChecks();
@@ -485,6 +502,9 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<ChatHub>(ChatHub.Path, options => options.CloseOnAuthenticationExpiration = true)
+    .RequireAuthorization(policy => policy.RequireAuthenticatedUser()
+        .RequireAssertion(context => JwtHubUserIdProvider.GetUserId(context.User) is not null));
 if (app.Environment.IsDevelopment())
 {
     app.MapGet("/api/test/user", () => Results.Ok(new { message = "User access granted." }))
