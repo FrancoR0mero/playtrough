@@ -48,6 +48,16 @@ describe('NotificationsCenterComponent', () => {
     vi.useRealTimers();
   });
 
+  it('preserves the received requests tab in a notification link', () => {
+    const { root } = setup(
+      of({
+        ...page,
+        items: [{ ...item, destination: '/friends?tab=received' }],
+      }),
+    );
+    expect(root.querySelector('li a')?.getAttribute('href')).toBe('/friends?tab=received');
+  });
+
   it('appends older rows, links accessible resources and keeps the first page cutoff for bulk read', async () => {
     const { fixture, root, button, list, readAll, refresh } = setup();
     expect(root.querySelector('li a')?.getAttribute('href')).toBe('/groups/2');

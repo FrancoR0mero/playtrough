@@ -8,7 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   auditTime,
   catchError,
@@ -31,6 +31,7 @@ import { NotificationsState } from './notifications-state';
 export class NotificationsCenterComponent {
   private readonly api = inject(NotificationsApi);
   private readonly state = inject(NotificationsState);
+  protected readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private olderRequest?: Subscription;
   protected readonly rows = signal<NotificationItem[]>([]);

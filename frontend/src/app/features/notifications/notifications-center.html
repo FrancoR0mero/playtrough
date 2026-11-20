@@ -60,7 +60,7 @@
             <div class="min-w-0">
               @if (item.destination) {
                 <a
-                  [routerLink]="item.destination"
+                  [routerLink]="router.parseUrl(item.destination)"
                   class="rounded-sm font-semibold text-indigo-200 underline decoration-indigo-400/60 underline-offset-4 hover:decoration-current"
                 >
                   {{ item.message }}
