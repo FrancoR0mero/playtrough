@@ -58,6 +58,28 @@ describe('NotificationsCenterComponent', () => {
     expect(root.querySelector('li a')?.getAttribute('href')).toBe('/friends?tab=received');
   });
 
+  it('shows essential notices without a destination and lets the holder mark them as read', () => {
+    const { root, button, read } = setup(
+      of({
+        ...empty,
+        items: [
+          { ...item, message: 'Tu suscripción venció.', destination: null },
+          {
+            ...item,
+            id: '43',
+            message: 'Se resolvió tu apelación de moderación.',
+            destination: null,
+          },
+        ],
+      }),
+    );
+    expect(root.querySelectorAll('li a')).toHaveLength(0);
+    expect(root.textContent).toContain('Tu suscripción venció.');
+    expect(root.textContent).toContain('Se resolvió tu apelación de moderación.');
+    button('Marcar como leída').click();
+    expect(read).toHaveBeenCalledWith('42');
+  });
+
   it('appends older rows, links accessible resources and keeps the first page cutoff for bulk read', async () => {
     const { fixture, root, button, list, readAll, refresh } = setup();
     expect(root.querySelector('li a')?.getAttribute('href')).toBe('/groups/2');
