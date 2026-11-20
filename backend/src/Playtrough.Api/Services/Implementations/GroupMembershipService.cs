@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Playtrough.Api.Data;
 using Playtrough.Api.Dtos.Groups;
@@ -13,8 +11,6 @@ namespace Playtrough.Api.Services.Implementations;
 public sealed class GroupMembershipService(AppDbContext db, GroupAccess access, IPrivacyService privacy, TimeProvider clock,
     ChatConnections chat)
 {
-    private static readonly JsonSerializerOptions EventJson = new(JsonSerializerDefaults.Web);
-
     public Task<GroupMembershipDto> JoinAsync(int groupId, int actor, CancellationToken ct)
         => WriteAsync(groupId, async group =>
         {
@@ -184,11 +180,7 @@ public sealed class GroupMembershipService(AppDbContext db, GroupAccess access, 
     }
 
     private void Record<T>(int groupId, T change, DateTime now) where T : IDomainEvent
-        => db.OutboxMessages.Add(new OutboxMessage
-        {
-            Id = Guid.NewGuid(), Type = typeof(T).Name, AggregateId = groupId.ToString(CultureInfo.InvariantCulture),
-            Payload = JsonSerializer.Serialize(change, EventJson), OccurredAt = now,
-        });
+        => OutboxEvents.Enqueue(db, groupId, change, now);
 
     private static void RequireOwner(SocialGroup group, int actor)
     {

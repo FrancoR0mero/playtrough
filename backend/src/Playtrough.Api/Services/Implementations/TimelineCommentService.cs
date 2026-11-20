@@ -30,10 +30,12 @@ public sealed class TimelineCommentService(AppDbContext db, TimelineEntryAccess 
             {
                 var count = await UpdateCountAsync(entryId, 1, ct);
                 await db.SaveChangesAsync(ct);
+                var change = new TimelineEntryCommented(entryId, comment.Id, actor, owner, now);
+                if (actor != owner) await OutboxEvents.SaveAsync(db, entryId, change, now, ct);
                 var author = await db.Users.Where(user => user.Id == actor)
                     .Select(user => new { user.UserName, user.AvatarFileName }).SingleAsync(ct);
                 return (new CommentCreatedDto(ToDto(comment, author.UserName!, author.AvatarFileName, actor, owner), count),
-                    new TimelineEntryCommented(entryId, comment.Id, actor, owner, now));
+                    change);
             }
             finally
             {

@@ -452,6 +452,14 @@ builder.Services.AddScoped<NotificationStore>();
 builder.Services.AddScoped<NotificationDelivery>();
 builder.Services.AddScoped<NotificationCenter>();
 builder.Services.AddScoped<NotificationPreferences>();
+builder.Services.AddScoped<SocialNotifications>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<FriendRequestSent>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<FriendRequestAccepted>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<TimelineEntryLiked>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<TimelineEntryCommented>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<GroupJoinRequested>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<GroupJoinResolved>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<GroupMemberRemoved>>();
 builder.Services.AddScoped<IOutboxHandler>(services =>
     ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageCreated)));
 builder.Services.AddScoped<IOutboxHandler>(services =>

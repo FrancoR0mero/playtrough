@@ -43,6 +43,8 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
                 };
                 db.FriendRequests.Add(row);
                 await db.SaveChangesAsync(ct);
+                await OutboxEvents.SaveAsync(db, row.Id,
+                    new FriendRequestSent(row.Id, senderId, receiver.Id, row.CreatedAt), row.CreatedAt, ct);
                 return row;
             }, ct);
         }
@@ -75,9 +77,10 @@ public sealed class FriendService(AppDbContext db, ILookupNormalizer normalizer,
                     update.SetProperty(r => r.Status, FriendRequestStatus.Accepted).SetProperty(r => r.RespondedAt, now), ct);
                 var (low, high) = Pair(request.SenderId, userId);
                 db.Friendships.Add(new Friendship { UserLowId = low, UserHighId = high, CreatedAt = now });
-                await db.SaveChangesAsync(ct);
+                var accepted = new FriendRequestAccepted(requestId, request.SenderId, userId, now);
+                await OutboxEvents.SaveAsync(db, requestId, accepted, now, ct);
                 return (new AcceptedFriendDto(new(sender.UserName!, AvatarUrls.FromFile(sender.AvatarFileName)), now),
-                    (FriendRequestAccepted?)new FriendRequestAccepted(requestId, request.SenderId, userId, now));
+                    (FriendRequestAccepted?)accepted);
             }, ct);
         }
         catch (DbUpdateException) when (!ct.IsCancellationRequested)

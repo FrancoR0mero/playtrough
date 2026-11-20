@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Playtrough.Api.Data;
 using Playtrough.Api.Dtos.Notifications;
+using Playtrough.Api.Events;
 using Playtrough.Api.Hubs;
 using Playtrough.Api.Models;
 
@@ -32,8 +33,12 @@ public sealed class NotificationCenter(AppDbContext db, TimelineEntryAccess time
         }
 
         var unblocked = PrivacyService.UnblockedUsers(db, user);
-        var entries = timeline.VisibleTo(user);
+        var entries = timeline.VisibleTo(user).Where(entry => !entry.IsHidden);
         var memberGroups = groups.MemberGroups(user);
+        var activeGroups = groups.ActiveGroups();
+        var comments = SocialNotifications.VisibleComments(db, timeline, user);
+        var pendingFriends = SocialNotifications.PendingFriends(db);
+        var acceptedFriends = SocialNotifications.AcceptedFriends(db);
         var firstPage = cursor is null;
         var rows = await query.OrderByDescending(row => row.CreatedAt).ThenByDescending(row => row.Id)
             .Take(limit + 1)
@@ -41,11 +46,22 @@ public sealed class NotificationCenter(AppDbContext db, TimelineEntryAccess time
             {
                 Row = row,
                 HighId = firstPage ? owned.Max(item => (long?)item.Id) : null,
-                Accessible = unblocked.Any(actor => actor.Id == row.ActorId) &&
-                    (row.ResourceType == TimelineEntry && entries.Any(entry => entry.Id == row.ResourceId)
-                     || row.ResourceType == Group && memberGroups.Any(group => group.Id == row.ResourceId)),
+                ActorAllowed = unblocked.Any(actor => actor.Id == row.ActorId && actor.EmailConfirmed),
+                CommentEntry = row.ResourceType == SocialNotifications.TimelineComment ? comments
+                    .Where(comment => comment.Id == row.ResourceId && comment.AuthorId == row.ActorId)
+                    .Select(comment => (long?)comment.EntryId).FirstOrDefault() : null,
+                Accessible = row.ResourceType == TimelineEntry && entries.Any(entry => entry.Id == row.ResourceId)
+                    || row.ResourceType == Group && (row.Type == SocialNotifications.GroupRejected || row.Type == nameof(GroupMemberRemoved)
+                        ? activeGroups.Any(group => group.Id == row.ResourceId && group.OwnerId == row.ActorId)
+                        : memberGroups.Any(group => group.Id == row.ResourceId))
+                    || row.ResourceType == SocialNotifications.FriendRequest &&
+                        (row.Type == nameof(FriendRequestSent) && pendingFriends.Any(request => request.Id == row.ResourceId
+                            && request.ReceiverId == user && request.SenderId == row.ActorId)
+                         || row.Type == nameof(FriendRequestAccepted) && acceptedFriends.Any(request => request.Id == row.ResourceId
+                            && request.SenderId == user && request.ReceiverId == row.ActorId)),
             }).ToListAsync(ct);
-        var items = rows.Take(limit).Select(row => ToItem(row.Row, row.Accessible)).ToArray();
+        var items = rows.Take(limit).Select(row => ToItem(row.Row, row.ActorAllowed
+            && (row.Accessible || row.CommentEntry.HasValue), row.CommentEntry)).ToArray();
         var cutoff = firstPage && rows.Count > 0
             ? Encode(user, Cutoff, new(rows[0].Row.CreatedAt, rows[0].Row.Id, rows[0].HighId!.Value)) : null;
         var next = rows.Count > limit ? Encode(user, Page, new(rows[limit - 1].Row.CreatedAt, rows[limit - 1].Row.Id, 0)) : null;
@@ -95,14 +111,23 @@ public sealed class NotificationCenter(AppDbContext db, TimelineEntryAccess time
         }
     }
 
-    private static NotificationItemDto ToItem(Notification row, bool accessible)
+    private static NotificationItemDto ToItem(Notification row, bool accessible, long? commentEntry)
     {
         var key = row.ResourceId?.ToString(CultureInfo.InvariantCulture);
-        var (message, destination) = (accessible, row.ResourceType) switch
+        var (message, destination) = (accessible, row.ResourceType, row.Type) switch
         {
-            (true, TimelineEntry) => ("Hay actividad en una publicación.", $"/entries/{key}"),
-            (true, Group) => ("Hay actividad en un grupo.", $"/groups/{key}"),
-            (false, not null) => ("Este aviso ya no tiene detalles disponibles.", null),
+            (true, SocialNotifications.FriendRequest, nameof(FriendRequestSent)) => ("Recibiste una solicitud de amistad.", "/friends?tab=received"),
+            (true, SocialNotifications.FriendRequest, nameof(FriendRequestAccepted)) => ("Aceptaron tu solicitud de amistad.", "/friends"),
+            (true, TimelineEntry, nameof(TimelineEntryLiked)) => ("A alguien le gustó tu publicación.", $"/entries/{key}"),
+            (true, SocialNotifications.TimelineComment, nameof(TimelineEntryCommented)) =>
+                ("Comentaron tu publicación.", $"/entries/{commentEntry?.ToString(CultureInfo.InvariantCulture)}"),
+            (true, Group, nameof(GroupJoinRequested)) => ("Recibiste una solicitud para unirse a tu grupo.", $"/groups/{key}"),
+            (true, Group, SocialNotifications.GroupApproved) => ("Aceptaron tu solicitud para unirte a un grupo.", $"/groups/{key}"),
+            (true, Group, SocialNotifications.GroupRejected) => ("Rechazaron tu solicitud para unirte a un grupo.", null),
+            (true, Group, nameof(GroupMemberRemoved)) => ("Te removieron de un grupo.", null),
+            (true, TimelineEntry, _) => ("Hay actividad en una publicación.", $"/entries/{key}"),
+            (true, Group, _) => ("Hay actividad en un grupo.", $"/groups/{key}"),
+            (_, not null, _) => ("Este aviso ya no tiene detalles disponibles.", null),
             _ => ("Tenés una notificación.", null),
         };
         return new(row.Id.ToString(CultureInfo.InvariantCulture), row.CreatedAt, row.ReadAt, message, destination);

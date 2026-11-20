@@ -80,6 +80,9 @@ public sealed class ReactionService(AppDbContext db, TimeProvider clock, IDomain
                     await target.UpdateCountsAsync(id, Delta(previous, value, ReactionValue.Like),
                         Delta(previous, value, ReactionValue.Dislike), ct);
                     await db.SaveChangesAsync(ct);
+                    if (value == ReactionValue.Like && target is TimelineReactionTarget)
+                        await OutboxEvents.SaveAsync(db, id, new TimelineEntryLiked(id, actor, owner),
+                            clock.GetUtcNow().UtcDateTime, ct);
                     change = new(target.ContentType, id, actor, owner, Name(value), Name(previous));
                 }
                 var summary = await target.ReadSummaryAsync(id, actor, ct);

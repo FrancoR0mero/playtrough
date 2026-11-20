@@ -13,7 +13,7 @@ El handler guarda la notificación desde un evento ya confirmado. La clave de de
 - `PUT /api/notifications/{id}/read` marca un aviso propio. Repetir la operación devuelve 204 y preserva la fecha de lectura.
 - `POST /api/notifications/read-all` recibe `{ "cutoff": "<readCutoff>" }` y devuelve el contador. El corte protegido está vinculado a la cuenta y fija fecha, ID y el máximo ID observado. El listado y la lectura masiva usan tokens distintos.
 
-SignalR emite `NotificationsRead` a las sesiones de la cuenta cuando cambia una lectura. Angular vuelve a consultar la API al iniciar, al restablecer la conexión, al recuperar el foco y al recibir un aviso. Los productores de actividad social se conectan en la fase 4. Las pruebas de integración ejercitan el flujo con eventos simulados.
+SignalR emite `NotificationsRead` a las sesiones de la cuenta cuando cambia una lectura. Angular vuelve a consultar la API al iniciar, al restablecer la conexión, al recuperar el foco y al recibir un aviso.
 
 ### Preferencias
 
@@ -22,6 +22,14 @@ SignalR emite `NotificationsRead` a las sesiones de la cuenta cuando cambia una 
 `PUT /api/notifications/preferences` guarda una categoría editable de la cuenta autenticada. El cuerpo es `{ "category": "groups", "enabled": false }`. Repetir el mismo cambio conserva una única fila por usuario y categoría.
 
 Cada consumidor indica la categoría al llamar a `NotificationDelivery.PublishAsync`. La entrega consulta la preferencia vigente antes de guardar o emitir el aviso. Un cambio de preferencia conserva los avisos que ya estaban en el centro.
+
+### Actividad social
+
+Las solicitudes y aceptaciones de amistad avisan a la otra cuenta. Los likes y comentarios en publicaciones avisan al autor. El propietario recibe solicitudes de ingreso y el solicitante recibe la decisión. Al quitar una membresía, el aviso se dirige a la cuenta afectada.
+
+Los eventos se guardan con el cambio de negocio y referencian IDs sin guardar extractos de comentarios. Repetir una operación idempotente conserva un solo evento. Quitar un like y volver a darlo genera un evento nuevo. Los avisos excluyen acciones propias y evalúan la preferencia y los bloqueos vigentes. Las reacciones de reseñas y de comentarios quedan fuera de este tipo de aviso.
+
+El centro vuelve a evaluar el acceso al listar. Una solicitud de amistad ya resuelta, un comentario eliminado o una publicación inaccesible conservan un aviso genérico sin enlace. El rechazo y la retirada de membresía se muestran sin un enlace al grupo. El worker puede procesar eventos de grupos que ya estaban pendientes si todavía corresponden al estado actual.
 
 ### Operación
 
