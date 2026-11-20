@@ -128,6 +128,8 @@ public sealed class NotificationCenter(AppDbContext db, TimelineEntryAccess time
             (true, TimelineEntry, _) => ("Hay actividad en una publicación.", $"/entries/{key}"),
             (true, Group, _) => ("Hay actividad en un grupo.", $"/groups/{key}"),
             (_, not null, _) => ("Este aviso ya no tiene detalles disponibles.", null),
+            (_, null, var type) when row.ActorId is null && EssentialNotifications.Describe(type) is { } essential =>
+                (essential.Message, null),
             _ => ("Tenés una notificación.", null),
         };
         return new(row.Id.ToString(CultureInfo.InvariantCulture), row.CreatedAt, row.ReadAt, message, destination);

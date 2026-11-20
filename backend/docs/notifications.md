@@ -31,6 +31,27 @@ Los eventos se guardan con el cambio de negocio y referencian IDs sin guardar ex
 
 El centro vuelve a evaluar el acceso al listar. Una solicitud de amistad ya resuelta, un comentario eliminado o una publicación inaccesible conservan un aviso genérico sin enlace. El rechazo y la retirada de membresía se muestran sin un enlace al grupo. El worker puede procesar eventos de grupos que ya estaban pendientes si todavía corresponden al estado actual.
 
+### Cuenta y moderación
+
+El worker consume `ModerationDecisionApplied`, `ModerationAppealResolved`, `SubscriptionActivated`, `PaymentFailed` y `SubscriptionExpired`. Cada evento guarda solo `recipientId` en su payload. El productor toma ese valor del titular afectado y registra el evento una sola vez por transición confirmada, dentro de su transacción. `AggregateId` puede identificar la transición internamente. Los reintentos del consumidor conservan el ID de outbox y reutilizan el mismo aviso.
+
+Los avisos esenciales se muestran en el centro del titular aunque estén desactivadas todas las categorías sociales. El centro devuelve textos fijos sin motivos de moderación ni detalles de pagos. Las pruebas encolan los eventos con productores simulados y verifican la entrega por SignalR, el listado y la deduplicación. Los productores reales y los enlaces a las pantallas personales de moderación y suscripción se activarán al incorporar esos módulos.
+
+### Prueba local
+
+Desde la raíz del repositorio, con el MySQL de desarrollo disponible, aplicá las migraciones e iniciá el backend y Angular en terminales separadas.
+
+```powershell
+dotnet ef database update --project backend/src/Playtrough.Api -- --environment Development
+dotnet run --project backend/src/Playtrough.Api --launch-profile http
+npm --prefix frontend start
+```
+
+1. Abrí la app con dos cuentas en perfiles de navegador distintos. Enviá una solicitud de amistad de A a B y verificá que la campana de B se actualice. Abrí el aviso y comprobá que lleve a las solicitudes recibidas.
+2. Marcá el aviso como leído. Con el JWT de B, consultá `GET /api/notifications` y `GET /api/notifications/unread-count` en la API local. El listado debe mostrar la fecha de lectura y el contador debe reflejar el cambio. Un JWT de A recibe `404` al intentar marcar como leído el aviso de B.
+3. Desactivá Interacciones para B. Desde A, comentá una publicación visible de B y verificá que el comentario aparezca sin aumentar el contador de B.
+4. Para comprobar los avisos esenciales con el productor simulado, ejecutá `dotnet test backend/tests/Playtrough.Tests --filter FullyQualifiedName~EssentialNotificationTests`.
+
 ### Operación
 
 Esta fase conserva las notificaciones y las filas de outbox. Los eventos pendientes sin handler y los fallidos quedan disponibles para análisis o recuperación. El worker registra tipo, ID e intento sin incluir el contenido del evento. La entrega en vivo usa las conexiones de la instancia actual de la API. Un despliegue con varias instancias requerirá un backplane de SignalR para enviar avisos a las conexiones registradas en otras instancias.

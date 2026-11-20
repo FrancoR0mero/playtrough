@@ -460,6 +460,11 @@ builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<TimelineEnt
 builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<GroupJoinRequested>>();
 builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<GroupJoinResolved>>();
 builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<GroupMemberRemoved>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<ModerationDecisionApplied>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<ModerationAppealResolved>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<SubscriptionActivated>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<PaymentFailed>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<SubscriptionExpired>>();
 builder.Services.AddScoped<IOutboxHandler>(services =>
     ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageCreated)));
 builder.Services.AddScoped<IOutboxHandler>(services =>
