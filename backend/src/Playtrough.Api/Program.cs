@@ -445,6 +445,7 @@ builder.Services.AddOptions<ChatSettings>().BindConfiguration("Chat")
 builder.Services.AddSingleton<ChatSendLimits>();
 builder.Services.AddSingleton<ChatConnections>();
 builder.Services.AddScoped<ChatMessageService>();
+builder.Services.AddScoped<ChatHistoryService>();
 builder.Services.AddScoped<IChatOutboxHandler, ChatMessageDelivery>();
 builder.Services.AddScoped<ChatOutboxProcessor>();
 builder.Services.AddHostedService<ChatOutboxWorker>();

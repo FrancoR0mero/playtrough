@@ -554,6 +554,8 @@ namespace Playtrough.Api.Migrations
                     b.HasIndex("AuthorId", "ClientMessageId")
                         .IsUnique();
 
+                    b.HasIndex("GroupId", "Id");
+
                     b.HasIndex("GroupId", "CreatedAt", "Id");
 
                     b.ToTable("GroupMessages");
