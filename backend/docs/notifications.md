@@ -4,7 +4,16 @@
 
 Los productores guardan el evento en `OutboxMessages` dentro de la misma transacción que el cambio de negocio. Cada tipo tiene un handler registrado y el worker solo reclama tipos conocidos. El lease dura un minuto. Los fallos se reintentan hasta ocho veces y el resultado queda en `ProcessedAt` o `FailedAt`.
 
-El handler guarda la notificación desde un evento ya confirmado. La clave de deduplicación es destinatario, ID del evento y tipo de aviso. Si hay varios destinatarios, el handler persiste cada aviso por separado y un reintento recupera las filas existentes. La futura entrega por SignalR debe ocurrir después de guardar el aviso y antes de devolver el control al worker, para que este pueda reintentar un fallo de entrega. El almacenamiento conserva referencias, fecha y versión del formato.
+El handler guarda la notificación desde un evento ya confirmado. La clave de deduplicación es destinatario, ID del evento y tipo de aviso. Si hay varios destinatarios, el handler persiste cada aviso por separado y un reintento recupera las filas existentes. `NotificationDelivery.PublishAsync` guarda el aviso y emite `NotificationAvailable` al destinatario con el ID como texto. Si falla la entrega, el worker reintenta con el mismo ID. El almacenamiento conserva referencias, fecha y versión del formato.
+
+### Centro y lectura
+
+- `GET /api/notifications` devuelve la lista más reciente primero, con `nextCursor` y `readCutoff` en la primera página cuando corresponde. El listado revalida acceso y bloqueos antes de devolver un detalle con enlace.
+- `GET /api/notifications/unread-count` devuelve el contador de la sesión actual. Incluye avisos que se muestran sin detalles.
+- `PUT /api/notifications/{id}/read` marca un aviso propio. Repetir la operación devuelve 204 y preserva la fecha de lectura.
+- `POST /api/notifications/read-all` recibe `{ "cutoff": "<readCutoff>" }` y devuelve el contador. El corte protegido está vinculado a la cuenta y fija fecha, ID y el máximo ID observado. El listado y la lectura masiva usan tokens distintos.
+
+SignalR emite `NotificationsRead` a las sesiones de la cuenta cuando cambia una lectura. Angular vuelve a consultar la API al iniciar, al restablecer la conexión, al recuperar el foco y al recibir un aviso. Los productores de actividad social se conectan en la fase 4. Las pruebas de integración ejercitan el flujo con eventos simulados.
 
 ### Operación
 

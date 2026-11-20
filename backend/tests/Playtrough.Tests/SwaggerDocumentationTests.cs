@@ -181,7 +181,7 @@ public class SwaggerDocumentationTests
         Assert.Equal("Playtrough API", info.GetProperty("title").GetString());
         Assert.Equal("v1", info.GetProperty("version").GetString());
         Assert.Contains("gamers", info.GetProperty("description").GetString());
-        Assert.Equal(new[] { "Admin", "Auth", "Comments", "Feed", "Friends", "Games", "Groups", "Library", "Reactions", "Reviews", "Timeline", "Users" }, root.GetProperty("tags").EnumerateArray()
+        Assert.Equal(new[] { "Admin", "Auth", "Comments", "Feed", "Friends", "Games", "Groups", "Library", "Notifications", "Reactions", "Reviews", "Timeline", "Users" }, root.GetProperty("tags").EnumerateArray()
             .Select(tag => tag.GetProperty("name").GetString()).Order().ToArray());
 
         foreach (var path in root.GetProperty("paths").EnumerateObject())
@@ -201,6 +201,7 @@ public class SwaggerDocumentationTests
                     path.Name.StartsWith("/api/games", StringComparison.OrdinalIgnoreCase) ? "Games" :
                     (path.Name.StartsWith("/api/users", StringComparison.OrdinalIgnoreCase) || path.Name.StartsWith("/api/avatars", StringComparison.OrdinalIgnoreCase) || path.Name.StartsWith("/api/blocks", StringComparison.OrdinalIgnoreCase)) ? "Users" :
                     path.Name.StartsWith("/api/friends", StringComparison.OrdinalIgnoreCase) ? "Friends" :
+                    path.Name.StartsWith("/api/notifications", StringComparison.OrdinalIgnoreCase) ? "Notifications" :
                     path.Name.StartsWith("/api/library", StringComparison.OrdinalIgnoreCase) ? "Library" : "Auth";
                 Assert.Equal(expectedTag,
                     Assert.Single(operation.Value.GetProperty("tags").EnumerateArray()).GetString());

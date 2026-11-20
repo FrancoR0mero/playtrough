@@ -449,6 +449,8 @@ builder.Services.AddSingleton<ChatConnections>();
 builder.Services.AddScoped<ChatMessageService>();
 builder.Services.AddScoped<ChatHistoryService>();
 builder.Services.AddScoped<NotificationStore>();
+builder.Services.AddScoped<NotificationDelivery>();
+builder.Services.AddScoped<NotificationCenter>();
 builder.Services.AddScoped<IOutboxHandler>(services =>
     ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageCreated)));
 builder.Services.AddScoped<IOutboxHandler>(services =>
