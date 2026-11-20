@@ -17,6 +17,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Internal;
 using Moq;
 using Playtrough.Api.Data;
+using Playtrough.Api.Events;
 using Playtrough.Api.Models;
 using Playtrough.Api.Services.Implementations;
 using Playtrough.Api.Services.Interfaces;
@@ -114,6 +115,11 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
             services.AddSingleton(EmailSender.Object);
             services.AddSingleton(AuthLogger.Object);
             services.Configure<MemoryCacheOptions>(options => options.Clock = CacheClock);
+            // The in-memory fixture shares a single connection with all requests.
+            // Worker integration uses the independent SQLite connections instead.
+            if (_connectionString is null)
+                services.Remove(services.Single(service => service.ServiceType == typeof(IHostedService) &&
+                    service.ImplementationType == typeof(ChatOutboxWorker)));
             if (!_runConfirmationWorker)
             {
                 services.Remove(services.Single(service => service.ServiceType == typeof(IHostedService) &&

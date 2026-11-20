@@ -423,17 +423,29 @@ builder.Services.AddOptions<CorsSettings>()
 builder.Services.AddCors();
 builder.Services.AddOptions<CorsOptions>().Configure<IOptions<CorsSettings>>((options, settings) =>
 {
+    var origins = settings.Value.AllowedOrigins.Select(origin => origin.TrimEnd('/')).ToArray();
     options.AddPolicy("AngularDev", policy =>
     {
-        policy.WithOrigins(settings.Value.AllowedOrigins.Select(origin => origin.TrimEnd('/')).ToArray())
+        policy.WithOrigins(origins)
             .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .WithHeaders("Authorization", "Content-Type", "If-Match")
             .WithExposedHeaders("ETag");
     });
+    options.AddPolicy(ChatHub.CorsPolicy, policy => policy.WithOrigins(origins)
+        .WithMethods("GET", "POST", "DELETE", "OPTIONS")
+        .WithHeaders("Authorization", "Content-Type", "X-Requested-With", "X-SignalR-User-Agent"));
 });
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, JwtHubUserIdProvider>();
+builder.Services.AddOptions<ChatSettings>().BindConfiguration("Chat")
+    .Validate(settings => settings.WindowSeconds is >= 1 and <= 60 && settings.MessagesPerUser > 0
+        && settings.GlobalMessages >= settings.MessagesPerUser, "Los límites del chat deben ser válidos.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<ChatSendLimits>();
+builder.Services.AddSingleton<ChatConnections>();
+builder.Services.AddScoped<ChatMessageService>();
+builder.Services.AddScoped<IChatOutboxHandler, ChatMessageDelivery>();
 builder.Services.AddScoped<ChatOutboxProcessor>();
 builder.Services.AddHostedService<ChatOutboxWorker>();
 
@@ -503,6 +515,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<ChatHub>(ChatHub.Path, options => options.CloseOnAuthenticationExpiration = true)
+    .RequireCors(ChatHub.CorsPolicy)
     .RequireAuthorization(policy => policy.RequireAuthenticatedUser()
         .RequireAssertion(context => JwtHubUserIdProvider.GetUserId(context.User) is not null));
 if (app.Environment.IsDevelopment())

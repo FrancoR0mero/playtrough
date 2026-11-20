@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Playtrough.Api.Data;
 using Playtrough.Api.Events;
@@ -21,8 +22,11 @@ public sealed class ChatOutboxTests
             handled.TrySetResult(message.Id);
             return Task.CompletedTask;
         });
-        using var application = factory.WithWebHostBuilder(builder =>
-            builder.ConfigureTestServices(services => services.AddSingleton<IChatOutboxHandler>(handler)));
+        using var application = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IChatOutboxHandler>();
+            services.AddSingleton<IChatOutboxHandler>(handler);
+        }));
         await using var scope = application.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var message = new OutboxMessage

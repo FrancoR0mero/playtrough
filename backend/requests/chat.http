@@ -1,6 +1,9 @@
 @baseUrl = http://localhost:5000
 @token = REEMPLAZAR_ACCESS_TOKEN
 
+# El cliente SignalR invoca JoinGroup(groupId), SendMessage(groupId, clientMessageId, text) y LeaveGroup(groupId).
+# Reutilizar el UUID y el texto del mismo envío al reintentar. El resultado y MessageCreated comparten id.
+
 ### Negociar una conexión SignalR autenticada (200)
 POST {{baseUrl}}/hubs/chat/negotiate?negotiateVersion=1
 Authorization: Bearer {{token}}

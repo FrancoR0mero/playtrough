@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Playtrough.Api.Data;
 using Playtrough.Api.Dtos.Groups;
+using Playtrough.Api.Hubs;
 using Playtrough.Api.Models;
 
 namespace Playtrough.Api.Services.Implementations;
 
-public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvider clock)
+public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvider clock, ChatConnections chat)
 {
     public async Task<GroupDto> CreateAsync(int ownerId, string name, string description, string topic,
         GroupPrivacy privacy, CancellationToken ct)
@@ -73,14 +74,17 @@ public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvid
             .SetProperty(group => group.ConcurrencyToken, next), ct) == 1;
     }
 
-    public async Task<bool> DeleteAsync(int id, int owner, Guid version, CancellationToken ct)
-    {
-        var now = clock.GetUtcNow().UtcDateTime;
-        var next = Guid.NewGuid();
-        return await CurrentVersion(id, owner, version).ExecuteUpdateAsync(update => update
-            .SetProperty(group => group.DeletedAt, now)
-            .SetProperty(group => group.ConcurrencyToken, next), ct) == 1;
-    }
+    public Task<bool> DeleteAsync(int id, int owner, Guid version, CancellationToken ct)
+        => chat.InGroupAsync(id, async () =>
+        {
+            var now = clock.GetUtcNow().UtcDateTime;
+            var next = Guid.NewGuid();
+            if (await CurrentVersion(id, owner, version).ExecuteUpdateAsync(update => update
+                .SetProperty(group => group.DeletedAt, now)
+                .SetProperty(group => group.ConcurrencyToken, next), ct) != 1) return false;
+            await chat.RevokeAsync(id);
+            return true;
+        }, ct);
 
     private IQueryable<SocialGroup> CurrentVersion(int id, int owner, Guid version)
         => access.OwnedGroups(owner).Where(group => group.Id == id && group.ConcurrencyToken == version);

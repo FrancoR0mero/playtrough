@@ -4,12 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using Playtrough.Api.Data;
 using Playtrough.Api.Dtos.Groups;
 using Playtrough.Api.Events;
+using Playtrough.Api.Hubs;
 using Playtrough.Api.Models;
 using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Api.Services.Implementations;
 
-public sealed class GroupMembershipService(AppDbContext db, GroupAccess access, IPrivacyService privacy, TimeProvider clock)
+public sealed class GroupMembershipService(AppDbContext db, GroupAccess access, IPrivacyService privacy, TimeProvider clock,
+    ChatConnections chat)
 {
     private static readonly JsonSerializerOptions EventJson = new(JsonSerializerDefaults.Web);
 
@@ -55,7 +57,7 @@ public sealed class GroupMembershipService(AppDbContext db, GroupAccess access, 
                 pending.ResolvedAt = clock.GetUtcNow().UtcDateTime;
             }
             return true;
-        }, ct);
+        }, ct, revokedUser: actor);
 
     public Task ResolveAsync(int groupId, int requestId, int actor, bool approve, CancellationToken ct)
         => WriteAsync(groupId, async group =>
@@ -91,7 +93,7 @@ public sealed class GroupMembershipService(AppDbContext db, GroupAccess access, 
             member.RemovedAt = now;
             Record(groupId, new GroupMemberRemoved(groupId, actor, userId), now);
             return true;
-        }, ct);
+        }, ct, revokedUser: userId);
 
     public async Task<GroupPeoplePageDto<GroupMemberDto>> ListMembersAsync(int groupId, int actor, int cursor, int limit, CancellationToken ct)
     {
@@ -133,7 +135,15 @@ public sealed class GroupMembershipService(AppDbContext db, GroupAccess access, 
         return new(items, page.Count > limit ? items[^1].Id : null);
     }
 
-    private Task<T> WriteAsync<T>(int groupId, Func<SocialGroup, Task<T>> action, CancellationToken ct)
+    private Task<T> WriteAsync<T>(int groupId, Func<SocialGroup, Task<T>> action, CancellationToken ct, int? revokedUser = null)
+        => chat.InGroupAsync(groupId, async () =>
+        {
+            var result = await RunTransactionAsync(groupId, action, ct);
+            if (revokedUser is { } userId) await chat.RevokeAsync(groupId, userId);
+            return result;
+        }, ct);
+
+    private Task<T> RunTransactionAsync<T>(int groupId, Func<SocialGroup, Task<T>> action, CancellationToken ct)
         => db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
