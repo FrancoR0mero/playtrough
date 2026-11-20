@@ -1,16 +1,17 @@
 import { Dialog, DialogModule } from '@angular/cdk/dialog';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, of, startWith, Subject, switchMap } from 'rxjs';
+import { catchError, map, of, startWith, Subject, switchMap } from 'rxjs';
 import { GroupConfirmation, GroupConfirmationComponent } from './group-confirmation';
 import { GroupPeopleComponent } from './group-people';
+import { GroupReviewsComponent } from './group-reviews';
 import { GroupProfile, GroupsApi } from './groups-api';
 
 @Component({
   selector: 'app-group-detail',
-  imports: [DialogModule, RouterLink, GroupPeopleComponent],
+  imports: [DialogModule, RouterLink, GroupPeopleComponent, GroupReviewsComponent],
   templateUrl: './group-detail.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -18,6 +19,7 @@ export class GroupDetailComponent {
   private readonly api = inject(GroupsApi);
   private readonly dialog = inject(Dialog);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
   private readonly reload = new Subject<void>();
 
   protected readonly group = signal<GroupProfile | null>(null);
@@ -25,10 +27,14 @@ export class GroupDetailComponent {
   protected readonly actionError = signal('');
   protected readonly status = signal('');
   protected readonly pending = signal(false);
+  protected readonly showReviews = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('tab') === 'reviews')),
+    { initialValue: false },
+  );
 
   constructor() {
-    inject(ActivatedRoute)
-      .paramMap.pipe(
+    this.route.paramMap
+      .pipe(
         switchMap((params) => {
           this.pending.set(false);
           this.status.set('');

@@ -65,11 +65,34 @@
     }
     @if (item.membership === 'owner' || item.membership === 'member') {
       @for (visible of [item]; track visible.id) {
-        <app-group-people
-          [groupId]="visible.id"
-          [owner]="visible.membership === 'owner'"
-          (accessLost)="refresh()"
-        />
+        <nav aria-label="Secciones del grupo" class="mt-7 flex gap-4 border-b border-white/10">
+          <a
+            [routerLink]="['/groups', visible.id]"
+            [attr.aria-current]="showReviews() ? null : 'page'"
+            [class.border-accent]="!showReviews()"
+            [class.border-transparent]="showReviews()"
+            class="inline-flex min-h-11 items-center border-b-2 px-2 text-sm font-medium text-white hover:text-indigo-200"
+            >Miembros</a
+          >
+          <a
+            [routerLink]="['/groups', visible.id]"
+            [queryParams]="{ tab: 'reviews' }"
+            [attr.aria-current]="showReviews() ? 'page' : null"
+            [class.border-accent]="showReviews()"
+            [class.border-transparent]="!showReviews()"
+            class="inline-flex min-h-11 items-center border-b-2 px-2 text-sm font-medium text-white hover:text-indigo-200"
+            >Reseñas</a
+          >
+        </nav>
+        @if (showReviews()) {
+          <app-group-reviews [groupId]="visible.id" (accessLost)="refresh()" />
+        } @else {
+          <app-group-people
+            [groupId]="visible.id"
+            [owner]="visible.membership === 'owner'"
+            (accessLost)="refresh()"
+          />
+        }
       }
     }
   } @else if (error()) {

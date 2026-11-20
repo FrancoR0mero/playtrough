@@ -26,6 +26,16 @@ const ownerMember = {
   joinedAt: '2026-11-19T12:00:00Z',
   isOwner: true,
 };
+const review = {
+  id: 15,
+  gameId: 9,
+  gameName: 'Portal',
+  username: 'lectora',
+  rating: 4.5,
+  text: 'Me gustó el diseño de los niveles.',
+  createdAt: '2026-11-19T12:00:00Z',
+  editedAt: null,
+};
 
 describe('Groups', () => {
   beforeEach(() => {
@@ -193,6 +203,62 @@ describe('Groups', () => {
     harness.detectChanges();
     expect(button(root, 'Solicitar acceso').disabled).toBe(false);
     expect(root.querySelector('app-group-people')).toBeNull();
+  });
+
+  it('opens the reviews tab for a member and pages the original reviews', async () => {
+    const harness = await RouterTestingHarness.create('/groups/42');
+    const http = TestBed.inject(HttpTestingController);
+    const root = harness.routeNativeElement!;
+    http.expectOne(url + '/42').flush({ ...group, membership: 'member' });
+    harness.detectChanges();
+    http.expectOne(url + '/42/members').flush({ items: [ownerMember], nextCursor: null });
+    harness.detectChanges();
+    http.expectNone(url + '/42/reviews');
+    const tab = root.querySelector<HTMLAnchorElement>('a[href="/groups/42?tab=reviews"]')!;
+    const finished = firstValueFrom(
+      TestBed.inject(Router).events.pipe(filter((event) => event instanceof NavigationEnd)),
+    );
+    tab.click();
+    await finished;
+    harness.detectChanges();
+    expect(tab.getAttribute('aria-current')).toBe('page');
+    http.expectOne(url + '/42/reviews').flush({ items: [review], nextCursor: 15 });
+    harness.detectChanges();
+    expect(root.querySelector('a[href="/games/local/9/reviews"]')?.textContent).toContain('Portal');
+    expect(root.querySelector('#group-review-15')?.textContent).toContain(review.text);
+
+    button(root, 'Cargar más reseñas').click();
+    http.expectOne(url + '/42/reviews?cursor=15').flush({
+      items: [{ ...review, id: 12, username: 'otro', text: null }],
+      nextCursor: null,
+    });
+    harness.detectChanges();
+    expect(root.querySelectorAll('app-review-content')).toHaveLength(2);
+  });
+
+  it('shows an empty page and hides the reviews tab if membership is lost', async () => {
+    const harness = await RouterTestingHarness.create('/groups/42?tab=reviews');
+    const http = TestBed.inject(HttpTestingController);
+    const root = harness.routeNativeElement!;
+    http.expectOne(url + '/42').flush({ ...group, membership: 'member' });
+    harness.detectChanges();
+    http.expectOne(url + '/42/reviews').flush(null, { status: 503, statusText: 'Unavailable' });
+    harness.detectChanges();
+    expect(root.textContent).toContain('No pudimos cargar las reseñas');
+    button(root, 'Reintentar').click();
+    http.expectOne(url + '/42/reviews').flush({ items: [], nextCursor: null });
+    harness.detectChanges();
+    expect(root.textContent).toContain('Todavía no hay reseñas');
+
+    await harness.navigateByUrl('/groups/42');
+    http.expectOne(url + '/42/members').flush({ items: [], nextCursor: null });
+    await harness.navigateByUrl('/groups/42?tab=reviews');
+    http.expectOne(url + '/42/reviews').flush(null, { status: 404, statusText: 'Not Found' });
+    http.expectOne(url + '/42').flush({ ...group, membership: 'removed' });
+    harness.detectChanges();
+    http.expectNone(url + '/42/reviews');
+    expect(root.querySelector('app-group-reviews')).toBeNull();
+    expect(root.textContent).toContain('El propietario te retiró del grupo');
   });
 });
 

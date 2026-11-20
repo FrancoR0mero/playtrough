@@ -37,6 +37,17 @@ export interface GroupJoinRequest {
   createdAt: string;
 }
 
+export interface GroupReview {
+  id: number;
+  gameId: number;
+  gameName: string;
+  username: string;
+  rating: number;
+  text: string | null;
+  createdAt: string;
+  editedAt: string | null;
+}
+
 export type GroupDecision = 'approve' | 'reject';
 
 export interface GroupPage<T> {
@@ -78,11 +89,15 @@ export class GroupsApi {
   }
 
   members(id: number, cursor: number | null) {
-    return this.peoplePage<GroupMember>(`${this.url}/${id}/members`, cursor);
+    return this.page<GroupMember>(`${this.url}/${id}/members`, cursor);
   }
 
   joinRequests(id: number, cursor: number | null) {
-    return this.peoplePage<GroupJoinRequest>(`${this.url}/${id}/join-requests`, cursor);
+    return this.page<GroupJoinRequest>(`${this.url}/${id}/join-requests`, cursor);
+  }
+
+  reviews(id: number, cursor: number | null) {
+    return this.page<GroupReview>(`${this.url}/${id}/reviews`, cursor);
   }
 
   decide(id: number, requestId: number, decision: GroupDecision) {
@@ -95,7 +110,7 @@ export class GroupsApi {
     return this.http.delete<void>(`${this.url}/${id}/members/${userId}`);
   }
 
-  private peoplePage<T>(url: string, cursor: number | null) {
+  private page<T>(url: string, cursor: number | null) {
     return this.http.get<GroupPage<T>>(url, { params: cursor === null ? {} : { cursor } });
   }
 }
