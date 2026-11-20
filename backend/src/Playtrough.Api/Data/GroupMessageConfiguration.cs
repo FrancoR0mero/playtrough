@@ -11,10 +11,12 @@ internal sealed class GroupMessageConfiguration : IEntityTypeConfiguration<Group
         entity.Property(message => message.Text).HasMaxLength(GroupMessage.MaxTextLength)
             .HasAnnotation("MySQL:Charset", "utf8mb4");
         entity.Property(message => message.CreatedAt).HasConversion(LibraryConversions.Utc);
+        entity.Property(message => message.RemovedAt).HasConversion(LibraryConversions.Utc);
         entity.HasIndex(message => new { message.AuthorId, message.ClientMessageId }).IsUnique();
         entity.HasIndex(message => new { message.GroupId, message.CreatedAt, message.Id });
         entity.HasIndex(message => new { message.GroupId, message.Id });
         entity.HasOne<SocialGroup>().WithMany().HasForeignKey(message => message.GroupId).OnDelete(DeleteBehavior.Restrict);
         entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(message => message.AuthorId).OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(message => message.RemovedByUserId).OnDelete(DeleteBehavior.Restrict);
     }
 }

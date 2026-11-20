@@ -446,7 +446,10 @@ builder.Services.AddSingleton<ChatSendLimits>();
 builder.Services.AddSingleton<ChatConnections>();
 builder.Services.AddScoped<ChatMessageService>();
 builder.Services.AddScoped<ChatHistoryService>();
-builder.Services.AddScoped<IChatOutboxHandler, ChatMessageDelivery>();
+builder.Services.AddScoped<IChatOutboxHandler>(services =>
+    ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageCreated)));
+builder.Services.AddScoped<IChatOutboxHandler>(services =>
+    ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageRemoved)));
 builder.Services.AddScoped<ChatOutboxProcessor>();
 builder.Services.AddHostedService<ChatOutboxWorker>();
 

@@ -4,6 +4,7 @@
 @before = 20
 @after = 0
 @through = 40
+@messageId = 1
 
 # El cliente SignalR invoca JoinGroup(groupId), SendMessage(groupId, clientMessageId, text) y LeaveGroup(groupId).
 # Reutilizar el UUID y el texto del mismo envío al reintentar. El resultado y MessageCreated comparten id.
@@ -29,4 +30,12 @@ Authorization: Bearer {{token}}
 
 ### Continuar la recuperación con el mismo through y el nuevo nextCursor como after
 GET {{baseUrl}}/api/groups/{{groupId}}/messages?limit=30&after={{after}}&through={{through}}
+Authorization: Bearer {{token}}
+
+### Revalidar mensajes que ya están abiertos. Repetir ids para verificar un lote
+GET {{baseUrl}}/api/groups/{{groupId}}/messages/state?ids={{messageId}}
+Authorization: Bearer {{token}}
+
+### Retirar un mensaje propio o retirar como propietario. Devuelve id y removedAt
+DELETE {{baseUrl}}/api/groups/{{groupId}}/messages/{{messageId}}
 Authorization: Bearer {{token}}

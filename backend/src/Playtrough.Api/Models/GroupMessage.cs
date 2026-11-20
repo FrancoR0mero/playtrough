@@ -10,4 +10,6 @@ public sealed class GroupMessage
     public Guid ClientMessageId { get; set; }
     public string Text { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public DateTime? RemovedAt { get; set; }
+    public int? RemovedByUserId { get; set; }
 }

@@ -194,6 +194,130 @@ public sealed class ChatLiveTests
         return (await response.Content.ReadFromJsonAsync<GroupDto>())!.Id;
     }
 
+    [Fact]
+    public async Task OnlyAuthorOrOwnerCanRemoveAndTheEventAndHistoryRedactTheText()
+    {
+        using var context = new GamesApiTestContext(concurrent: true);
+        using var owner = await context.AuthenticatedClientAsync();
+        using var author = await context.AuthenticatedClientAsync();
+        using var reader = await context.AuthenticatedClientAsync();
+        var group = await CreateGroup(owner);
+        var otherGroup = await CreateGroup(owner);
+        using var joinedAuthor = await author.PutAsync($"/api/groups/{group}/membership", null);
+        using var joinedReader = await reader.PutAsync($"/api/groups/{group}/membership", null);
+        joinedAuthor.EnsureSuccessStatusCode();
+        joinedReader.EnsureSuccessStatusCode();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(23));
+        using var writer = await Socket.OpenAsync(context, author, deadline.Token);
+        using var recipient = await Socket.OpenAsync(context, reader, deadline.Token);
+        await writer.JoinAsync(group);
+        await recipient.JoinAsync(group);
+        const string text = "Texto que será retirado";
+        var sendId = Guid.NewGuid();
+        var sent = (await writer.InvokeAsync("SendMessage", group, sendId, text)).GetProperty("result");
+        var id = sent.GetProperty("id").GetString()!;
+        Assert.Equal(text, (await recipient.EventAsync("MessageCreated"))[0].GetProperty("text").GetString());
+        using var forbidden = await reader.DeleteAsync($"/api/groups/{group}/messages/{id}");
+        using var wrongGroup = await owner.DeleteAsync($"/api/groups/{otherGroup}/messages/{id}");
+        Assert.Equal(HttpStatusCode.NotFound, forbidden.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, wrongGroup.StatusCode);
+
+        var removed = await RemoveAsync(owner, group, id);
+        Assert.NotNull(removed.RemovedAt);
+        Assert.Equal(removed, await RemoveAsync(author, group, id));
+        var notice = (await recipient.EventAsync("MessageRemoved"))[0].Deserialize<ChatMessageDto>(JsonSerializerOptions.Web)!;
+        Assert.Equal((id, removed.RemovedAt), (notice.Id, notice.RemovedAt));
+        Assert.Null(notice.Text);
+        var replay = (await writer.InvokeAsync("SendMessage", group, sendId, text)).GetProperty("result");
+        Assert.Equal(id, replay.GetProperty("id").GetString());
+        Assert.Equal(JsonValueKind.Null, replay.GetProperty("text").ValueKind);
+        var page = (await reader.GetFromJsonAsync<ChatHistoryPageDto>($"/api/groups/{group}/messages"))!;
+        var fromHistory = Assert.Single(page.Items);
+        Assert.Equal(notice, fromHistory);
+        var state = (await reader.GetFromJsonAsync<ChatMessageStateDto[]>($"/api/groups/{group}/messages/state?ids={id}&ids=9223372036854775807"))!;
+        Assert.Equal(removed, Assert.Single(state));
+        using var blocked = await reader.PostAsJsonAsync("/api/blocks", new { username = "games_user_2" });
+        Assert.Equal(HttpStatusCode.NoContent, blocked.StatusCode);
+        Assert.Empty((await reader.GetFromJsonAsync<ChatMessageStateDto[]>($"/api/groups/{group}/messages/state?ids={id}"))!);
+        using var left = await reader.DeleteAsync($"/api/groups/{group}/membership");
+        Assert.Equal(HttpStatusCode.NoContent, left.StatusCode);
+        using var lost = await reader.GetAsync($"/api/groups/{group}/messages/state?ids={id}");
+        Assert.Equal(HttpStatusCode.NotFound, lost.StatusCode);
+
+        using var scope = context.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var archived = await db.GroupMessages.AsNoTracking().SingleAsync();
+        var ownerId = await db.Users.Where(user => user.UserName == "games_user_1").Select(user => user.Id).SingleAsync();
+        Assert.Equal(text, archived.Text);
+        Assert.Equal(ownerId, archived.RemovedByUserId);
+        var item = await db.OutboxMessages.SingleAsync(row => row.Type == nameof(ChatMessageRemoved));
+        Assert.DoesNotContain(text, item.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ConcurrentRemovalsAreIdempotentAndAnOutboxFailureRollsBackTheRemoval()
+    {
+        using var context = new GamesApiTestContext(concurrent: true);
+        using var owner = await context.AuthenticatedClientAsync();
+        var group = await CreateGroup(owner);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(19));
+        using var sender = await Socket.OpenAsync(context, owner, deadline.Token);
+        await sender.JoinAsync(group);
+        var message = (await sender.InvokeAsync("SendMessage", group, Guid.NewGuid(), "mensaje")).GetProperty("result");
+        var id = message.GetProperty("id").GetString()!;
+        using var scope = context.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TRIGGER reject_chat_removal BEFORE INSERT ON OutboxMessages
+            WHEN NEW.Type = 'ChatMessageRemoved' BEGIN SELECT RAISE(ABORT, 'test'); END;
+            """);
+        using var failed = await owner.DeleteAsync($"/api/groups/{group}/messages/{id}");
+        Assert.Equal(HttpStatusCode.InternalServerError, failed.StatusCode);
+        Assert.Null((await db.GroupMessages.AsNoTracking().SingleAsync()).RemovedAt);
+        await db.Database.ExecuteSqlRawAsync("DROP TRIGGER reject_chat_removal");
+        var removals = await Task.WhenAll(RemoveAsync(owner, group, id), RemoveAsync(owner, group, id));
+        Assert.NotNull(removals[0].RemovedAt);
+        Assert.Equal(removals[0], removals[1]);
+        Assert.Equal(1, await db.OutboxMessages.CountAsync(row => row.Type == nameof(ChatMessageRemoved)));
+    }
+
+    [Fact]
+    public async Task DelayedCreationNeverBroadcastsTextOnceRemovalIsCommitted()
+    {
+        using var context = new GamesApiTestContext(concurrent: true);
+        using var owner = await context.AuthenticatedClientAsync();
+        var group = await CreateGroup(owner);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        using var sender = await Socket.OpenAsync(context, owner, deadline.Token);
+        await sender.JoinAsync(group);
+        using var scope = context.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TRIGGER delay_chat_creation AFTER INSERT ON OutboxMessages
+            WHEN NEW.Type = 'ChatMessageCreated' BEGIN
+                UPDATE OutboxMessages SET NextAttemptAt = '2099-01-01 00:00:00' WHERE Id = NEW.Id;
+            END;
+            """);
+        var sent = (await sender.InvokeAsync("SendMessage", group, Guid.NewGuid(), "solo en el archivo")).GetProperty("result");
+        var id = sent.GetProperty("id").GetString()!;
+        await RemoveAsync(owner, group, id);
+        var removed = (await sender.EventAsync("MessageRemoved"))[0];
+        Assert.Equal(JsonValueKind.Null, removed.GetProperty("text").ValueKind);
+        var created = db.OutboxMessages.AsNoTracking().Where(row => row.Type == nameof(ChatMessageCreated));
+        await created.ExecuteUpdateAsync(update => update.SetProperty(row => row.NextAttemptAt, (DateTime?)null));
+        while (!await created.AnyAsync(row => row.ProcessedAt != null, deadline.Token))
+            await Task.Delay(30, deadline.Token);
+        await sender.JoinAsync(group);
+        Assert.DoesNotContain(sender.Events, item => item.GetProperty("target").GetString() == "MessageCreated");
+    }
+
+    private static async Task<ChatMessageStateDto> RemoveAsync(HttpClient client, int group, string id)
+    {
+        using var response = await client.DeleteAsync($"/api/groups/{group}/messages/{id}");
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ChatMessageStateDto>())!;
+    }
+
     private sealed class Socket(WebSocket transport, CancellationToken ct) : IDisposable
     {
         private const char Separator = '\u001e';

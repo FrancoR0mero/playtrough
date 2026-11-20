@@ -543,6 +543,12 @@ namespace Playtrough.Api.Migrations
                     b.Property<int>("GroupId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("RemovedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("RemovedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Text")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -550,6 +556,8 @@ namespace Playtrough.Api.Migrations
                         .HasAnnotation("MySQL:Charset", "utf8mb4");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RemovedByUserId");
 
                     b.HasIndex("AuthorId", "ClientMessageId")
                         .IsUnique();
@@ -1180,6 +1188,11 @@ namespace Playtrough.Api.Migrations
                         .HasForeignKey("GroupId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RemovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>

@@ -46,4 +46,19 @@ public sealed class ChatHistoryService(AppDbContext db, GroupAccess access)
     }
 
     private static string Cursor(long id) => id.ToString(CultureInfo.InvariantCulture);
+
+    internal async Task<IReadOnlyList<ChatMessageStateDto>?> ReadStateAsync(int groupId, int viewer, long[] ids, CancellationToken ct)
+    {
+        var visible = from message in db.GroupMessages.AsNoTracking()
+                      join author in PrivacyService.UnblockedUsers(db, viewer) on message.AuthorId equals author.Id
+                      where message.GroupId == groupId && ids.Contains(message.Id)
+                      select new { message.GroupId, message.Id, message.RemovedAt };
+        var result = await (from groupRow in access.MemberGroups(viewer).Where(item => item.Id == groupId)
+                            join row in visible on groupRow.Id equals row.GroupId into rows
+                            from row in rows.DefaultIfEmpty()
+                            select new { Id = (long?)row.Id, row.RemovedAt }).ToListAsync(ct);
+        if (result.Count == 0) return null;
+        return result.Where(row => row.Id.HasValue)
+            .Select(row => new ChatMessageStateDto(Cursor(row.Id!.Value), row.RemovedAt)).ToArray();
+    }
 }

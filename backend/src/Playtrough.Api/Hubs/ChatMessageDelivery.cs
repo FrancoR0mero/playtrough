@@ -7,14 +7,15 @@ using Playtrough.Api.Services.Implementations;
 
 namespace Playtrough.Api.Hubs;
 
-internal sealed class ChatMessageDelivery(AppDbContext db, GroupAccess access, ChatConnections connections, IHubContext<ChatHub> hub)
+internal sealed class ChatMessageDelivery(AppDbContext db, GroupAccess access, ChatConnections connections, IHubContext<ChatHub> hub,
+    string eventType)
     : IChatOutboxHandler
 {
-    public string EventType => nameof(ChatMessageCreated);
+    public string EventType => eventType;
 
     public Task HandleAsync(OutboxMessage item, CancellationToken ct)
     {
-        var change = JsonSerializer.Deserialize<ChatMessageCreated>(item.Payload, ChatMessageService.EventJson)
+        var change = JsonSerializer.Deserialize<ChatMessageReference>(item.Payload, ChatMessageService.EventJson)
             ?? throw new InvalidOperationException("Invalid chat event.");
         return connections.InGroupAsync(change.GroupId, async () =>
         {
@@ -23,7 +24,8 @@ internal sealed class ChatMessageDelivery(AppDbContext db, GroupAccess access, C
                              join author in db.Users.AsNoTracking() on message.AuthorId equals author.Id
                              where message.Id == change.MessageId && message.GroupId == change.GroupId
                              select new { Message = message, author.UserName }).SingleOrDefaultAsync(ct);
-            if (row is null) return false;
+            var removal = eventType == nameof(ChatMessageRemoved);
+            if (row is null || row.Message.RemovedAt.HasValue != removal) return false;
 
             var recipients = await (from member in access.ActiveMembers()
                                     join user in PrivacyService.UnblockedUsers(db, row.Message.AuthorId) on member.UserId equals user.Id
@@ -34,7 +36,7 @@ internal sealed class ChatMessageDelivery(AppDbContext db, GroupAccess access, C
             {
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 timeout.CancelAfter(TimeSpan.FromSeconds(5));
-                await hub.Clients.Clients(destinations).SendAsync("MessageCreated",
+                await hub.Clients.Clients(destinations).SendAsync(removal ? "MessageRemoved" : "MessageCreated",
                     ChatMessageService.ToDto(row.Message, row.UserName!), timeout.Token);
             }
             return true;
