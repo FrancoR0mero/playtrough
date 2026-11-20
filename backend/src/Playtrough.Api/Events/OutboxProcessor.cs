@@ -3,14 +3,14 @@ using Playtrough.Api.Data;
 
 namespace Playtrough.Api.Events;
 
-internal interface IChatOutboxHandler
+internal interface IOutboxHandler
 {
     string EventType { get; }
     Task HandleAsync(OutboxMessage message, CancellationToken ct);
 }
 
-internal sealed class ChatOutboxProcessor(
-    AppDbContext db, IEnumerable<IChatOutboxHandler> handlers, TimeProvider clock, ILogger<ChatOutboxProcessor> logger)
+internal sealed class OutboxProcessor(
+    AppDbContext db, IEnumerable<IOutboxHandler> handlers, TimeProvider clock, ILogger<OutboxProcessor> logger)
 {
     internal const int MaxAttempts = 8;
     internal static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(1);
@@ -71,7 +71,7 @@ internal sealed class ChatOutboxProcessor(
             && (message.NextAttemptAt == null || message.NextAttemptAt <= now)
             && (message.LeaseExpiresAt == null || message.LeaseExpiresAt <= now));
 
-    private async Task<bool> DispatchAsync(IChatOutboxHandler handler, OutboxMessage message, CancellationToken ct)
+    private async Task<bool> DispatchAsync(IOutboxHandler handler, OutboxMessage message, CancellationToken ct)
     {
         try
         {
@@ -84,8 +84,8 @@ internal sealed class ChatOutboxProcessor(
         }
         catch (Exception error)
         {
-            logger.LogWarning("Chat event {EventId} failed on attempt {Attempt} ({ExceptionType}).",
-                message.Id, message.Attempts, error.GetType().Name);
+            logger.LogWarning("Outbox event {EventType} ({EventId}) failed on attempt {Attempt} ({ExceptionType}).",
+                message.Type, message.Id, message.Attempts, error.GetType().Name);
             return false;
         }
     }

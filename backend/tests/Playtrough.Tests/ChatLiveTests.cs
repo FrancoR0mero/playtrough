@@ -16,12 +16,14 @@ namespace Playtrough.Tests;
 
 public sealed class ChatLiveTests
 {
-    [Fact]
-    public async Task BrowserNegotiationPreflightAllowsSignalRHeadersOnlyForConfiguredOrigins()
+    [Theory]
+    [InlineData(ChatHub.Path)]
+    [InlineData(NotificationHub.Path)]
+    public async Task BrowserNegotiationPreflightAllowsSignalRHeadersOnlyForConfiguredOrigins(string path)
     {
         using var factory = new LoginApiFactory();
         using var client = factory.CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Options, ChatHub.Path + "/negotiate?negotiateVersion=1");
+        using var request = new HttpRequestMessage(HttpMethod.Options, path + "/negotiate?negotiateVersion=1");
         request.Headers.Add("Origin", "http://localhost:4200");
         request.Headers.Add("Access-Control-Request-Method", "POST");
         request.Headers.Add("Access-Control-Request-Headers", "authorization,x-requested-with,x-signalr-user-agent");
@@ -33,7 +35,7 @@ public sealed class ChatLiveTests
         Assert.Contains("X-SignalR-User-Agent", headers, StringComparison.OrdinalIgnoreCase);
         Assert.False(preflight.Headers.Contains("Access-Control-Allow-Credentials"));
 
-        using var other = new HttpRequestMessage(HttpMethod.Options, ChatHub.Path + "/negotiate");
+        using var other = new HttpRequestMessage(HttpMethod.Options, path + "/negotiate");
         other.Headers.Add("Origin", "https://unlisted.example");
         other.Headers.Add("Access-Control-Request-Method", "POST");
         using var disallowed = await client.SendAsync(other);
@@ -318,7 +320,7 @@ public sealed class ChatLiveTests
         return (await response.Content.ReadFromJsonAsync<ChatMessageStateDto>())!;
     }
 
-    private sealed class Socket(WebSocket transport, CancellationToken ct) : IDisposable
+    internal sealed class Socket(WebSocket transport, CancellationToken ct) : IDisposable
     {
         private const char Separator = '\u001e';
         private readonly Queue<JsonElement> frames = new();
@@ -326,10 +328,11 @@ public sealed class ChatLiveTests
         private int invocation;
         internal IReadOnlyList<JsonElement> Events => events;
 
-        internal static async Task<Socket> OpenAsync(GamesApiTestContext context, HttpClient user, CancellationToken ct)
+        internal static async Task<Socket> OpenAsync(GamesApiTestContext context, HttpClient user, CancellationToken ct,
+            string path = ChatHub.Path)
         {
             var socket = await context.Factory.Server.CreateWebSocketClient().ConnectAsync(new Uri(
-                "wss://localhost" + ChatHub.Path + "?access_token=" + user.DefaultRequestHeaders.Authorization!.Parameter), ct);
+                "wss://localhost" + path + "?access_token=" + user.DefaultRequestHeaders.Authorization!.Parameter), ct);
             var connection = new Socket(socket, ct);
             try
             {

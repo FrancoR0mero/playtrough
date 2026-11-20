@@ -24,8 +24,8 @@ public sealed class ChatOutboxTests
         });
         using var application = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            services.RemoveAll<IChatOutboxHandler>();
-            services.AddSingleton<IChatOutboxHandler>(handler);
+            services.RemoveAll<IOutboxHandler>();
+            services.AddSingleton<IOutboxHandler>(handler);
         }));
         await using var scope = application.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -97,7 +97,7 @@ public sealed class ChatOutboxTests
             await started.Task.WaitAsync(deadline.Token);
             await Processor(secondDb, context, second).ProcessBatchAsync(deadline.Token);
             Assert.Equal(0, second.Calls);
-            context.Clock.UtcNow += ChatOutboxProcessor.LeaseDuration;
+            context.Clock.UtcNow += OutboxProcessor.LeaseDuration;
             await Processor(secondDb, context, second).ProcessBatchAsync(deadline.Token);
             Assert.Equal(1, second.Calls);
         }
@@ -118,9 +118,9 @@ public sealed class ChatOutboxTests
         using var context = new ReviewTestContext();
         await using var db = context.CreateDb(false);
         var exhausted = Event(context);
-        exhausted.Attempts = ChatOutboxProcessor.MaxAttempts - 1;
+        exhausted.Attempts = OutboxProcessor.MaxAttempts - 1;
         var interrupted = Event(context);
-        interrupted.Attempts = ChatOutboxProcessor.MaxAttempts;
+        interrupted.Attempts = OutboxProcessor.MaxAttempts;
         interrupted.LeaseId = Guid.NewGuid();
         interrupted.LeaseExpiresAt = context.Clock.UtcNow.UtcDateTime.AddSeconds(-1);
         await SaveAsync(db, exhausted, interrupted);
@@ -132,7 +132,7 @@ public sealed class ChatOutboxTests
         var failed = await db.OutboxMessages.AsNoTracking().ToListAsync();
         Assert.All(failed, row =>
         {
-            Assert.Equal(ChatOutboxProcessor.MaxAttempts, row.Attempts);
+            Assert.Equal(OutboxProcessor.MaxAttempts, row.Attempts);
             Assert.NotNull(row.FailedAt);
             Assert.Null(row.ProcessedAt);
             Assert.Null(row.LeaseId);
@@ -163,8 +163,8 @@ public sealed class ChatOutboxTests
         };
     }
 
-    private static ChatOutboxProcessor Processor(AppDbContext db, ReviewTestContext context, Handler handler)
-        => new(db, [handler], context.Clock, NullLogger<ChatOutboxProcessor>.Instance);
+    private static OutboxProcessor Processor(AppDbContext db, ReviewTestContext context, Handler handler)
+        => new(db, [handler], context.Clock, NullLogger<OutboxProcessor>.Instance);
 
     private static OutboxMessage Event(ReviewTestContext context, string type = Handler.MessageCreated) => new()
     {
@@ -180,7 +180,7 @@ public sealed class ChatOutboxTests
     private static Task<OutboxMessage> ReadAsync(AppDbContext db, Guid id)
         => db.OutboxMessages.AsNoTracking().SingleAsync(message => message.Id == id);
 
-    private sealed class Handler(Func<OutboxMessage, CancellationToken, Task> dispatch) : IChatOutboxHandler
+    private sealed class Handler(Func<OutboxMessage, CancellationToken, Task> dispatch) : IOutboxHandler
     {
         public const string MessageCreated = "ChatMessageCreated";
         public string EventType => MessageCreated;

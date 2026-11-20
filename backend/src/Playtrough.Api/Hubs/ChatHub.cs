@@ -9,7 +9,6 @@ namespace Playtrough.Api.Hubs;
 public sealed class ChatHub(ChatMessageService messages, ChatConnections connections) : Hub
 {
     public const string Path = "/hubs/chat";
-    internal const string CorsPolicy = "GroupChat";
 
     public Task JoinGroup(int groupId) => messages.JoinAsync(groupId, UserId, Context.ConnectionId, Context.ConnectionAborted);
 

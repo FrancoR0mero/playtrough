@@ -1,6 +1,6 @@
 namespace Playtrough.Api.Events;
 
-internal sealed class ChatOutboxWorker(IServiceScopeFactory scopes, ILogger<ChatOutboxWorker> logger) : BackgroundService
+internal sealed class OutboxWorker(IServiceScopeFactory scopes, ILogger<OutboxWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -12,12 +12,12 @@ internal sealed class ChatOutboxWorker(IServiceScopeFactory scopes, ILogger<Chat
                 try
                 {
                     await using var scope = scopes.CreateAsyncScope();
-                    await scope.ServiceProvider.GetRequiredService<ChatOutboxProcessor>().ProcessBatchAsync(stoppingToken);
+                    await scope.ServiceProvider.GetRequiredService<OutboxProcessor>().ProcessBatchAsync(stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
                 catch (Exception error)
                 {
-                    logger.LogError("Chat outbox processing failed ({ExceptionType}).", error.GetType().Name);
+                    logger.LogError("Outbox processing failed ({ExceptionType}).", error.GetType().Name);
                 }
             } while (await timer.WaitForNextTickAsync(stoppingToken));
         }

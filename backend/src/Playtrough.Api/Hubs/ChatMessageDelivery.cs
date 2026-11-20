@@ -9,7 +9,7 @@ namespace Playtrough.Api.Hubs;
 
 internal sealed class ChatMessageDelivery(AppDbContext db, GroupAccess access, ChatConnections connections, IHubContext<ChatHub> hub,
     string eventType)
-    : IChatOutboxHandler
+    : IOutboxHandler
 {
     public string EventType => eventType;
 

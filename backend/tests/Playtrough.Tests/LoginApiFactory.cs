@@ -119,7 +119,7 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
             // Worker integration uses the independent SQLite connections instead.
             if (_connectionString is null)
                 services.Remove(services.Single(service => service.ServiceType == typeof(IHostedService) &&
-                    service.ImplementationType == typeof(ChatOutboxWorker)));
+                    service.ImplementationType == typeof(OutboxWorker)));
             if (!_runConfirmationWorker)
             {
                 services.Remove(services.Single(service => service.ServiceType == typeof(IHostedService) &&

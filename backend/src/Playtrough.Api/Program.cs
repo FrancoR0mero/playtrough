@@ -282,7 +282,9 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             {
                 var request = context.Request;
                 // Negotiate and the REST API keep using Authorization headers.
-                if (HttpMethods.IsGet(request.Method) && request.Path.Equals(ChatHub.Path, StringComparison.OrdinalIgnoreCase)
+                if (HttpMethods.IsGet(request.Method)
+                    && (request.Path.Equals(ChatHub.Path, StringComparison.OrdinalIgnoreCase)
+                        || request.Path.Equals(NotificationHub.Path, StringComparison.OrdinalIgnoreCase))
                     && !request.Headers.ContainsKey("Authorization")
                     && request.Query.TryGetValue("access_token", out var token) && token.Count == 1)
                     context.Token = token[0];
@@ -431,7 +433,7 @@ builder.Services.AddOptions<CorsOptions>().Configure<IOptions<CorsSettings>>((op
             .WithHeaders("Authorization", "Content-Type", "If-Match")
             .WithExposedHeaders("ETag");
     });
-    options.AddPolicy(ChatHub.CorsPolicy, policy => policy.WithOrigins(origins)
+    options.AddPolicy("Realtime", policy => policy.WithOrigins(origins)
         .WithMethods("GET", "POST", "DELETE", "OPTIONS")
         .WithHeaders("Authorization", "Content-Type", "X-Requested-With", "X-SignalR-User-Agent"));
 });
@@ -446,12 +448,13 @@ builder.Services.AddSingleton<ChatSendLimits>();
 builder.Services.AddSingleton<ChatConnections>();
 builder.Services.AddScoped<ChatMessageService>();
 builder.Services.AddScoped<ChatHistoryService>();
-builder.Services.AddScoped<IChatOutboxHandler>(services =>
+builder.Services.AddScoped<NotificationStore>();
+builder.Services.AddScoped<IOutboxHandler>(services =>
     ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageCreated)));
-builder.Services.AddScoped<IChatOutboxHandler>(services =>
+builder.Services.AddScoped<IOutboxHandler>(services =>
     ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageRemoved)));
-builder.Services.AddScoped<ChatOutboxProcessor>();
-builder.Services.AddHostedService<ChatOutboxWorker>();
+builder.Services.AddScoped<OutboxProcessor>();
+builder.Services.AddHostedService<OutboxWorker>();
 
 // Health checks
 builder.Services.AddHealthChecks();
@@ -518,10 +521,11 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHub<ChatHub>(ChatHub.Path, options => options.CloseOnAuthenticationExpiration = true)
-    .RequireCors(ChatHub.CorsPolicy)
+var realtime = app.MapGroup("").RequireCors("Realtime")
     .RequireAuthorization(policy => policy.RequireAuthenticatedUser()
         .RequireAssertion(context => JwtHubUserIdProvider.GetUserId(context.User) is not null));
+realtime.MapHub<ChatHub>(ChatHub.Path, options => options.CloseOnAuthenticationExpiration = true);
+realtime.MapHub<NotificationHub>(NotificationHub.Path, options => options.CloseOnAuthenticationExpiration = true);
 if (app.Environment.IsDevelopment())
 {
     app.MapGet("/api/test/user", () => Results.Ok(new { message = "User access granted." }))

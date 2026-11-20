@@ -650,6 +650,73 @@ namespace Playtrough.Api.Migrations
                     b.ToTable("LibraryEvents", (string)null);
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.Notification", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("ActorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte>("PayloadVersion")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("RecipientId")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("ResourceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ResourceType")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("RecipientId", "CreatedAt", "Id");
+
+                    b.HasIndex("RecipientId", "EventId", "Type")
+                        .IsUnique();
+
+                    b.HasIndex("RecipientId", "ReadAt", "CreatedAt", "Id");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.NotificationPreference", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.HasKey("UserId", "Category");
+
+                    b.ToTable("NotificationPreferences");
+                });
+
             modelBuilder.Entity("Playtrough.Api.Models.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -1218,6 +1285,29 @@ namespace Playtrough.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.Notification", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.NotificationPreference", b =>
+                {
                     b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
