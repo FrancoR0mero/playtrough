@@ -7,11 +7,13 @@ import { filter, firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { routes } from '../../app.routes';
 import { authGuard } from '../../core/guards/auth-guard';
-import { GroupCreateComponent } from './group-create';
 import { GroupDetailComponent } from './group-detail';
+import { GroupFormComponent } from './group-form';
 import { GroupsComponent } from './groups';
 
 const url = `${environment.apiUrl}/groups`;
+const version = '"36aba57c-1189-4e9f-a3ff-c3835b5b5435"';
+const updatedVersion = '"36aba57c-1189-4e9f-a3ff-c3835b5b5436"';
 const group = {
   id: 42,
   name: 'Club Retro',
@@ -45,7 +47,8 @@ describe('Groups', () => {
         provideHttpClientTesting(),
         provideRouter([
           { path: 'groups', component: GroupsComponent },
-          { path: 'groups/new', component: GroupCreateComponent },
+          { path: 'groups/new', component: GroupFormComponent },
+          { path: 'groups/:id/edit', component: GroupFormComponent },
           { path: 'groups/:id', component: GroupDetailComponent },
         ]),
       ],
@@ -55,7 +58,7 @@ describe('Groups', () => {
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
   it('protects group routes, filters discovery and appends results using the same filters', async () => {
-    for (const path of ['groups', 'groups/new', 'groups/:id']) {
+    for (const path of ['groups', 'groups/new', 'groups/:id', 'groups/:id/edit']) {
       expect(routes.find((route) => route.path === path)?.canActivate).toEqual([authGuard]);
     }
     const harness = await RouterTestingHarness.create('/groups');
@@ -260,7 +263,91 @@ describe('Groups', () => {
     expect(root.querySelector('app-group-reviews')).toBeNull();
     expect(root.textContent).toContain('El propietario te retiró del grupo');
   });
+
+  it('lets the owner edit with the current version and preserves their draft on a conflict', async () => {
+    const harness = await RouterTestingHarness.create('/groups/42/edit');
+    const http = TestBed.inject(HttpTestingController);
+    const root = harness.routeNativeElement!;
+    const profile = { ...group, membership: 'owner' };
+    http.expectOne(url + '/42').flush(profile, { headers: { ETag: version } });
+    http.expectOne(url + '/topics').flush(['Indie']);
+    harness.detectChanges();
+    const name = root.querySelector<HTMLInputElement>('#group-name')!;
+    expect(name.value).toBe(group.name);
+    expect(root.querySelector<HTMLSelectElement>('#group-topic')?.value).toBe('Retro');
+    changeField(root, 'name', ' Mi borrador ', 'input');
+    submit(root);
+    const stale = http.expectOne({ method: 'PUT', url: url + '/42' });
+    expect(stale.request.headers.get('If-Match')).toBe(version);
+    expect(stale.request.body.name).toBe('Mi borrador');
+    stale.flush(null, { status: 412, statusText: 'Precondition Failed' });
+    harness.detectChanges();
+    expect(name.value).toBe('Mi borrador');
+    expect(button(root, 'Guardar cambios').disabled).toBe(true);
+
+    button(root, 'Cargar versión actual').click();
+    http
+      .expectOne(url + '/42')
+      .flush({ ...profile, name: 'Versión actual' }, { headers: { ETag: updatedVersion } });
+    harness.detectChanges();
+    expect(root.querySelector<HTMLInputElement>('#group-name')?.value).toBe('Versión actual');
+    changeField(root, 'name', 'Grupo editado', 'input');
+    submit(root);
+    const ready = http.expectOne({ method: 'PUT', url: url + '/42' });
+    expect(ready.request.headers.get('If-Match')).toBe(updatedVersion);
+    const finished = nextNavigation();
+    ready.flush(null, { status: 204, statusText: 'No Content' });
+    await finished;
+    http.expectOne(url + '/42').flush({ ...profile, name: 'Grupo editado' });
+    harness.detectChanges();
+    http.expectOne(url + '/42/members').flush({ items: [ownerMember], nextCursor: null });
+    http.expectOne(url + '/42/join-requests').flush({ items: [], nextCursor: null });
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain('Grupo editado');
+  });
+
+  it('prevents editing from a direct link when the viewer is a regular member', async () => {
+    const harness = await RouterTestingHarness.create('/groups/42/edit');
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(url + '/42').flush({ ...group, membership: 'member' });
+    http.expectOne(url + '/topics').flush(['Retro']);
+    harness.detectChanges();
+    expect(harness.routeNativeElement?.querySelector('form')).toBeNull();
+    expect(harness.routeNativeElement?.textContent).toContain('Solo el propietario puede editar');
+  });
+
+  it('deletes only after confirmation and returns to discovery', async () => {
+    const harness = await RouterTestingHarness.create('/groups/42');
+    const http = TestBed.inject(HttpTestingController);
+    const root = harness.routeNativeElement!;
+    http
+      .expectOne(url + '/42')
+      .flush({ ...group, membership: 'owner' }, { headers: { ETag: version } });
+    harness.detectChanges();
+    http.expectOne(url + '/42/members').flush({ items: [ownerMember], nextCursor: null });
+    http.expectOne(url + '/42/join-requests').flush({ items: [], nextCursor: null });
+    expect(root.querySelector('a[href="/groups/42/edit"]')).not.toBeNull();
+    button(root, 'Eliminar grupo').click();
+    harness.detectChanges();
+    http.expectNone({ method: 'DELETE', url: url + '/42' });
+    const finished = nextNavigation();
+    confirmDialog().click();
+    const removal = http.expectOne({ method: 'DELETE', url: url + '/42' });
+    expect(removal.request.headers.get('If-Match')).toBe(version);
+    removal.flush(null, { status: 204, statusText: 'No Content' });
+    await finished;
+    harness.detectChanges();
+    http.expectOne(url + '/topics').flush(['Retro']);
+    http.expectOne(url).flush({ items: [], nextCursor: null });
+    harness.detectChanges();
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Grupos');
+  });
 });
+
+function nextNavigation(): Promise<NavigationEnd> {
+  return firstValueFrom(
+    TestBed.inject(Router).events.pipe(filter((event) => event instanceof NavigationEnd)),
+  );
+}
 
 function button(root: HTMLElement, title: string): HTMLButtonElement {
   return Array.from(root.querySelectorAll('button')).find(

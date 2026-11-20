@@ -1,0 +1,138 @@
+<section class="page-container" aria-labelledby="group-form-title">
+  <a
+    [routerLink]="editId() ? ['/groups', editId()] : ['/groups']"
+    class="inline-flex min-h-11 items-center text-sm text-indigo-300 underline"
+    >{{ editId() ? 'Volver al grupo' : 'Volver a grupos' }}</a
+  >
+  <h1 id="group-form-title" class="page-heading mt-3 text-white">
+    {{ editId() ? 'Editar grupo' : 'Crear grupo' }}
+  </h1>
+
+  @if (groupLoading()) {
+    <p role="status" class="mt-4 text-sm text-slate-300">Cargando grupo…</p>
+  } @else if (groupError()) {
+    <p role="alert" class="mt-4 text-sm text-red-300">{{ groupError() }}</p>
+    <button
+      type="button"
+      (click)="reloadGroup()"
+      class="min-h-11 text-sm text-indigo-300 underline"
+    >
+      Reintentar
+    </button>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="save()" class="mt-6 max-w-2xl" novalidate>
+      <fieldset [disabled]="saving()" class="grid gap-5">
+        <div>
+          <label for="group-name" class="text-sm font-medium text-slate-200">Nombre</label>
+          <input
+            id="group-name"
+            formControlName="name"
+            required
+            maxlength="80"
+            [attr.aria-invalid]="form.controls.name.touched && form.controls.name.invalid"
+            aria-describedby="group-name-error"
+            class="mt-2 min-h-11 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-white"
+          />
+          <p id="group-name-error" class="mt-1 text-sm text-red-300">
+            @if (form.controls.name.touched && form.controls.name.invalid) {
+              Ingresá un nombre de hasta 80 caracteres.
+            }
+          </p>
+        </div>
+        <div>
+          <label for="group-description" class="text-sm font-medium text-slate-200"
+            >Descripción</label
+          >
+          <textarea
+            id="group-description"
+            formControlName="description"
+            required
+            maxlength="500"
+            rows="4"
+            [attr.aria-invalid]="
+              form.controls.description.touched && form.controls.description.invalid
+            "
+            aria-describedby="group-description-error"
+            class="mt-2 block w-full resize-y rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white"
+          ></textarea>
+          <p id="group-description-error" class="mt-1 text-sm text-red-300">
+            @if (form.controls.description.touched && form.controls.description.invalid) {
+              Ingresá una descripción de hasta 500 caracteres.
+            }
+          </p>
+        </div>
+        <div class="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label for="group-topic" class="text-sm font-medium text-slate-200">Temática</label>
+            <select
+              id="group-topic"
+              formControlName="topic"
+              required
+              [attr.aria-invalid]="form.controls.topic.touched && form.controls.topic.invalid"
+              aria-describedby="group-topic-error"
+              class="mt-2 block min-h-11 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-white"
+            >
+              <option value="" disabled>
+                {{ topicsLoading() ? 'Cargando temáticas…' : 'Elegí una temática' }}
+              </option>
+              @for (topic of availableTopics(); track topic) {
+                <option [value]="topic">{{ topic }}</option>
+              }
+            </select>
+            <p id="group-topic-error" class="mt-1 text-sm text-red-300">
+              @if (form.controls.topic.touched && form.controls.topic.invalid) {
+                Elegí una temática.
+              }
+            </p>
+          </div>
+          <label class="flex min-w-0 flex-col gap-2 text-sm font-medium text-slate-200">
+            Privacidad
+            <select
+              formControlName="privacy"
+              class="min-h-11 rounded-lg border border-slate-600 bg-slate-900 px-3 text-base text-white"
+            >
+              <option value="public">Público</option>
+              <option value="private">Privado</option>
+            </select>
+            @if (editId()) {
+              <span class="text-sm font-normal text-slate-300"
+                >Los miembros actuales conservan el acceso.</span
+              >
+            }
+          </label>
+        </div>
+      </fieldset>
+      @if (topicsError()) {
+        <p role="alert" class="mt-4 text-sm text-red-300">
+          No pudimos cargar las temáticas.
+          <button type="button" (click)="loadTopics()" class="min-h-11 underline">
+            Reintentar
+          </button>
+        </p>
+      }
+      @if (error()) {
+        <p role="alert" class="mt-4 text-sm text-red-300">{{ error() }}</p>
+        @if (conflict()) {
+          <button
+            type="button"
+            (click)="reloadGroup()"
+            class="min-h-11 text-sm text-indigo-300 underline"
+          >
+            Cargar versión actual
+          </button>
+        }
+      }
+      <button
+        type="submit"
+        [disabled]="saving() || topicsLoading() || topicsError() || conflict()"
+        class="ui-button mt-6 min-h-11 bg-accent px-5 text-white disabled:opacity-60"
+      >
+        @if (editId()) {
+          {{ saving() ? 'Guardando cambios…' : 'Guardar cambios' }}
+        } @else {
+          {{ saving() ? 'Creando grupo…' : 'Crear grupo' }}
+        }
+      </button>
+    </form>
+  }
+</section>

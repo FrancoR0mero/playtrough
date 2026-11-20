@@ -2,7 +2,7 @@ import { Dialog, DialogModule } from '@angular/cdk/dialog';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, map, of, startWith, Subject, switchMap } from 'rxjs';
 import { GroupConfirmation, GroupConfirmationComponent } from './group-confirmation';
 import { GroupPeopleComponent } from './group-people';
@@ -20,6 +20,7 @@ export class GroupDetailComponent {
   private readonly dialog = inject(Dialog);
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly reload = new Subject<void>();
 
   protected readonly group = signal<GroupProfile | null>(null);
@@ -108,6 +109,44 @@ export class GroupDetailComponent {
       .closed.pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((confirmed) => {
         if (confirmed && this.group()?.id === group.id) this.leave(group.id, cancelling);
+      });
+  }
+
+  protected confirmDelete(group: GroupProfile): void {
+    if (this.pending() || group.membership !== 'owner' || !group.version) return;
+    const version = group.version;
+    this.dialog
+      .open<boolean, GroupConfirmation>(GroupConfirmationComponent, {
+        data: {
+          title: 'Eliminar grupo',
+          message: `Si eliminás ${group.name}, dejará de aparecer en Grupos y sus miembros perderán el acceso.`,
+          label: 'Eliminar grupo',
+        },
+        ariaLabelledBy: 'group-confirmation-title',
+        ariaDescribedBy: 'group-confirmation-description',
+      })
+      .closed.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((confirmed) => {
+        if (!confirmed || this.group()?.id !== group.id || this.pending()) return;
+        this.pending.set(true);
+        this.actionError.set('');
+        this.api
+          .deleteGroup(group.id, version)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({
+            next: () => {
+              if (this.group()?.id === group.id)
+                void this.router.navigate(['/groups'], { replaceUrl: true });
+            },
+            error: (response: HttpErrorResponse) => {
+              if (this.group()?.id !== group.id) return;
+              this.pending.set(false);
+              this.actionError.set(
+                response.error?.detail || 'No pudimos eliminar el grupo. Volvé a intentarlo.',
+              );
+              if (response.status === 404 || response.status === 412) this.refresh();
+            },
+          });
       });
   }
 

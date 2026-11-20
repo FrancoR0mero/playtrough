@@ -92,7 +92,12 @@ export const routes: Routes = [
   {
     path: 'groups/new',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/groups/group-create').then((m) => m.GroupCreateComponent),
+    loadComponent: () => import('./features/groups/group-form').then((m) => m.GroupFormComponent),
+  },
+  {
+    path: 'groups/:id/edit',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/groups/group-form').then((m) => m.GroupFormComponent),
   },
   {
     path: 'groups/:id',

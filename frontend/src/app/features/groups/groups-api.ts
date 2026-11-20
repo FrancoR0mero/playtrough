@@ -1,5 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
+import { map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type GroupPrivacy = 'public' | 'private';
@@ -19,6 +20,7 @@ export type MembershipStatus = 'owner' | 'member' | 'pending' | 'rejected' | 're
 
 export interface GroupProfile extends SocialGroup {
   membership: MembershipStatus;
+  version: string | null;
 }
 
 export interface GroupMember {
@@ -77,7 +79,24 @@ export class GroupsApi {
   }
 
   get(id: string) {
-    return this.http.get<GroupProfile>(`${this.url}/${encodeURIComponent(id)}`);
+    return this.http
+      .get<Omit<GroupProfile, 'version'>>(`${this.url}/${encodeURIComponent(id)}`, {
+        observe: 'response',
+      })
+      .pipe(
+        map((response): GroupProfile => ({
+          ...response.body!,
+          version: response.headers.get('ETag'),
+        })),
+      );
+  }
+
+  update(id: number, group: SaveGroup, version: string) {
+    return this.http.put<void>(`${this.url}/${id}`, group, { headers: { 'If-Match': version } });
+  }
+
+  deleteGroup(id: number, version: string) {
+    return this.http.delete<void>(`${this.url}/${id}`, { headers: { 'If-Match': version } });
   }
 
   join(id: number) {

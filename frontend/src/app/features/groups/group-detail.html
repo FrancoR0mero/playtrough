@@ -19,6 +19,21 @@
           <p class="text-sm text-slate-300">
             Sos el propietario. Para salir, tenés que eliminar el grupo.
           </p>
+          @if (item.version) {
+            <a
+              [routerLink]="['/groups', item.id, 'edit']"
+              class="ui-button min-h-11 border border-slate-600 px-4 text-white"
+              >Editar grupo</a
+            >
+            <button
+              type="button"
+              [disabled]="pending()"
+              (click)="confirmDelete(item)"
+              class="ui-button min-h-11 border border-slate-600 px-4 text-red-200 disabled:opacity-50"
+            >
+              Eliminar grupo
+            </button>
+          }
         }
         @case ('member') {
           <p class="text-sm font-medium text-emerald-300">Sos miembro</p>
@@ -33,6 +48,16 @@
         }
         @case ('pending') {
           <p class="text-sm font-medium text-amber-200">Solicitud pendiente</p>
+          @if (item.privacy === 'public') {
+            <button
+              type="button"
+              [disabled]="pending()"
+              (click)="join(item)"
+              class="ui-button min-h-11 bg-accent px-4 text-white disabled:opacity-50"
+            >
+              Unirme al grupo
+            </button>
+          }
           <button
             type="button"
             [disabled]="pending()"
