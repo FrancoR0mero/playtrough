@@ -16,6 +16,12 @@ export interface NotificationPage {
   readCutoff: string | null;
 }
 
+export interface NotificationPreference {
+  category: string;
+  enabled: boolean;
+  editable: boolean;
+}
+
 interface NotificationCount {
   unreadCount: number;
 }
@@ -39,5 +45,13 @@ export class NotificationsApi {
 
   readAll(cutoff: string) {
     return this.http.post<NotificationCount>(`${this.url}/read-all`, { cutoff });
+  }
+
+  preferences() {
+    return this.http.get<NotificationPreference[]>(`${this.url}/preferences`);
+  }
+
+  setPreference(category: string, enabled: boolean) {
+    return this.http.put<NotificationPreference>(`${this.url}/preferences`, { category, enabled });
   }
 }

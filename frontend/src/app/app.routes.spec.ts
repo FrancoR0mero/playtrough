@@ -91,6 +91,7 @@ describe('Application route access', () => {
     '/profile/settings/blocked',
     '/profile/jugador/library',
     '/notifications',
+    '/notifications/preferences',
   ])('protects direct navigation to %s', async (path) => {
     await RouterTestingHarness.create(path);
     const router = TestBed.inject(Router);

@@ -9,14 +9,22 @@
           {{ unread() === 1 ? '1 sin leer' : unread() + ' sin leer' }}
         </p>
       </div>
-      <button
-        type="button"
-        class="ui-button min-h-11 rounded-md border border-(--line) px-4 text-sm hover:bg-(--surface-raised) disabled:opacity-50"
-        [disabled]="loading() || pending() || !cutoff() || unread() === 0"
-        (click)="readAll()"
-      >
-        Marcar todas como leídas
-      </button>
+      <div class="flex flex-wrap gap-2">
+        <a
+          routerLink="/notifications/preferences"
+          class="ui-button inline-flex min-h-11 items-center rounded-md px-3 text-sm text-indigo-200 hover:bg-(--surface-raised)"
+        >
+          Preferencias
+        </a>
+        <button
+          type="button"
+          class="ui-button min-h-11 rounded-md border border-(--line) px-4 text-sm hover:bg-(--surface-raised) disabled:opacity-50"
+          [disabled]="loading() || pending() || !cutoff() || unread() === 0"
+          (click)="readAll()"
+        >
+          Marcar todas como leídas
+        </button>
+      </div>
     </header>
 
     @if (loading()) {

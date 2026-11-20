@@ -88,6 +88,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'notifications/preferences',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/notifications/notification-preferences').then(
+        (m) => m.NotificationPreferencesComponent,
+      ),
+  },
+  {
     path: 'friends',
     canActivate: [authGuard],
     loadComponent: () => import('./features/friends/friends').then((m) => m.FriendsComponent),

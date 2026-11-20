@@ -1,0 +1,72 @@
+<section class="page-container py-8 md:py-12" aria-labelledby="notification-preferences-title">
+  <div class="mx-auto max-w-3xl">
+    <a
+      routerLink="/notifications"
+      class="inline-flex min-h-11 items-center rounded-md text-sm text-indigo-200 hover:underline"
+    >
+      Volver a notificaciones
+    </a>
+    <h1 id="notification-preferences-title" class="mt-3 text-3xl font-semibold tracking-tight">
+      Preferencias de notificaciones
+    </h1>
+
+    @if (loading()) {
+      <p role="status" class="mt-5 text-sm text-(--muted)">Cargando preferencias…</p>
+    } @else if (loadError()) {
+      <p role="alert" class="mt-5 text-sm text-red-300">No pudimos cargar tus preferencias.</p>
+      <button type="button" class="min-h-11 text-sm text-indigo-200 underline" (click)="load()">
+        Reintentar
+      </button>
+    } @else {
+      <fieldset class="mt-7 min-w-0" [disabled]="saving()">
+        <legend class="text-lg font-semibold">Actividad social</legend>
+        <div class="mt-2 divide-y divide-(--line) border-y border-(--line)">
+          @for (option of optional(); track option.category) {
+            @let copy = label(option.category);
+            <label class="flex min-h-16 cursor-pointer items-center justify-between gap-4 py-3">
+              <span>
+                <span class="block font-medium">{{ copy.title }}</span>
+                <span class="block text-sm text-(--muted)" [id]="'description-' + option.category">
+                  {{ copy.description }}
+                </span>
+              </span>
+              <input
+                #toggle
+                type="checkbox"
+                class="size-5 shrink-0 accent-indigo-400"
+                [attr.aria-label]="copy.title"
+                [attr.aria-describedby]="'description-' + option.category"
+                [checked]="option.enabled"
+                (change)="change(option, toggle)"
+              />
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <p aria-live="polite" class="mt-2 min-h-6 text-sm text-(--muted)">{{ feedback() }}</p>
+      @if (saveError()) {
+        <p role="alert" class="text-sm text-red-300">
+          No pudimos guardar el cambio. Volvé a intentarlo.
+        </p>
+      }
+
+      <section class="mt-6" aria-labelledby="essential-notifications-title">
+        <h2 id="essential-notifications-title" class="text-lg font-semibold">Avisos esenciales</h2>
+        <p class="mt-1 text-sm text-(--muted)">
+          Los avisos de cuenta y moderación están siempre activos para que recibas novedades
+          importantes.
+        </p>
+        <ul class="mt-4 divide-y divide-(--line) border-y border-(--line)">
+          @for (option of essential(); track option.category) {
+            @let copy = label(option.category);
+            <li class="py-3">
+              <p class="font-medium">{{ copy.title }}</p>
+              <p class="text-sm text-(--muted)">{{ copy.description }}</p>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </div>
+</section>

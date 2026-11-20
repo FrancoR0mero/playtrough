@@ -50,7 +50,10 @@ describe('NotificationsCenterComponent', () => {
 
   it('appends older rows, links accessible resources and keeps the first page cutoff for bulk read', async () => {
     const { fixture, root, button, list, readAll, refresh } = setup();
-    expect(root.querySelector('a')?.getAttribute('href')).toBe('/groups/2');
+    expect(root.querySelector('li a')?.getAttribute('href')).toBe('/groups/2');
+    expect(root.querySelector('a[href="/notifications/preferences"]')?.textContent).toContain(
+      'Preferencias',
+    );
     list.mockReturnValueOnce(
       of({
         ...empty,
