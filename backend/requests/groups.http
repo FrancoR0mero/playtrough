@@ -53,6 +53,14 @@ Content-Type: application/json
 GET {{baseUrl}}/api/groups/{{groupId}}/members?limit=20
 Authorization: Bearer {{applicantToken}}
 
+### Reseñas visibles de integrantes (nextCursor nulo indica fin)
+GET {{baseUrl}}/api/groups/{{groupId}}/reviews?limit=20
+Authorization: Bearer {{applicantToken}}
+
+### Continuar reseñas con nextCursor de la respuesta anterior
+GET {{baseUrl}}/api/groups/{{groupId}}/reviews?limit=20&cursor={{cursor}}
+Authorization: Bearer {{applicantToken}}
+
 ### Expulsar como propietario (copiar el userId del miembro)
 DELETE {{baseUrl}}/api/groups/{{groupId}}/members/{{memberId}}
 Authorization: Bearer {{token}}

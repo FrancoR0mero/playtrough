@@ -196,11 +196,11 @@ public class SwaggerDocumentationTests
                     path.Name.Contains("/timeline", StringComparison.OrdinalIgnoreCase) && path.Name.Contains("/comments", StringComparison.OrdinalIgnoreCase) ? "Comments" :
                     path.Name.Contains("/timeline", StringComparison.OrdinalIgnoreCase) ? "Timeline" :
                     path.Name.StartsWith("/api/feed", StringComparison.OrdinalIgnoreCase) ? "Feed" :
+                    path.Name.StartsWith("/api/groups", StringComparison.OrdinalIgnoreCase) ? "Groups" :
                     path.Name.Contains("/reviews", StringComparison.OrdinalIgnoreCase) ? "Reviews" :
                     path.Name.StartsWith("/api/games", StringComparison.OrdinalIgnoreCase) ? "Games" :
                     (path.Name.StartsWith("/api/users", StringComparison.OrdinalIgnoreCase) || path.Name.StartsWith("/api/avatars", StringComparison.OrdinalIgnoreCase) || path.Name.StartsWith("/api/blocks", StringComparison.OrdinalIgnoreCase)) ? "Users" :
                     path.Name.StartsWith("/api/friends", StringComparison.OrdinalIgnoreCase) ? "Friends" :
-                    path.Name.StartsWith("/api/groups", StringComparison.OrdinalIgnoreCase) ? "Groups" :
                     path.Name.StartsWith("/api/library", StringComparison.OrdinalIgnoreCase) ? "Library" : "Auth";
                 Assert.Equal(expectedTag,
                     Assert.Single(operation.Value.GetProperty("tags").EnumerateArray()).GetString());

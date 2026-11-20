@@ -57,6 +57,36 @@ public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvid
         return new GroupProfileDto(group.Id, group.Name, group.Description, group.Topic, group.Privacy, status);
     }
 
+    public async Task<GroupReviewPageDto?> ListReviewsAsync(int id, int viewer, int? cursor, int limit, CancellationToken ct)
+    {
+        var reviews = db.Reviews.AsNoTracking();
+        if (cursor is { } before) reviews = reviews.Where(review => review.Id < before);
+
+        var eligible = from member in access.ActiveMembers()
+                       join author in PrivacyService.VisibleUsers(db, viewer) on member.UserId equals author.Id
+                       join review in reviews on member.UserId equals review.UserId
+                       join game in db.Games.AsNoTracking() on review.GameId equals game.Id
+                       where member.GroupId == id
+                       orderby review.Id descending
+                       select new { member.GroupId, review.Id, review.GameId, GameName = game.Name,
+                           author.UserName, review.Rating, review.Text, review.CreatedAt, review.EditedAt };
+
+        // A left join preserves an empty page for a member. Membership, review visibility
+        // and pagination are evaluated in the same SQL statement.
+        var page = await (from visible in access.MemberGroups(viewer).Where(item => item.Id == id)
+                          join review in eligible.Take(limit + 1) on visible.Id equals review.GroupId into items
+                          from review in items.DefaultIfEmpty()
+                          orderby review.Id descending
+                          select new { Id = (int?)review.Id, GameId = (int?)review.GameId, review.GameName,
+                              review.UserName, Rating = (decimal?)review.Rating, review.Text,
+                              CreatedAt = (DateTime?)review.CreatedAt, review.EditedAt }).ToListAsync(ct);
+        if (page.Count == 0) return null;
+        var result = page.Where(row => row.Id.HasValue).Take(limit)
+            .Select(row => new GroupReviewDto(row.Id!.Value, row.GameId!.Value, row.GameName!, row.UserName!,
+                row.Rating!.Value, row.Text, row.CreatedAt!.Value, row.EditedAt)).ToArray();
+        return new GroupReviewPageDto(result, page.Count > limit ? result[^1].Id : null);
+    }
+
     private static IQueryable<GroupDto> Discovery(IQueryable<SocialGroup> groups)
         => groups.Select(group => new GroupDto(group.Id, group.Name, group.Description, group.Topic,
             group.Privacy == GroupPrivacy.Private ? "private" : "public"));

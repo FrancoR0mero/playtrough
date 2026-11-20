@@ -30,9 +30,7 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
         var selectedTopic = FindTopic(topic);
         if (text is { Length: > 100 }) ModelState.AddModelError("q", "La búsqueda admite hasta 100 caracteres.");
         if (topic is not null && selectedTopic is null) ModelState.AddModelError("topic", "Elegí una temática válida.");
-        if (cursor is <= 0) ModelState.AddModelError("cursor", "El cursor debe ser positivo.");
-        if (limit is < 1 or > 50) ModelState.AddModelError("limit", "El límite debe estar entre 1 y 50.");
-        if (!ModelState.IsValid) return ValidationProblem(ModelState);
+        if (!HasValidPage(cursor, limit)) return ValidationProblem(ModelState);
         return await groups.ListAsync(text, selectedTopic, cursor, limit, ct);
     }
 
@@ -43,6 +41,21 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
     {
         if (UserId() is not { } viewer) return Challenge();
         return await groups.FindAsync(id, viewer, ct) is { } group ? group : NotFound();
+    }
+
+    /// <summary>Consultar las reseñas visibles de los miembros actuales del grupo.</summary>
+    /// <remarks>Requiere membresía vigente. Aplica la privacidad de la cuenta del autor y el bloqueo bilateral.
+    /// Las reseñas se ordenan por ID descendente. Usá nextCursor para seguir paginando.</remarks>
+    [HttpGet("{id:int}/reviews")]
+    [ProducesResponseType(typeof(GroupReviewPageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GroupReviewPageDto>> Reviews(int id, [FromQuery] int? cursor,
+        [FromQuery] int limit = 20, CancellationToken ct = default)
+    {
+        if (UserId() is not { } viewer) return Challenge();
+        if (!HasValidPage(cursor, limit)) return ValidationProblem(ModelState);
+        return await groups.ListReviewsAsync(id, viewer, cursor, limit, ct) is { } page ? page : NotFound();
     }
 
     /// <summary>Crear un grupo y registrar al usuario autenticado como propietario y miembro.</summary>
@@ -76,6 +89,13 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
 
     private string? FindTopic(string? topic)
         => settings.Value.Topics.FirstOrDefault(value => string.Equals(value, topic?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private bool HasValidPage(int? cursor, int limit)
+    {
+        if (cursor is <= 0) ModelState.AddModelError("cursor", "El cursor debe ser positivo.");
+        if (limit is < 1 or > 50) ModelState.AddModelError("limit", "El límite debe estar entre 1 y 50.");
+        return ModelState.IsValid;
+    }
 
     private int? UserId() => int.TryParse(User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value,
         NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0 ? id : null;

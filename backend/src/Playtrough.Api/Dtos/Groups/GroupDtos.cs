@@ -6,6 +6,9 @@ public sealed record GroupProfileDto(int Id, string Name, string Description, st
     string Membership) : GroupDto(Id, Name, Description, Topic, Privacy);
 public sealed record GroupMembershipDto(string Status);
 public sealed record GroupPeoplePageDto<T>(IReadOnlyList<T> Items, int? NextCursor);
+public sealed record GroupReviewPageDto(IReadOnlyList<GroupReviewDto> Items, int? NextCursor);
+public sealed record GroupReviewDto(int Id, int GameId, string GameName, string Username,
+    decimal Rating, string? Text, DateTime CreatedAt, DateTime? EditedAt);
 public sealed record GroupMemberDto(int UserId, string Username, string? AvatarUrl, DateTime JoinedAt, bool IsOwner);
 public sealed record GroupJoinRequestDto(int Id, int UserId, string Username, string? AvatarUrl, DateTime CreatedAt);
 public sealed record GroupJoinDecisionRequest(string? Decision);
