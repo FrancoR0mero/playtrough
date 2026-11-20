@@ -21,6 +21,35 @@
       }
     </p>
   </div>
+  @if (before() !== null) {
+    <button
+      type="button"
+      (click)="loadOlder()"
+      [disabled]="olderLoading()"
+      class="ui-button my-2 min-h-11 border border-slate-600 px-4 text-sm text-white disabled:opacity-50"
+    >
+      {{
+        olderLoading()
+          ? 'Cargando anteriores…'
+          : olderError()
+            ? 'Reintentar anteriores'
+            : 'Cargar mensajes anteriores'
+      }}
+    </button>
+  }
+  @if (syncing()) {
+    <p role="status" class="mt-2 text-sm text-slate-300">Sincronizando historial…</p>
+  }
+  @if (historyError()) {
+    <p role="alert" class="mt-2 text-sm text-red-300">No pudimos sincronizar el historial.</p>
+    <button
+      type="button"
+      (click)="syncHistory()"
+      class="min-h-11 text-sm text-indigo-300 underline"
+    >
+      Reintentar historial
+    </button>
+  }
   <div
     #messageLog
     role="log"
@@ -28,12 +57,16 @@
     tabindex="0"
     class="min-h-48 max-h-[52vh] overflow-y-auto rounded-b-lg border-b border-white/10 bg-slate-950/40 p-3 sm:p-5"
   >
-    @if (!rows().length && state() === 'ready') {
-      <p class="text-sm text-slate-300">Los mensajes nuevos aparecerán acá.</p>
+    @if (!rows().length && state() === 'ready' && !syncing() && !historyError()) {
+      <p class="text-sm text-slate-300">Todavía no hay mensajes visibles.</p>
     }
     <ol class="grid gap-3">
       @for (message of rows(); track message.id) {
-        <li class="flex" [class.justify-end]="message.authorId === userId()">
+        <li
+          class="flex"
+          [attr.data-message-id]="message.id"
+          [class.justify-end]="message.authorId === userId()"
+        >
           <div
             class="max-w-[88%] min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2"
             [class.border-indigo-500]="message.authorId === userId()"

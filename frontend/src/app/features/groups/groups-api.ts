@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { map } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import type { ChatMessage } from './group-chat-connection';
 
 export type GroupPrivacy = 'public' | 'private';
 
@@ -56,6 +57,14 @@ export interface GroupPage<T> {
   items: T[];
   nextCursor: number | null;
 }
+
+export interface ChatHistoryPage {
+  items: ChatMessage[];
+  nextCursor: string | null;
+  through: string | null;
+}
+
+export type ChatHistoryQuery = { before: string } | { after: string; through?: string };
 
 @Injectable({ providedIn: 'root' })
 export class GroupsApi {
@@ -117,6 +126,16 @@ export class GroupsApi {
 
   reviews(id: number, cursor: number | null) {
     return this.page<GroupReview>(`${this.url}/${id}/reviews`, cursor);
+  }
+
+  chatHistory(id: number, query?: ChatHistoryQuery) {
+    let params = new HttpParams();
+    if (query && 'before' in query) params = params.set('before', query.before);
+    if (query && 'after' in query) {
+      params = params.set('after', query.after);
+      if (query.through !== undefined) params = params.set('through', query.through);
+    }
+    return this.http.get<ChatHistoryPage>(`${this.url}/${id}/messages`, { params });
   }
 
   decide(id: number, requestId: number, decision: GroupDecision) {
