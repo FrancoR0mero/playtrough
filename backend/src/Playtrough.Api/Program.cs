@@ -451,6 +451,7 @@ builder.Services.AddScoped<ChatHistoryService>();
 builder.Services.AddScoped<NotificationStore>();
 builder.Services.AddScoped<NotificationDelivery>();
 builder.Services.AddScoped<NotificationCenter>();
+builder.Services.AddScoped<NotificationPreferences>();
 builder.Services.AddScoped<IOutboxHandler>(services =>
     ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageCreated)));
 builder.Services.AddScoped<IOutboxHandler>(services =>

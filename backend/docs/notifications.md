@@ -15,6 +15,14 @@ El handler guarda la notificación desde un evento ya confirmado. La clave de de
 
 SignalR emite `NotificationsRead` a las sesiones de la cuenta cuando cambia una lectura. Angular vuelve a consultar la API al iniciar, al restablecer la conexión, al recuperar el foco y al recibir un aviso. Los productores de actividad social se conectan en la fase 4. Las pruebas de integración ejercitan el flujo con eventos simulados.
 
+### Preferencias
+
+`GET /api/notifications/preferences` devuelve las categorías con `enabled` y `editable`. Las categorías `friends`, `interactions` y `groups` están activas por defecto. Las categorías esenciales `account` y `moderation` se muestran activas y son de solo lectura.
+
+`PUT /api/notifications/preferences` guarda una categoría editable de la cuenta autenticada. El cuerpo es `{ "category": "groups", "enabled": false }`. Repetir el mismo cambio conserva una única fila por usuario y categoría.
+
+Cada consumidor indica la categoría al llamar a `NotificationDelivery.PublishAsync`. La entrega consulta la preferencia vigente antes de guardar o emitir el aviso. Un cambio de preferencia conserva los avisos que ya estaban en el centro.
+
 ### Operación
 
 Esta fase conserva las notificaciones y las filas de outbox. Los eventos pendientes sin handler y los fallidos quedan disponibles para análisis o recuperación. El worker registra tipo, ID e intento sin incluir el contenido del evento. La entrega en vivo usa las conexiones de la instancia actual de la API. Un despliegue con varias instancias requerirá un backplane de SignalR para enviar avisos a las conexiones registradas en otras instancias.

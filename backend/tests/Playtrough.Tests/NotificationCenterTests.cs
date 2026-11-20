@@ -194,7 +194,7 @@ public sealed class NotificationCenterTests
 
         public async Task HandleAsync(OutboxMessage message, CancellationToken ct)
         {
-            await publisher.PublishAsync(message.Id, draft, ct);
+            await publisher.PublishAsync(message.Id, NotificationCategory.Interactions, draft, ct);
             if (!failOnce) return;
             failOnce = false;
             throw new InvalidOperationException("Simulate loss of the delivery acknowledgement.");

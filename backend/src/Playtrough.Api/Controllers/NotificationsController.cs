@@ -10,7 +10,7 @@ namespace Playtrough.Api.Controllers;
 [ApiController, Authorize, Route("api/notifications"), Tags("Notifications")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-public sealed class NotificationsController(NotificationCenter center) : ControllerBase
+public sealed class NotificationsController(NotificationCenter center, NotificationPreferences preferences) : ControllerBase
 {
     /// <summary>Consultar las notificaciones de la cuenta actual.</summary>
     /// <remarks>El cursor es opaco. Conservá el readCutoff de la primera página para la lectura masiva.</remarks>
@@ -53,6 +53,27 @@ public sealed class NotificationsController(NotificationCenter center) : Control
         if (await center.ReadAllAsync(user, request.Cutoff, ct) is not { } count)
             return Invalid("cutoff", "Volvé a consultar la lista para obtener un corte válido.");
         return count;
+    }
+
+    /// <summary>Consultar las preferencias y categorías de avisos de la cuenta actual.</summary>
+    [HttpGet("preferences")]
+    [ProducesResponseType(typeof(IReadOnlyList<NotificationPreferenceDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<NotificationPreferenceDto>>> Preferences(CancellationToken ct)
+        => UserId() is { } user ? Ok(await preferences.ListAsync(user, ct)) : Challenge();
+
+    /// <summary>Guardar una preferencia de notificaciones de la cuenta actual.</summary>
+    /// <remarks>Las categorías de cuenta y moderación son esenciales y permanecen activas.</remarks>
+    [HttpPut("preferences")]
+    [ProducesResponseType(typeof(NotificationPreferenceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<NotificationPreferenceDto>> SetPreference(UpdateNotificationPreferenceRequest request,
+        CancellationToken ct)
+    {
+        if (UserId() is not { } user) return Challenge();
+        if (request.Enabled is not { } enabled) return Invalid("enabled", "Indicá si querés activar la categoría.");
+        if (await preferences.SaveAsync(user, request.Category, enabled, ct) is not { } preference)
+            return Invalid("category", "Indicá una categoría de notificaciones editable.");
+        return preference;
     }
 
     private int? UserId() => JwtHubUserIdProvider.GetUserId(User) is { } id ? int.Parse(id, CultureInfo.InvariantCulture) : null;
