@@ -1,8 +1,6 @@
 import { inject, Injectable } from '@angular/core';
-import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
-import { firstValueFrom } from 'rxjs';
-import { environment } from '../../../environments/environment';
-import { AuthService } from '../auth/services/auth';
+import { HubConnection } from '@microsoft/signalr';
+import { RealtimeConnection } from '../../core/realtime/realtime-connection';
 
 export interface ChatMessage {
   id: string;
@@ -16,22 +14,9 @@ export interface ChatMessage {
 
 @Injectable({ providedIn: 'root' })
 export class GroupChatConnection {
-  private readonly auth = inject(AuthService);
+  private readonly realtime = inject(RealtimeConnection);
 
   create(): HubConnection {
-    const url = environment.apiUrl.replace(/\/api\/?$/, '') + '/hubs/chat';
-    return new HubConnectionBuilder()
-      .configureLogging(LogLevel.None)
-      .withUrl(url, {
-        withCredentials: false,
-        accessTokenFactory: () => {
-          const access = this.auth.getAccessToken();
-          return access && !this.auth.isAccessTokenExpired()
-            ? access
-            : firstValueFrom(this.auth.refresh({ redirectOnFailure: false }));
-        },
-      })
-      .withAutomaticReconnect()
-      .build();
+    return this.realtime.create('/hubs/chat');
   }
 }
