@@ -5,13 +5,20 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, map, of, startWith, Subject, switchMap } from 'rxjs';
 import { GroupConfirmation, GroupConfirmationComponent } from './group-confirmation';
+import { GroupChatComponent } from './group-chat';
 import { GroupPeopleComponent } from './group-people';
 import { GroupReviewsComponent } from './group-reviews';
 import { GroupProfile, GroupsApi } from './groups-api';
 
 @Component({
   selector: 'app-group-detail',
-  imports: [DialogModule, RouterLink, GroupPeopleComponent, GroupReviewsComponent],
+  imports: [
+    DialogModule,
+    RouterLink,
+    GroupPeopleComponent,
+    GroupReviewsComponent,
+    GroupChatComponent,
+  ],
   templateUrl: './group-detail.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -28,9 +35,14 @@ export class GroupDetailComponent {
   protected readonly actionError = signal('');
   protected readonly status = signal('');
   protected readonly pending = signal(false);
-  protected readonly showReviews = toSignal(
-    this.route.queryParamMap.pipe(map((params) => params.get('tab') === 'reviews')),
-    { initialValue: false },
+  protected readonly tab = toSignal(
+    this.route.queryParamMap.pipe(
+      map((params) => {
+        const tab = params.get('tab');
+        return tab === 'chat' || tab === 'reviews' ? tab : 'members';
+      }),
+    ),
+    { initialValue: 'members' },
   );
 
   constructor() {

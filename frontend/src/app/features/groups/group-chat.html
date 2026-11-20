@@ -1,0 +1,101 @@
+<section class="mx-auto mt-7 max-w-4xl" aria-labelledby="group-chat-title">
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+    <h2 id="group-chat-title" class="text-xl font-semibold text-white">Chat del grupo</h2>
+    <p role="status" class="text-sm text-slate-300">
+      @switch (state()) {
+        @case ('connecting') {
+          Conectando…
+        }
+        @case ('ready') {
+          Conectado
+        }
+        @case ('reconnecting') {
+          Reconectando…
+        }
+        @case ('offline') {
+          Chat desconectado
+        }
+        @case ('revoked') {
+          Ya no tenés acceso al chat
+        }
+      }
+    </p>
+  </div>
+  <div
+    #messageLog
+    role="log"
+    aria-label="Mensajes del grupo"
+    tabindex="0"
+    class="min-h-48 max-h-[52vh] overflow-y-auto rounded-b-lg border-b border-white/10 bg-slate-950/40 p-3 sm:p-5"
+  >
+    @if (!rows().length && state() === 'ready') {
+      <p class="text-sm text-slate-300">Los mensajes nuevos aparecerán acá.</p>
+    }
+    <ol class="grid gap-3">
+      @for (message of rows(); track message.id) {
+        <li class="flex" [class.justify-end]="message.authorId === userId()">
+          <div
+            class="max-w-[88%] min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2"
+            [class.border-indigo-500]="message.authorId === userId()"
+          >
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p class="wrap-anywhere text-sm font-medium text-indigo-200">
+                {{ message.username }}
+              </p>
+              <time [attr.datetime]="message.createdAt" class="text-xs text-slate-400">{{
+                message.createdAt | date: 'HH:mm'
+              }}</time>
+            </div>
+            <p class="mt-1 wrap-anywhere whitespace-pre-wrap text-slate-100">{{ message.text }}</p>
+          </div>
+        </li>
+      }
+    </ol>
+  </div>
+  @if (state() === 'offline') {
+    <button
+      type="button"
+      (click)="connect()"
+      class="ui-button mt-3 min-h-11 border border-slate-600 px-4 text-white"
+    >
+      Reconectar
+    </button>
+  }
+  @if (state() !== 'revoked') {
+    <form class="mt-4" (submit)="$event.preventDefault(); send()">
+      <label for="group-chat-message" class="mb-2 block text-sm font-medium text-slate-200"
+        >Mensaje</label
+      >
+      <textarea
+        id="group-chat-message"
+        [formControl]="draft"
+        rows="2"
+        maxlength="4000"
+        [readOnly]="sending()"
+        aria-describedby="group-chat-count"
+        [attr.aria-invalid]="count() > settings.maxLength"
+        class="w-full resize-y rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white"
+      ></textarea>
+      <div class="mt-2 flex flex-wrap items-center justify-end gap-3">
+        <span
+          id="group-chat-count"
+          class="text-sm text-slate-300"
+          [class.text-red-300]="count() > settings.maxLength"
+          >{{ count() }} / {{ settings.maxLength }}</span
+        >
+        <button
+          type="submit"
+          class="ui-button min-h-11 bg-accent px-5 text-white disabled:opacity-50"
+          [disabled]="
+            state() !== 'ready' || sending() || count() === 0 || count() > settings.maxLength
+          "
+        >
+          {{ sending() ? 'Enviando…' : 'Enviar' }}
+        </button>
+      </div>
+    </form>
+  }
+  @if (error()) {
+    <p role="alert" class="mt-2 text-sm text-red-300">{{ error() }}</p>
+  }
+</section>

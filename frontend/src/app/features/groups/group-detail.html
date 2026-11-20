@@ -93,24 +93,35 @@
         <nav aria-label="Secciones del grupo" class="mt-7 flex gap-4 border-b border-white/10">
           <a
             [routerLink]="['/groups', visible.id]"
-            [attr.aria-current]="showReviews() ? null : 'page'"
-            [class.border-accent]="!showReviews()"
-            [class.border-transparent]="showReviews()"
+            [attr.aria-current]="tab() === 'members' ? 'page' : null"
+            [class.border-accent]="tab() === 'members'"
+            [class.border-transparent]="tab() !== 'members'"
             class="inline-flex min-h-11 items-center border-b-2 px-2 text-sm font-medium text-white hover:text-indigo-200"
             >Miembros</a
           >
           <a
             [routerLink]="['/groups', visible.id]"
             [queryParams]="{ tab: 'reviews' }"
-            [attr.aria-current]="showReviews() ? 'page' : null"
-            [class.border-accent]="showReviews()"
-            [class.border-transparent]="!showReviews()"
+            [attr.aria-current]="tab() === 'reviews' ? 'page' : null"
+            [class.border-accent]="tab() === 'reviews'"
+            [class.border-transparent]="tab() !== 'reviews'"
             class="inline-flex min-h-11 items-center border-b-2 px-2 text-sm font-medium text-white hover:text-indigo-200"
             >Reseñas</a
           >
+          <a
+            [routerLink]="['/groups', visible.id]"
+            [queryParams]="{ tab: 'chat' }"
+            [attr.aria-current]="tab() === 'chat' ? 'page' : null"
+            [class.border-accent]="tab() === 'chat'"
+            [class.border-transparent]="tab() !== 'chat'"
+            class="inline-flex min-h-11 items-center border-b-2 px-2 text-sm font-medium text-white hover:text-indigo-200"
+            >Chat</a
+          >
         </nav>
-        @if (showReviews()) {
+        @if (tab() === 'reviews') {
           <app-group-reviews [groupId]="visible.id" (accessLost)="refresh()" />
+        } @else if (tab() === 'chat') {
+          <app-group-chat [groupId]="visible.id" (accessLost)="refresh()" />
         } @else {
           <app-group-people
             [groupId]="visible.id"
