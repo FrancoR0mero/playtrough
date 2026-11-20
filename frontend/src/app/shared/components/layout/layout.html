@@ -57,6 +57,7 @@
         </ul>
         <app-people-search />
         <div class="header-account flex items-center gap-3">
+          <app-notifications-bell />
           @if (auth.currentUser(); as user) {
             <a
               routerLink="/profile"

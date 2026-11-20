@@ -16,6 +16,7 @@ import { SiteFooterComponent } from './site-footer';
 import { UserAvatarComponent } from '../user-avatar/user-avatar';
 import { PeopleSearchComponent } from '../people-search/people-search';
 import { FriendsState } from '../../../features/friends/services/friends-state';
+import { NotificationsBellComponent } from '../../../features/notifications/notifications-bell';
 
 @Component({
   selector: 'app-layout',
@@ -28,6 +29,7 @@ import { FriendsState } from '../../../features/friends/services/friends-state';
     SiteFooterComponent,
     UserAvatarComponent,
     PeopleSearchComponent,
+    NotificationsBellComponent,
   ],
   templateUrl: './layout.html',
   styleUrl: './layout.css',

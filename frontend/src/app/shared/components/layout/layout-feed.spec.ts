@@ -5,6 +5,7 @@ import { createAuthMock, createSession } from '../../../features/auth/auth-test-
 import { AuthService } from '../../../features/auth/services/auth';
 import { createFriendsStateMock } from '../../../features/friends/friends-test-helpers';
 import { FriendsState } from '../../../features/friends/services/friends-state';
+import { NotificationsState } from '../../../features/notifications/notifications-state';
 import { LayoutComponent } from './layout';
 
 describe('Feed navigation', () => {
@@ -16,6 +17,7 @@ describe('Feed navigation', () => {
         provideHttpClient(),
         { provide: AuthService, useValue: auth },
         { provide: FriendsState, useValue: createFriendsStateMock() },
+        { provide: NotificationsState, useValue: { unreadCount: () => 0 } },
       ],
     });
     const fixture = TestBed.createComponent(LayoutComponent);

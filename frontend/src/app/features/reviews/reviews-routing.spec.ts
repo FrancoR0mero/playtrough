@@ -1,5 +1,6 @@
 import { FriendsState } from '../friends/services/friends-state';
 import { createFriendsStateMock } from '../friends/friends-test-helpers';
+import { NotificationsState } from '../notifications/notifications-state';
 import { Location } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -22,6 +23,7 @@ describe('Reviews routing and navigation', () => {
       imports: [LayoutComponent],
       providers: [
         { provide: FriendsState, useValue: createFriendsStateMock() },
+        { provide: NotificationsState, useValue: { unreadCount: () => 0 } },
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),

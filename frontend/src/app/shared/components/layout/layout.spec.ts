@@ -13,6 +13,7 @@ import { TokenStorageService } from '../../../features/auth/services/token-stora
 import { LayoutComponent } from './layout';
 import { NAVIGATION_ITEMS } from './layout-navigation';
 import { RateLimitNoticeService } from '../../services/rate-limit-notice';
+import { NotificationsState } from '../../../features/notifications/notifications-state';
 
 describe('Layout navigation and logout', () => {
   let fixture: ComponentFixture<LayoutComponent>;
@@ -29,6 +30,7 @@ describe('Layout navigation and logout', () => {
       imports: [LayoutComponent],
       providers: [
         { provide: FriendsState, useValue: createFriendsStateMock() },
+        { provide: NotificationsState, useValue: { unreadCount: () => 4 } },
         provideRouter([]),
         { provide: AuthService, useValue: auth },
         { provide: TokenStorageService, useValue: createTokenStorageMock() },
@@ -116,6 +118,15 @@ describe('Layout navigation and logout', () => {
     expect(nav.querySelector('a[href="/auth/register"]')?.textContent).toContain('Registrarse');
     expect(nav.querySelector('a[href="/library"]')).toBeNull();
     expect(nav.querySelector('[aria-label="Rol de la cuenta"]')).toBeNull();
+  });
+
+  it('links the bell to the private center and announces the unread count', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('a[href="/notifications"]')).toBeNull();
+    renderAuthenticated();
+    const bell = fixture.nativeElement.querySelector('a[href="/notifications"]') as HTMLAnchorElement;
+    expect(bell.getAttribute('aria-label')).toBe('Notificaciones, sin leer: 4');
+    expect(bell.textContent).toContain('4');
   });
 
   it.each(['User', 'Moderator', 'Admin'])(

@@ -80,6 +80,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/people/people').then((m) => m.PeopleComponent),
   },
   {
+    path: 'notifications',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/notifications/notifications-center').then(
+        (m) => m.NotificationsCenterComponent,
+      ),
+  },
+  {
     path: 'friends',
     canActivate: [authGuard],
     loadComponent: () => import('./features/friends/friends').then((m) => m.FriendsComponent),

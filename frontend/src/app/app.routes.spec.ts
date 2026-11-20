@@ -86,15 +86,17 @@ describe('Application route access', () => {
     expect(harness.routeNativeElement?.textContent).toContain('Configuración de privacidad');
   });
 
-  it.each(['/profile/settings/privacy', '/profile/settings/blocked', '/profile/jugador/library'])(
-    'protects direct navigation to %s',
-    async (path) => {
-      await RouterTestingHarness.create(path);
-      const router = TestBed.inject(Router);
-      expect(router.url.split('?')[0]).toBe('/auth/login');
-      expect(router.parseUrl(router.url).queryParams['returnUrl']).toBe(path);
-    },
-  );
+  it.each([
+    '/profile/settings/privacy',
+    '/profile/settings/blocked',
+    '/profile/jugador/library',
+    '/notifications',
+  ])('protects direct navigation to %s', async (path) => {
+    await RouterTestingHarness.create(path);
+    const router = TestBed.inject(Router);
+    expect(router.url.split('?')[0]).toBe('/auth/login');
+    expect(router.parseUrl(router.url).queryParams['returnUrl']).toBe(path);
+  });
 
   it('protects role administration with both guards and Admin as the minimum role', () => {
     const route = routes.find((route) => route.path === 'admin/roles');
