@@ -39,7 +39,7 @@ public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvid
         return new GroupPageDto(items, page.Count > limit ? items[^1].Id : null);
     }
 
-    public async Task<GroupProfileDto?> FindAsync(int id, int viewer, CancellationToken ct)
+    public async Task<(GroupProfileDto Profile, Guid? Version)?> FindAsync(int id, int viewer, CancellationToken ct)
     {
         var row = await access.ActiveGroups().Where(group => group.Id == id).Select(group => new
         {
@@ -54,8 +54,36 @@ public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvid
         var status = row.Group.OwnerId == viewer ? "owner" : row.Active ? "member" :
             row.Request == GroupJoinRequestStatus.Pending ? "pending" :
             row.Request == GroupJoinRequestStatus.Rejected ? "rejected" : row.Removed ? "removed" : "none";
-        return new GroupProfileDto(group.Id, group.Name, group.Description, group.Topic, group.Privacy, status);
+        var profile = new GroupProfileDto(group.Id, group.Name, group.Description, group.Topic, group.Privacy, status);
+        return (profile, status == "owner" ? row.Group.ConcurrencyToken : null);
     }
+
+    public Task<SocialGroup?> FindOwnedAsync(int id, int owner, CancellationToken ct)
+        => access.OwnedGroups(owner).SingleOrDefaultAsync(group => group.Id == id, ct);
+
+    public async Task<bool> UpdateAsync(int id, int owner, Guid version, string name, string description,
+        string topic, GroupPrivacy privacy, CancellationToken ct)
+    {
+        var next = Guid.NewGuid();
+        return await CurrentVersion(id, owner, version).ExecuteUpdateAsync(update => update
+            .SetProperty(group => group.Name, name)
+            .SetProperty(group => group.Description, description)
+            .SetProperty(group => group.Topic, topic)
+            .SetProperty(group => group.Privacy, privacy)
+            .SetProperty(group => group.ConcurrencyToken, next), ct) == 1;
+    }
+
+    public async Task<bool> DeleteAsync(int id, int owner, Guid version, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow().UtcDateTime;
+        var next = Guid.NewGuid();
+        return await CurrentVersion(id, owner, version).ExecuteUpdateAsync(update => update
+            .SetProperty(group => group.DeletedAt, now)
+            .SetProperty(group => group.ConcurrencyToken, next), ct) == 1;
+    }
+
+    private IQueryable<SocialGroup> CurrentVersion(int id, int owner, Guid version)
+        => access.OwnedGroups(owner).Where(group => group.Id == id && group.ConcurrencyToken == version);
 
     public async Task<GroupReviewPageDto?> ListReviewsAsync(int id, int viewer, int? cursor, int limit, CancellationToken ct)
     {

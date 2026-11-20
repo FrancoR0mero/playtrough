@@ -412,7 +412,8 @@ builder.Services.AddOptions<CorsOptions>().Configure<IOptions<CorsSettings>>((op
     {
         policy.WithOrigins(settings.Value.AllowedOrigins.Select(origin => origin.TrimEnd('/')).ToArray())
             .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-            .WithHeaders("Authorization", "Content-Type");
+            .WithHeaders("Authorization", "Content-Type", "If-Match")
+            .WithExposedHeaders("ETag");
     });
 });
 

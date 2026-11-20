@@ -13,7 +13,7 @@ public sealed record GroupMemberDto(int UserId, string Username, string? AvatarU
 public sealed record GroupJoinRequestDto(int Id, int UserId, string Username, string? AvatarUrl, DateTime CreatedAt);
 public sealed record GroupJoinDecisionRequest(string? Decision);
 
-public sealed class CreateGroupRequest
+public sealed class SaveGroupRequest
 {
     public string? Name { get; init; }
     public string? Description { get; init; }

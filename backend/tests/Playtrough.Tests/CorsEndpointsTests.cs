@@ -15,6 +15,8 @@ public class CorsEndpointsTests
     [InlineData("/api/auth/login", "POST")]
     [InlineData("/api/admin/users", "OPTIONS")]
     [InlineData("/api/admin/users", "DELETE")]
+    [InlineData("/api/groups/1", "PUT")]
+    [InlineData("/api/groups/1", "DELETE")]
     public async Task Preflight_WithAllowedOrigin_AdvertisesMethodsAndHeadersWithoutAuthentication(string path, string method)
     {
         using var factory = new LoginApiFactory();
@@ -26,7 +28,7 @@ public class CorsEndpointsTests
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.Equal("http://localhost:4200", Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
         Assert.Equal(new[] { "DELETE", "GET", "OPTIONS", "POST", "PUT" }, HeaderValues(response, "Access-Control-Allow-Methods").OrderBy(value => value));
-        Assert.Equal(new[] { "authorization", "content-type" }, HeaderValues(response, "Access-Control-Allow-Headers").Select(value => value.ToLowerInvariant()).OrderBy(value => value));
+        Assert.Equal(new[] { "authorization", "content-type", "if-match" }, HeaderValues(response, "Access-Control-Allow-Headers").Select(value => value.ToLowerInvariant()).OrderBy(value => value));
         Assert.False(response.Headers.Contains("Access-Control-Allow-Credentials"));
         TransportEndpointsTests.AssertHeaders(response);
     }
@@ -106,7 +108,8 @@ public class CorsEndpointsTests
         var request = new HttpRequestMessage(HttpMethod.Options, path);
         request.Headers.Add("Origin", origin);
         request.Headers.Add("Access-Control-Request-Method", method);
-        request.Headers.Add("Access-Control-Request-Headers", "authorization,content-type");
+        request.Headers.Add("Access-Control-Request-Headers", path.StartsWith("/api/groups/", StringComparison.Ordinal)
+            ? "authorization,content-type,if-match" : "authorization,content-type");
         return request;
     }
 

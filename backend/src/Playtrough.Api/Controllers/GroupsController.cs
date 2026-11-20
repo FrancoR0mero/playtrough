@@ -35,12 +35,15 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
     }
 
     /// <summary>Consultar la ficha de un grupo y la membresía propia.</summary>
+    /// <remarks>La respuesta para el propietario incluye ETag para editar o eliminar el grupo.</remarks>
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<GroupProfileDto>> Get(int id, CancellationToken ct)
     {
         if (UserId() is not { } viewer) return Challenge();
-        return await groups.FindAsync(id, viewer, ct) is { } group ? group : NotFound();
+        if (await groups.FindAsync(id, viewer, ct) is not { } group) return NotFound();
+        if (group.Version is { } version) Response.Headers.ETag = $"\"{version:D}\"";
+        return group.Profile;
     }
 
     /// <summary>Consultar las reseñas visibles de los miembros actuales del grupo.</summary>
@@ -62,13 +65,60 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
     [HttpPost]
     [ProducesResponseType(typeof(GroupDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<GroupDto>> Create(CreateGroupRequest request, CancellationToken ct)
+    public async Task<ActionResult<GroupDto>> Create(SaveGroupRequest request, CancellationToken ct)
     {
         if (UserId() is not { } ownerId) return Challenge();
+        if (ValidateDraft(request) is not { } draft) return ValidationProblem(ModelState);
 
+        var group = await groups.CreateAsync(ownerId, draft.Name, draft.Description, draft.Topic, draft.Privacy, ct);
+        return CreatedAtAction(nameof(Get), new { group.Id }, group);
+    }
+
+    /// <summary>Editar la ficha y la privacidad del grupo como propietario.</summary>
+    /// <remarks>Enviá en If-Match el ETag de la ficha. Las membresías vigentes se conservan.</remarks>
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status412PreconditionFailed)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status428PreconditionRequired)]
+    public async Task<IActionResult> Update(int id, SaveGroupRequest request, CancellationToken ct)
+    {
+        if (UserId() is not { } owner) return Challenge();
+        var current = await groups.FindOwnedAsync(id, owner, ct);
+        if (current is null) return NotFound();
+        if (ReadVersion(out var version) is { } error) return error;
+        if (ValidateDraft(request, current.Topic) is not { } draft) return ValidationProblem(ModelState);
+        if (await groups.UpdateAsync(id, owner, version, draft.Name, draft.Description, draft.Topic, draft.Privacy, ct))
+            return NoContent();
+        return await WriteConflict(id, owner, ct);
+    }
+
+    /// <summary>Eliminar el grupo como propietario y revocar el acceso a su ficha e interior.</summary>
+    /// <remarks>Enviá en If-Match el ETag de la ficha. El grupo se retira mediante borrado lógico.</remarks>
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status412PreconditionFailed)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status428PreconditionRequired)]
+    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    {
+        if (UserId() is not { } owner) return Challenge();
+        if (await groups.FindOwnedAsync(id, owner, ct) is null) return NotFound();
+        if (ReadVersion(out var version) is { } error) return error;
+        if (await groups.DeleteAsync(id, owner, version, ct)) return NoContent();
+        return await WriteConflict(id, owner, ct);
+    }
+
+    private (string Name, string Description, string Topic, GroupPrivacy Privacy)? ValidateDraft(
+        SaveGroupRequest request, string? currentTopic = null)
+    {
         var name = PlainText.Sanitize(request.Name);
         var description = PlainText.Sanitize(request.Description);
         var topic = FindTopic(request.Topic);
+        if (topic is null && string.Equals(currentTopic, request.Topic?.Trim(), StringComparison.OrdinalIgnoreCase))
+            topic = currentTopic;
         var privacy = request.Privacy switch
         {
             "public" => GroupPrivacy.Public,
@@ -81,11 +131,25 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
             ModelState.AddModelError("description", "Ingresá una descripción de hasta 500 caracteres.");
         if (topic is null) ModelState.AddModelError("topic", "Elegí una temática válida.");
         if (privacy is null) ModelState.AddModelError("privacy", "Elegí público o privado.");
-        if (!ModelState.IsValid) return ValidationProblem(ModelState);
-
-        var group = await groups.CreateAsync(ownerId, name!, description!, topic!, privacy!.Value, ct);
-        return CreatedAtAction(nameof(Get), new { group.Id }, group);
+        return ModelState.IsValid ? (name!, description!, topic!, privacy!.Value) : null;
     }
+
+    private ObjectResult? ReadVersion(out Guid version)
+    {
+        version = default;
+        var header = Request.Headers.IfMatch;
+        if (header.Count == 0)
+            return Problem(statusCode: 428, detail: "Volvé a cargar la ficha para obtener su versión.");
+        var value = header.Count == 1 ? header[0]?.Trim() : null;
+        if (value is { Length: 38 } && value[0] == '"' && value[^1] == '"' &&
+            Guid.TryParseExact(value.AsSpan(1, 36), "D", out version)) return null;
+        return Problem(statusCode: 400, detail: "If-Match debe contener el ETag de la ficha.");
+    }
+
+    private async Task<IActionResult> WriteConflict(int id, int owner, CancellationToken ct)
+        => await groups.FindOwnedAsync(id, owner, ct) is null ? NotFound() :
+            Problem(statusCode: 412, detail: "El grupo cambió. Volvé a cargarlo antes de continuar.",
+                extensions: new Dictionary<string, object?> { ["code"] = "group_version_conflict" });
 
     private string? FindTopic(string? topic)
         => settings.Value.Topics.FirstOrDefault(value => string.Equals(value, topic?.Trim(), StringComparison.OrdinalIgnoreCase));
