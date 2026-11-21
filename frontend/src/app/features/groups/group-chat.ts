@@ -22,7 +22,7 @@ import { HubConnection } from '@microsoft/signalr';
 import { filter, firstValueFrom, Subject, takeUntil } from 'rxjs';
 import { normalizePlainText } from '../../shared/plain-text';
 import { AuthService } from '../auth/services/auth';
-import { ChatMessage, GroupChatConnection } from './group-chat-connection';
+import { ChatMessage, ChatParticipant, GroupChatConnection } from './group-chat-connection';
 import { GroupConfirmation, GroupConfirmationComponent } from './group-confirmation';
 import { ChatHistoryQuery, GroupsApi } from './groups-api';
 
@@ -53,6 +53,11 @@ export class GroupChatComponent implements OnInit, OnDestroy {
   private reconnectRequested = false;
   private networkGeneration = 0;
   private receiptTimer?: ReturnType<typeof setTimeout>;
+  private presenceTimer?: ReturnType<typeof setTimeout>;
+  private presenceGeneration = 0;
+  private typingStart?: ReturnType<typeof setTimeout>;
+  private typingIdle?: ReturnType<typeof setTimeout>;
+  private lastTyping = 0;
   private readonly receiptQueue = new Set<string>();
   private readonly acknowledged = new Set<string>();
   private readonly delivered = new Set<string>();
@@ -80,6 +85,16 @@ export class GroupChatComponent implements OnInit, OnDestroy {
   protected readonly removing = signal<string | null>(null);
   protected readonly removalError = signal('');
   protected readonly userId = computed(() => this.auth.currentUser()?.id);
+  protected readonly participants = signal<ChatParticipant[]>([]);
+  protected readonly typingLabel = computed(() => {
+    const names = this.participants().filter(
+      (person) => person.isTyping && person.userId !== this.userId(),
+    );
+    if (!names.length) return '';
+    if (names.length === 1) return `${names[0].username} está escribiendo…`;
+    if (names.length === 2) return `${names[0].username} y ${names[1].username} están escribiendo…`;
+    return `${names[0].username} y ${names.length - 1} personas más están escribiendo…`;
+  });
 
   ngOnInit(): void {
     const connection = this.client.create();
@@ -97,11 +112,17 @@ export class GroupChatComponent implements OnInit, OnDestroy {
       if (groupId === this.groupId()) this.revoke();
     });
     connection.onreconnecting(() => {
-      if (this.active() && this.isOnline()) this.state.set('reconnecting');
+      if (this.active() && this.isOnline()) {
+        this.state.set('reconnecting');
+        this.clearPresence();
+      }
     });
     connection.onreconnected(() => this.subscribe(connection));
     connection.onclose(() => {
-      if (this.active()) this.state.set('offline');
+      if (this.active()) {
+        this.state.set('offline');
+        this.clearPresence();
+      }
     });
     this.browser?.addEventListener('offline', this.goOffline);
     this.browser?.addEventListener('online', this.goOnline);
@@ -110,6 +131,7 @@ export class GroupChatComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.clearPresence();
     this.browser?.removeEventListener('offline', this.goOffline);
     this.browser?.removeEventListener('online', this.goOnline);
     clearTimeout(this.receiptTimer);
@@ -158,6 +180,7 @@ export class GroupChatComponent implements OnInit, OnDestroy {
       this.draftAttempt?.text === text ? this.draftAttempt : { id: crypto.randomUUID(), text };
     this.draftAttempt = attempt;
     this.pending.set(attempt);
+    this.stopTyping();
     this.draft.reset();
     this.error.set('');
     if (!this.isOnline()) this.goOffline();
@@ -221,6 +244,7 @@ export class GroupChatComponent implements OnInit, OnDestroy {
     if (!this.active() || (!this.online() && this.state() === 'offline')) return;
     this.online.set(false);
     this.state.set('offline');
+    this.clearPresence();
     this.networkGeneration++;
     this.syncGeneration++;
     this.syncing.set(false);
@@ -281,9 +305,11 @@ export class GroupChatComponent implements OnInit, OnDestroy {
     if (!this.active() || !this.isOnline()) return;
     const generation = this.networkGeneration;
     try {
-      await connection.invoke('JoinGroup', this.groupId());
+      const people = await connection.invoke<ChatParticipant[]>('JoinGroup', this.groupId());
       if (!this.active() || !this.isOnline() || generation !== this.networkGeneration) return;
       this.state.set('ready');
+      this.participants.set(people ?? []);
+      this.schedulePresence();
       await this.syncHistory();
       void this.flushPending();
       this.scheduleReceipts();
@@ -295,6 +321,76 @@ export class GroupChatComponent implements OnInit, OnDestroy {
         if (this.active()) this.state.set('offline');
       }
     }
+  }
+
+  protected noteTyping(text: string): void {
+    if (!text.trim()) {
+      this.stopTyping();
+      return;
+    }
+    if (this.state() !== 'ready' || !this.isOnline()) return;
+    clearTimeout(this.typingIdle);
+    this.typingIdle = setTimeout(() => this.stopTyping(), 3000);
+    if (this.typingStart !== undefined || Date.now() - this.lastTyping < 1000) return;
+    this.typingStart = setTimeout(() => {
+      this.typingStart = undefined;
+      this.lastTyping = Date.now();
+      this.publishTyping(true);
+    }, 250);
+  }
+
+  protected stopTyping(send = true): void {
+    clearTimeout(this.typingStart);
+    clearTimeout(this.typingIdle);
+    this.typingStart = undefined;
+    this.typingIdle = undefined;
+    if (send && this.lastTyping) this.publishTyping(false);
+    this.lastTyping = 0;
+  }
+
+  private publishTyping(typing: boolean): void {
+    if (this.state() === 'ready' && this.isOnline())
+      void this.connection?.invoke('SetTyping', this.groupId(), typing).catch(() => undefined);
+  }
+
+  private clearPresence(): void {
+    this.presenceGeneration++;
+    clearTimeout(this.presenceTimer);
+    this.presenceTimer = undefined;
+    this.participants.set([]);
+    this.stopTyping(false);
+  }
+
+  private schedulePresence(): void {
+    const connection = this.connection;
+    if (
+      !connection ||
+      this.presenceTimer !== undefined ||
+      !this.active() ||
+      this.state() !== 'ready'
+    )
+      return;
+    const generation = this.presenceGeneration;
+    this.presenceTimer = setTimeout(async () => {
+      try {
+        const people = await connection.invoke<ChatParticipant[] | null>(
+          'GetPresence',
+          this.groupId(),
+        );
+        if (generation === this.presenceGeneration && this.state() === 'ready' && people)
+          this.participants.set(people);
+      } catch (error) {
+        if (generation === this.presenceGeneration && this.state() === 'ready') {
+          this.participants.set([]);
+          if (this.hasCode(error, 'chat_not_available')) this.revoke();
+        }
+      } finally {
+        if (generation === this.presenceGeneration && this.presenceTimer !== undefined) {
+          this.presenceTimer = undefined;
+          this.schedulePresence();
+        }
+      }
+    }, 2000);
   }
 
   protected async syncHistory(): Promise<void> {
@@ -488,6 +584,7 @@ export class GroupChatComponent implements OnInit, OnDestroy {
   private revoke(): void {
     if (!this.active()) return;
     this.state.set('revoked');
+    this.clearPresence();
     this.stopReads.next();
     this.syncing.set(false);
     this.historyError.set(false);

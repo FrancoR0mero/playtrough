@@ -110,6 +110,34 @@ describe('Group live chat', () => {
     expect(textarea.value).toBe('');
   });
 
+  it('shows the connected members and reports drafting without sending the text', async () => {
+    const { fixture, root, textarea, connection } = await setup();
+    connection.invoke.mockImplementation(async (method) =>
+      method === 'GetPresence'
+        ? [
+            { userId: 7, username: 'julieta', isTyping: false },
+            { userId: 8, username: 'ana', isTyping: true },
+          ]
+        : undefined,
+    );
+    textarea.value = 'Borrador privado';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await vi.waitFor(() => expect(connection.invoke).toHaveBeenCalledWith('SetTyping', 42, true));
+    textarea.dispatchEvent(new Event('blur'));
+    expect(connection.invoke).toHaveBeenCalledWith('SetTyping', 42, false);
+    expect(connection.invoke.mock.calls.flat()).not.toContain('Borrador privado');
+
+    await vi.waitFor(() => expect(connection.invoke).toHaveBeenCalledWith('GetPresence', 42), {
+      timeout: 3500,
+    });
+    fixture.detectChanges();
+    expect(root.querySelector('summary')?.textContent).toContain('En el chat (2)');
+    expect(root.querySelector('details')?.textContent).toContain('ana');
+    expect(root.querySelector('[aria-live="polite"]')?.textContent).toContain(
+      'ana está escribiendo',
+    );
+  });
+
   it('queues the message when the browser goes offline even if the hub was connected', async () => {
     const status = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(true);
     try {

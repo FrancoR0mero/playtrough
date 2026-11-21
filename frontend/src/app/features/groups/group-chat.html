@@ -21,6 +21,25 @@
       }
     </p>
   </div>
+  @if (state() === 'ready') {
+    <details open class="border-b border-white/10 py-2">
+      <summary class="cursor-pointer rounded py-1 text-sm font-medium text-slate-200">
+        En el chat ({{ participants().length }})
+      </summary>
+      <ul
+        class="mt-1 flex max-h-24 flex-wrap gap-x-4 gap-y-1 overflow-y-auto text-sm text-slate-300"
+      >
+        @for (person of participants(); track person.userId) {
+          <li class="wrap-anywhere">
+            {{ person.username }}
+            @if (person.userId === userId()) {
+              <span class="text-slate-400">(vos)</span>
+            }
+          </li>
+        }
+      </ul>
+    </details>
+  }
   @if (before() !== null) {
     <button
       type="button"
@@ -148,15 +167,21 @@
   }
   @if (state() !== 'revoked') {
     <form class="mt-4" (submit)="$event.preventDefault(); send()">
+      <p aria-live="polite" class="wrap-anywhere min-h-6 text-sm text-indigo-200">
+        {{ typingLabel() }}
+      </p>
       <label for="group-chat-message" class="mb-2 block text-sm font-medium text-slate-200"
         >Mensaje</label
       >
       <textarea
+        #messageInput
         id="group-chat-message"
         [formControl]="draft"
         rows="2"
         maxlength="4000"
         [readOnly]="pending() !== null"
+        (input)="noteTyping(messageInput.value)"
+        (blur)="stopTyping()"
         aria-describedby="group-chat-count"
         [attr.aria-invalid]="count() > settings.maxLength"
         class="w-full resize-y rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white"

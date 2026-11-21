@@ -14,6 +14,12 @@ export interface ChatMessage {
   clientMessageId?: string | null;
 }
 
+export interface ChatParticipant {
+  userId: number;
+  username: string;
+  isTyping: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GroupChatConnection {
   private readonly realtime = inject(RealtimeConnection);
