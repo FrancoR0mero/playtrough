@@ -56,6 +56,14 @@ public sealed class ChatMessageService(AppDbContext db, GroupAccess access, Chat
                     {
                         db.GroupMessages.Add(message);
                         await db.SaveChangesAsync(ct);
+                        var recipients = await (from member in access.ActiveMembers()
+                                                join account in PrivacyService.UnblockedUsers(db, user) on member.UserId equals account.Id
+                                                where member.GroupId == groupId && member.UserId != user
+                                                select member.UserId).ToListAsync(ct);
+                        db.GroupMessageReceipts.AddRange(recipients.Select(recipient => new GroupMessageReceipt
+                        {
+                            MessageId = message.Id, RecipientId = recipient,
+                        }));
                         Record(new ChatMessageCreated(groupId, message.Id), message.CreatedAt);
                         await db.SaveChangesAsync(ct);
                         await transaction.CommitAsync(ct);
@@ -78,6 +86,29 @@ public sealed class ChatMessageService(AppDbContext db, GroupAccess access, Chat
             }
         }, ct);
     }
+
+    internal Task AcknowledgeAsync(int groupId, int user, string connection, long[] ids, CancellationToken ct)
+        => connections.InGroupAsync(groupId, async () =>
+        {
+            if (!connections.IsSubscribed(connection, groupId, user)) throw new HubException("chat_not_available");
+            await RequireMembership(groupId, user, ct);
+            var authors = PrivacyService.UnblockedUsers(db, user);
+            var messages = db.GroupMessages.AsNoTracking().Where(message => message.GroupId == groupId
+                && message.RemovedAt == null && ids.Contains(message.Id) && authors.Any(author => author.Id == message.AuthorId));
+            var receipts = db.GroupMessageReceipts.Where(receipt => receipt.RecipientId == user && receipt.ReceivedAt == null
+                && messages.Any(message => message.Id == receipt.MessageId));
+            var pending = await receipts.Select(receipt => receipt.MessageId).ToArrayAsync(ct);
+            if (pending.Length == 0) return true;
+            var now = clock.GetUtcNow().UtcDateTime;
+            await receipts.ExecuteUpdateAsync(setters => setters.SetProperty(receipt => receipt.ReceivedAt, now), ct);
+            var completed = await messages.Where(message => pending.Contains(message.Id)
+                && !db.GroupMessageReceipts.Any(receipt => receipt.MessageId == message.Id && receipt.ReceivedAt == null))
+                .Select(message => new { message.Id, message.AuthorId }).ToListAsync(ct);
+            foreach (var author in completed.GroupBy(message => message.AuthorId))
+                await connections.NotifyDeliveredAsync(groupId, author.Key,
+                    author.Select(message => message.Id.ToString(CultureInfo.InvariantCulture)).ToArray());
+            return true;
+        }, ct);
 
     internal Task<ChatMessageStateDto?> RemoveAsync(int groupId, long messageId, int actor, CancellationToken ct)
         => connections.InGroupAsync(groupId, () => db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
@@ -126,9 +157,10 @@ public sealed class ChatMessageService(AppDbContext db, GroupAccess access, Chat
         => message.GroupId == groupId && string.Equals(message.Text, text, StringComparison.Ordinal)
             ? ToDto(message, username) : throw new HubException("chat_message_id_conflict");
 
-    internal static ChatMessageDto ToDto(GroupMessage message, string username)
+    internal static ChatMessageDto ToDto(GroupMessage message, string username, bool delivered = false)
         => new(message.Id.ToString(CultureInfo.InvariantCulture), message.GroupId, message.AuthorId, username,
-            message.RemovedAt.HasValue ? null : message.Text, message.CreatedAt, message.RemovedAt);
+            message.RemovedAt.HasValue ? null : message.Text, message.CreatedAt, message.RemovedAt, delivered,
+            message.ClientMessageId);
 }
 
 internal record ChatMessageReference(int GroupId, long MessageId);

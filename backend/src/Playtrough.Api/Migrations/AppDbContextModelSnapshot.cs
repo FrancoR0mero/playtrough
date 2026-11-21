@@ -569,6 +569,24 @@ namespace Playtrough.Api.Migrations
                     b.ToTable("GroupMessages");
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.GroupMessageReceipt", b =>
+                {
+                    b.Property<long>("MessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("RecipientId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReceivedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("MessageId", "RecipientId");
+
+                    b.HasIndex("RecipientId");
+
+                    b.ToTable("GroupMessageReceipts");
+                });
+
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -1260,6 +1278,21 @@ namespace Playtrough.Api.Migrations
                         .WithMany()
                         .HasForeignKey("RemovedByUserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.GroupMessageReceipt", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.GroupMessage", null)
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>

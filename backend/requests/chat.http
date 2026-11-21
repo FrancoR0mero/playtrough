@@ -8,6 +8,9 @@
 
 # El cliente SignalR invoca JoinGroup(groupId), SendMessage(groupId, clientMessageId, text) y LeaveGroup(groupId).
 # Reutilizar el UUID y el texto del mismo envío al reintentar. El resultado y MessageCreated comparten id.
+# AcknowledgeMessages(groupId, ids) confirma la recepción en el cliente, con un máximo de 100 IDs como texto.
+# El autor recibe MessagesDelivered con los IDs confirmados por todos los destinatarios del envío.
+# El historial y /state incluyen delivered para el autor. Un mensaje anterior a la migración permanece como enviado.
 
 ### Negociar una conexión SignalR autenticada (200)
 POST {{baseUrl}}/hubs/chat/negotiate?negotiateVersion=1

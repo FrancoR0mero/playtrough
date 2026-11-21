@@ -13,3 +13,10 @@ public sealed class GroupMessage
     public DateTime? RemovedAt { get; set; }
     public int? RemovedByUserId { get; set; }
 }
+
+public sealed class GroupMessageReceipt
+{
+    public long MessageId { get; set; }
+    public int RecipientId { get; set; }
+    public DateTime? ReceivedAt { get; set; }
+}

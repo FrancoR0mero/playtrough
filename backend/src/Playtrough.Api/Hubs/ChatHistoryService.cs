@@ -28,6 +28,9 @@ public sealed class ChatHistoryService(AppDbContext db, GroupAccess access)
                             select new
                             {
                                 row.Message, row.UserName,
+                                Delivered = row.Message.AuthorId == viewer
+                                    && db.GroupMessageReceipts.Any(receipt => receipt.MessageId == row.Message.Id)
+                                    && !db.GroupMessageReceipts.Any(receipt => receipt.MessageId == row.Message.Id && receipt.ReceivedAt == null),
                                 Latest = after != null && through == null
                                     ? visible.OrderByDescending(item => item.Message.Id).Select(item => item.Message.Id).FirstOrDefault()
                                     : 0L,
@@ -36,7 +39,7 @@ public sealed class ChatHistoryService(AppDbContext db, GroupAccess access)
 
         var present = result.Where(row => row.Message is not null);
         var ordered = after is null ? present.OrderByDescending(row => row.Message.Id) : present.OrderBy(row => row.Message.Id);
-        var items = ordered.Take(limit).Select(row => ChatMessageService.ToDto(row.Message, row.UserName!)).ToArray();
+        var items = ordered.Take(limit).Select(row => ChatMessageService.ToDto(row.Message, row.UserName!, row.Delivered)).ToArray();
         var next = result.Count > limit ? items[^1].Id : null;
         string? bound = before is not null ? null : after is { } checkpoint
             ? Cursor(through ?? Math.Max(checkpoint, result[0].Latest))
@@ -52,13 +55,18 @@ public sealed class ChatHistoryService(AppDbContext db, GroupAccess access)
         var visible = from message in db.GroupMessages.AsNoTracking()
                       join author in PrivacyService.UnblockedUsers(db, viewer) on message.AuthorId equals author.Id
                       where message.GroupId == groupId && ids.Contains(message.Id)
-                      select new { message.GroupId, message.Id, message.RemovedAt };
+                      select new { message.GroupId, message.Id, message.RemovedAt, message.AuthorId };
         var result = await (from groupRow in access.MemberGroups(viewer).Where(item => item.Id == groupId)
                             join row in visible on groupRow.Id equals row.GroupId into rows
                             from row in rows.DefaultIfEmpty()
-                            select new { Id = (long?)row.Id, row.RemovedAt }).ToListAsync(ct);
+                            select new
+                            {
+                                Id = (long?)row.Id, row.RemovedAt,
+                                Delivered = row.AuthorId == viewer && db.GroupMessageReceipts.Any(receipt => receipt.MessageId == row.Id)
+                                    && !db.GroupMessageReceipts.Any(receipt => receipt.MessageId == row.Id && receipt.ReceivedAt == null),
+                            }).ToListAsync(ct);
         if (result.Count == 0) return null;
         return result.Where(row => row.Id.HasValue)
-            .Select(row => new ChatMessageStateDto(Cursor(row.Id!.Value), row.RemovedAt)).ToArray();
+            .Select(row => new ChatMessageStateDto(Cursor(row.Id!.Value), row.RemovedAt, row.Delivered)).ToArray();
     }
 }

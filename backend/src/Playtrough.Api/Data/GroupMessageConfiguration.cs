@@ -20,3 +20,14 @@ internal sealed class GroupMessageConfiguration : IEntityTypeConfiguration<Group
         entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(message => message.RemovedByUserId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+internal sealed class GroupMessageReceiptConfiguration : IEntityTypeConfiguration<GroupMessageReceipt>
+{
+    public void Configure(EntityTypeBuilder<GroupMessageReceipt> entity)
+    {
+        entity.HasKey(receipt => new { receipt.MessageId, receipt.RecipientId });
+        entity.Property(receipt => receipt.ReceivedAt).HasConversion(LibraryConversions.Utc);
+        entity.HasOne<GroupMessage>().WithMany().HasForeignKey(receipt => receipt.MessageId);
+        entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(receipt => receipt.RecipientId);
+    }
+}

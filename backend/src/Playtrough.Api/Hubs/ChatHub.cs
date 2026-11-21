@@ -21,6 +21,19 @@ public sealed class ChatHub(ChatMessageService messages, ChatConnections connect
     public Task<ChatMessageDto> SendMessage(int groupId, Guid clientMessageId, string? text)
         => messages.SendAsync(groupId, UserId, Context.ConnectionId, clientMessageId, text, Context.ConnectionAborted);
 
+    public Task AcknowledgeMessages(int groupId, string[] ids)
+    {
+        if (ids is null || ids.Length is < 1 or > 100) throw new HubException("chat_invalid_receipts");
+        var messageIds = new HashSet<long>();
+        foreach (var id in ids)
+        {
+            if (!long.TryParse(id, NumberStyles.None, CultureInfo.InvariantCulture, out var value) || value <= 0)
+                throw new HubException("chat_invalid_receipts");
+            messageIds.Add(value);
+        }
+        return messages.AcknowledgeAsync(groupId, UserId, Context.ConnectionId, messageIds.ToArray(), Context.ConnectionAborted);
+    }
+
     public override Task OnDisconnectedAsync(Exception? exception)
     {
         connections.Disconnect(Context.ConnectionId);

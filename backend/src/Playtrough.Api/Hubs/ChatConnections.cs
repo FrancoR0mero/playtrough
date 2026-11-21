@@ -31,6 +31,21 @@ public sealed class ChatConnections(IHubContext<ChatHub> hub, ILogger<ChatConnec
         => subscriptions.Where(item => item.Value.GroupId == groupId && eligibleUsers.Contains(item.Value.UserId))
             .Select(item => item.Key).ToArray();
 
+    internal async Task NotifyDeliveredAsync(int groupId, int authorId, string[] ids)
+    {
+        var destinations = Destinations(groupId, [authorId]);
+        if (destinations.Length == 0) return;
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            await hub.Clients.Clients(destinations).SendAsync("MessagesDelivered", ids, timeout.Token);
+        }
+        catch (Exception error)
+        {
+            logger.LogWarning("Unable to notify chat delivery ({ExceptionType}).", error.GetType().Name);
+        }
+    }
+
     // The caller holds the group gate across the database change and removal of subscriptions.
     internal async Task RevokeAsync(int groupId, int? userId = null)
     {

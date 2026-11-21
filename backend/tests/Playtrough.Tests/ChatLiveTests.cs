@@ -188,6 +188,50 @@ public sealed class ChatLiveTests
         }
     }
 
+    [Fact]
+    public async Task DeliveryRequiresAnAcknowledgementFromEachEligibleAccountAndSurvivesReload()
+    {
+        using var context = new GamesApiTestContext(concurrent: true);
+        using var owner = await context.AuthenticatedClientAsync();
+        using var member = await context.AuthenticatedClientAsync();
+        using var other = await context.AuthenticatedClientAsync();
+        var group = await CreateGroup(owner);
+        using var firstJoin = await member.PutAsync($"/api/groups/{group}/membership", null);
+        using var secondJoin = await other.PutAsync($"/api/groups/{group}/membership", null);
+        firstJoin.EnsureSuccessStatusCode();
+        secondJoin.EnsureSuccessStatusCode();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        using var sender = await Socket.OpenAsync(context, owner, deadline.Token);
+        using var first = await Socket.OpenAsync(context, member, deadline.Token);
+        using var sameAccount = await Socket.OpenAsync(context, member, deadline.Token);
+        using var last = await Socket.OpenAsync(context, other, deadline.Token);
+        await sender.JoinAsync(group);
+        await first.JoinAsync(group);
+        await sameAccount.JoinAsync(group);
+        var sent = (await sender.InvokeAsync("SendMessage", group, Guid.NewGuid(), "Confirmar recepción")).GetProperty("result");
+        var id = sent.GetProperty("id").GetString()!;
+        Assert.False(sent.GetProperty("delivered").GetBoolean());
+        Assert.Equal(id, (await first.EventAsync("MessageCreated"))[0].GetProperty("id").GetString());
+
+        Assert.Contains("chat_not_available", (await last.InvokeAsync("AcknowledgeMessages", group, new[] { id }))
+            .GetProperty("error").GetString());
+        Assert.False((await first.InvokeAsync("AcknowledgeMessages", group, new[] { id })).TryGetProperty("error", out _));
+        Assert.False((await sameAccount.InvokeAsync("AcknowledgeMessages", group, new[] { id })).TryGetProperty("error", out _));
+        Assert.False((await History()).Delivered);
+
+        await last.JoinAsync(group);
+        var lastPage = await other.GetFromJsonAsync<ChatHistoryPageDto>($"/api/groups/{group}/messages");
+        Assert.Equal(id, Assert.Single(lastPage!.Items).Id);
+        Assert.False((await last.InvokeAsync("AcknowledgeMessages", group, new[] { id })).TryGetProperty("error", out _));
+        Assert.Equal(id, (await sender.EventAsync("MessagesDelivered"))[0][0].GetString());
+        Assert.True((await History()).Delivered);
+        var states = await owner.GetFromJsonAsync<ChatMessageStateDto[]>($"/api/groups/{group}/messages/state?ids={id}");
+        Assert.True(Assert.Single(states!).Delivered);
+
+        async Task<ChatMessageDto> History()
+            => Assert.Single((await owner.GetFromJsonAsync<ChatHistoryPageDto>($"/api/groups/{group}/messages"))!.Items);
+    }
+
     private static async Task<int> CreateGroup(HttpClient client)
     {
         using var response = await client.PostAsJsonAsync("/api/groups",

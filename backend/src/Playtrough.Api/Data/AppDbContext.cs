@@ -28,6 +28,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
     public DbSet<GroupJoinRequest> GroupJoinRequests => Set<GroupJoinRequest>();
     public DbSet<GroupMessage> GroupMessages => Set<GroupMessage>();
+    public DbSet<GroupMessageReceipt> GroupMessageReceipts => Set<GroupMessageReceipt>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
@@ -51,6 +52,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.ApplyConfiguration(new GroupMemberConfiguration());
         builder.ApplyConfiguration(new GroupJoinRequestConfiguration());
         builder.ApplyConfiguration(new GroupMessageConfiguration());
+        builder.ApplyConfiguration(new GroupMessageReceiptConfiguration());
         builder.ApplyConfiguration(new OutboxMessageConfiguration());
         builder.ApplyConfiguration(new NotificationConfiguration());
         builder.ApplyConfiguration(new NotificationPreferenceConfiguration());
