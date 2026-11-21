@@ -17,14 +17,50 @@ public sealed class ChatMessageService(AppDbContext db, GroupAccess access, Chat
 {
     internal static readonly JsonSerializerOptions EventJson = new(JsonSerializerDefaults.Web);
 
-    internal Task JoinAsync(int groupId, int user, string connection, CancellationToken ct)
+    internal Task<IReadOnlyList<ChatParticipantDto>> JoinAsync(int groupId, int user, string connection, CancellationToken ct)
         => connections.InGroupAsync(groupId, async () =>
         {
             await RequireMembership(groupId, user, ct);
             ct.ThrowIfCancellationRequested();
             if (!connections.Subscribe(connection, groupId, user)) throw new HubException("chat_already_subscribed");
+            return await PresenceAsync(groupId, user, ct);
+        }, ct);
+
+    internal Task<IReadOnlyList<ChatParticipantDto>?> ReadPresenceAsync(int groupId, int user, string connection, CancellationToken ct)
+        => connections.InGroupAsync<IReadOnlyList<ChatParticipantDto>?>(groupId, async () =>
+        {
+            if (!connections.IsSubscribed(connection, groupId, user)) throw new HubException("chat_not_available");
+            if (!connections.TakePresenceSnapshot(connection, clock.GetUtcNow())) return null;
+            await RequireMembership(groupId, user, ct);
+            return await PresenceAsync(groupId, user, ct);
+        }, ct);
+
+    internal Task SetTypingAsync(int groupId, int user, string connection, bool typing, CancellationToken ct)
+        => connections.InGroupAsync(groupId, async () =>
+        {
+            if (!connections.IsSubscribed(connection, groupId, user)) throw new HubException("chat_not_available");
+            var now = clock.GetUtcNow();
+            if (typing)
+            {
+                if (!connections.TakeTypingUpdate(connection, now)) return false;
+                await RequireMembership(groupId, user, ct);
+            }
+            connections.SetTyping(connection, typing ? now.AddSeconds(5) : default);
             return true;
         }, ct);
+
+    private async Task<IReadOnlyList<ChatParticipantDto>> PresenceAsync(int groupId, int viewer, CancellationToken ct)
+    {
+        var participants = connections.Participants(groupId, clock.GetUtcNow());
+        if (participants.Count == 0) return [];
+        var ids = participants.Keys.ToArray();
+        var visible = await (from member in access.ActiveMembers()
+                             join user in PrivacyService.UnblockedUsers(db, viewer) on member.UserId equals user.Id
+                             where member.GroupId == groupId && ids.Contains(user.Id)
+                             orderby user.UserName, user.Id
+                             select new { user.Id, user.UserName }).ToListAsync(ct);
+        return visible.Select(user => new ChatParticipantDto(user.Id, user.UserName!, user.Id != viewer && participants[user.Id])).ToArray();
+    }
 
     internal Task<ChatMessageDto> SendAsync(int groupId, int user, string connection, Guid clientId, string? text, CancellationToken ct)
     {

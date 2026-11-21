@@ -7,6 +7,8 @@
 @messageId = 1
 
 # El cliente SignalR invoca JoinGroup(groupId), SendMessage(groupId, clientMessageId, text) y LeaveGroup(groupId).
+# JoinGroup devuelve la presencia visible inicial. GetPresence(groupId) consulta los participantes activos y su estado de escritura.
+# SetTyping(groupId, typing) actualiza la pestaña actual sin enviar el borrador. El estado de escritura vence en cinco segundos.
 # Reutilizar el UUID y el texto del mismo envío al reintentar. El resultado y MessageCreated comparten id.
 # AcknowledgeMessages(groupId, ids) confirma la recepción en el cliente, con un máximo de 100 IDs como texto.
 # El autor recibe MessagesDelivered con los IDs confirmados por todos los destinatarios del envío.

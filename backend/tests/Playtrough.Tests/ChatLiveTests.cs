@@ -232,6 +232,53 @@ public sealed class ChatLiveTests
             => Assert.Single((await owner.GetFromJsonAsync<ChatHistoryPageDto>($"/api/groups/{group}/messages"))!.Items);
     }
 
+    [Fact]
+    public async Task PresenceDeduplicatesTabsAndTypingExpiresOrClearsOnDeparture()
+    {
+        using var context = new GamesApiTestContext(concurrent: true);
+        using var owner = await context.AuthenticatedClientAsync();
+        using var member = await context.AuthenticatedClientAsync();
+        var group = await CreateGroup(owner);
+        using var joined = await member.PutAsync($"/api/groups/{group}/membership", null);
+        joined.EnsureSuccessStatusCode();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(24));
+        using var viewer = await Socket.OpenAsync(context, owner, deadline.Token);
+        using var writer = await Socket.OpenAsync(context, member, deadline.Token);
+        using var extraTab = await Socket.OpenAsync(context, member, deadline.Token);
+        await viewer.JoinAsync(group);
+        Assert.Contains("chat_not_available", (await writer.InvokeAsync("SetTyping", group, true))
+            .GetProperty("error").GetString());
+        await writer.JoinAsync(group);
+        await extraTab.JoinAsync(group);
+        await writer.InvokeAsync("SetTyping", group, true);
+        var participants = (await viewer.InvokeAsync("GetPresence", group)).GetProperty("result")
+            .Deserialize<ChatParticipantDto[]>(JsonSerializerOptions.Web)!;
+        Assert.Equal(2, participants.Length);
+        var writing = Assert.Single(participants, person => person.IsTyping);
+        Assert.Equal("games_user_2", writing.Username);
+
+        var connections = context.Factory.Services.GetRequiredService<ChatConnections>();
+        Assert.False(connections.Participants(group, DateTimeOffset.UtcNow.AddSeconds(6))[writing.UserId]);
+        await writer.InvokeAsync("SetTyping", group, false);
+        Assert.False(connections.Participants(group, DateTimeOffset.UtcNow)[writing.UserId]);
+        await writer.InvokeAsync("LeaveGroup", group);
+        Assert.Contains(writing.UserId, connections.Participants(group, DateTimeOffset.UtcNow).Keys);
+        await extraTab.InvokeAsync("SetTyping", group, true);
+        using var blocked = await owner.PostAsJsonAsync("/api/blocks", new { username = "games_user_2" });
+        blocked.EnsureSuccessStatusCode();
+        await Task.Delay(850, deadline.Token);
+        var filtered = (await viewer.InvokeAsync("GetPresence", group)).GetProperty("result")
+            .Deserialize<ChatParticipantDto[]>(JsonSerializerOptions.Web)!;
+        Assert.Equal("games_user_1", Assert.Single(filtered).Username);
+
+        using var removed = await owner.DeleteAsync($"/api/groups/{group}/members/{writing.UserId}");
+        removed.EnsureSuccessStatusCode();
+        await extraTab.EventAsync("ChatAccessRevoked");
+        Assert.DoesNotContain(writing.UserId, connections.Participants(group, DateTimeOffset.UtcNow).Keys);
+        Assert.Contains("chat_not_available", (await extraTab.InvokeAsync("GetPresence", group))
+            .GetProperty("error").GetString());
+    }
+
     private static async Task<int> CreateGroup(HttpClient client)
     {
         using var response = await client.PostAsJsonAsync("/api/groups",

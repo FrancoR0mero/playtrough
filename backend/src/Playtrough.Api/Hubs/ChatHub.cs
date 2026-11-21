@@ -10,7 +10,14 @@ public sealed class ChatHub(ChatMessageService messages, ChatConnections connect
 {
     public const string Path = "/hubs/chat";
 
-    public Task JoinGroup(int groupId) => messages.JoinAsync(groupId, UserId, Context.ConnectionId, Context.ConnectionAborted);
+    public Task<IReadOnlyList<ChatParticipantDto>> JoinGroup(int groupId)
+        => messages.JoinAsync(groupId, UserId, Context.ConnectionId, Context.ConnectionAborted);
+
+    public Task<IReadOnlyList<ChatParticipantDto>?> GetPresence(int groupId)
+        => messages.ReadPresenceAsync(groupId, UserId, Context.ConnectionId, Context.ConnectionAborted);
+
+    public Task SetTyping(int groupId, bool typing)
+        => messages.SetTypingAsync(groupId, UserId, Context.ConnectionId, typing, Context.ConnectionAborted);
 
     public Task LeaveGroup(int groupId) => connections.InGroupAsync(groupId, () =>
     {
