@@ -67,6 +67,7 @@ export interface ChatHistoryPage {
 export type ChatHistoryQuery = { before: string } | { after: string; through?: string };
 
 export interface ChatMessageState {
+  delivered?: boolean;
   id: string;
   removedAt: string | null;
 }

@@ -1,5 +1,5 @@
 import { Dialog, DialogModule } from '@angular/cdk/dialog';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DOCUMENT } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   afterNextRender,
@@ -41,12 +41,21 @@ export class GroupChatComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly dialog = inject(Dialog);
   private readonly injector = inject(Injector);
+  private readonly browser = inject(DOCUMENT).defaultView;
   private readonly stopReads = new Subject<void>();
   private syncGeneration = 0;
   // Only the paginated HTTP response can confirm a continuous range of IDs.
   private checkpoint: string | null = null;
   private connection?: HubConnection;
   private draftAttempt?: { id: string; text: string };
+  private stopping?: Promise<void>;
+  private connecting = false;
+  private reconnectRequested = false;
+  private networkGeneration = 0;
+  private receiptTimer?: ReturnType<typeof setTimeout>;
+  private readonly receiptQueue = new Set<string>();
+  private readonly acknowledged = new Set<string>();
+  private readonly delivered = new Set<string>();
   private destroyed = false;
   private readonly log = viewChild<ElementRef<HTMLElement>>('messageLog');
 
@@ -66,6 +75,8 @@ export class GroupChatComponent implements OnInit, OnDestroy {
   protected readonly olderLoading = signal(false);
   protected readonly before = signal<string | null>(null);
   protected readonly sending = signal(false);
+  protected readonly online = signal(this.browser?.navigator.onLine !== false);
+  protected readonly pending = signal<{ id: string; text: string } | null>(null);
   protected readonly removing = signal<string | null>(null);
   protected readonly removalError = signal('');
   protected readonly userId = computed(() => this.auth.currentUser()?.id);
@@ -75,21 +86,33 @@ export class GroupChatComponent implements OnInit, OnDestroy {
     this.connection = connection;
     connection.on('MessageCreated', (message: ChatMessage) => this.receive(message));
     connection.on('MessageRemoved', (message: ChatMessage) => this.receive(message));
+    connection.on('MessagesDelivered', (ids: string[]) => {
+      if (!this.active() || !this.isOnline()) return;
+      for (const id of ids) this.delivered.add(id);
+      this.rows.update((rows) =>
+        rows.map((row) => (this.delivered.has(row.id) ? { ...row, delivered: true } : row)),
+      );
+    });
     connection.on('ChatAccessRevoked', (groupId: number) => {
       if (groupId === this.groupId()) this.revoke();
     });
     connection.onreconnecting(() => {
-      if (this.active()) this.state.set('reconnecting');
+      if (this.active() && this.isOnline()) this.state.set('reconnecting');
     });
     connection.onreconnected(() => this.subscribe(connection));
     connection.onclose(() => {
       if (this.active()) this.state.set('offline');
     });
+    this.browser?.addEventListener('offline', this.goOffline);
+    this.browser?.addEventListener('online', this.goOnline);
     void this.connect();
   }
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.browser?.removeEventListener('offline', this.goOffline);
+    this.browser?.removeEventListener('online', this.goOnline);
+    clearTimeout(this.receiptTimer);
     this.stopReads.next();
     this.stopReads.complete();
     void this.connection?.stop();
@@ -97,23 +120,35 @@ export class GroupChatComponent implements OnInit, OnDestroy {
 
   protected async connect(): Promise<void> {
     const connection = this.connection;
-    if (!connection || !this.active()) return;
-    this.state.set('connecting');
-    this.error.set('');
+    if (!connection || !this.active() || this.connecting) return;
+    if (!this.isOnline()) {
+      this.state.set('offline');
+      return;
+    }
+    this.connecting = true;
+    const generation = this.networkGeneration;
     try {
+      if (this.stopping) await this.stopping;
+      if (!this.active() || !this.isOnline() || generation !== this.networkGeneration) return;
+      this.state.set('connecting');
+      this.error.set('');
       await connection.start();
-      await this.subscribe(connection);
+      if (generation === this.networkGeneration) await this.subscribe(connection);
     } catch {
       if (this.active()) this.state.set('offline');
+    } finally {
+      this.connecting = false;
+      if (this.reconnectRequested) {
+        this.reconnectRequested = false;
+        if (this.state() === 'offline') void this.connect();
+      }
     }
   }
 
-  protected async send(): Promise<void> {
-    const connection = this.connection;
+  protected send(): void {
     if (
-      !connection ||
-      this.state() !== 'ready' ||
-      this.sending() ||
+      !this.active() ||
+      this.pending() ||
       this.count() < 1 ||
       this.count() > this.settings.maxLength
     )
@@ -122,35 +157,85 @@ export class GroupChatComponent implements OnInit, OnDestroy {
     const attempt =
       this.draftAttempt?.text === text ? this.draftAttempt : { id: crypto.randomUUID(), text };
     this.draftAttempt = attempt;
-    this.sending.set(true);
+    this.pending.set(attempt);
+    this.draft.reset();
     this.error.set('');
+    if (!this.isOnline()) this.goOffline();
+    void this.flushPending();
+  }
+
+  private async flushPending(): Promise<void> {
+    const connection = this.connection;
+    const attempt = this.pending();
+    if (!connection || !attempt || this.sending() || this.state() !== 'ready' || !this.isOnline())
+      return;
+    this.sending.set(true);
     try {
       const message = await connection.invoke<ChatMessage>(
         'SendMessage',
         this.groupId(),
         attempt.id,
-        text,
+        attempt.text,
       );
       if (!this.active()) return;
-      this.receive(message);
-      this.draft.reset();
-      this.draftAttempt = undefined;
+      this.merge([message]);
+      this.completeAttempt(attempt.id);
     } catch (error) {
-      if (!this.active()) return;
+      if (!this.active() || this.pending()?.id !== attempt.id) return;
       if (this.hasCode(error, 'chat_not_available')) this.revoke();
-      else if (this.hasCode(error, 'chat_rate_limited')) {
+      else if (!this.isOnline() || this.state() !== 'ready') {
+        // A reconnect retries the same UUID, even if the first attempt reached the API.
+      } else if (this.hasCode(error, 'chat_rate_limited')) {
+        this.restoreDraft(attempt.text);
         this.error.set(
           'Enviaste muchos mensajes seguidos. Esperá unos segundos y volvé a intentar.',
         );
       } else if (this.hasCode(error, 'chat_invalid_message')) {
+        this.restoreDraft(attempt.text);
         this.error.set('Revisá que el mensaje tenga entre 1 y 2.000 caracteres.');
       } else {
+        this.restoreDraft(attempt.text);
         this.error.set('No se confirmó el envío. Podés volver a intentarlo.');
       }
     } finally {
       this.sending.set(false);
+      if (this.active() && this.pending() && this.state() === 'ready') void this.flushPending();
     }
   }
+
+  private restoreDraft(text: string): void {
+    this.pending.set(null);
+    this.draft.setValue(text);
+  }
+
+  private completeAttempt(id: string): void {
+    if (this.pending()?.id === id) this.pending.set(null);
+    if (this.draftAttempt?.id === id) this.draftAttempt = undefined;
+  }
+
+  private isOnline(): boolean {
+    return this.online() && this.browser?.navigator.onLine !== false;
+  }
+
+  private readonly goOffline = () => {
+    if (!this.active() || (!this.online() && this.state() === 'offline')) return;
+    this.online.set(false);
+    this.state.set('offline');
+    this.networkGeneration++;
+    this.syncGeneration++;
+    this.syncing.set(false);
+    clearTimeout(this.receiptTimer);
+    this.receiptTimer = undefined;
+    this.stopping = this.connection?.stop().catch(() => undefined);
+  };
+
+  private readonly goOnline = () => {
+    if (!this.active()) return;
+    this.online.set(true);
+    if (this.state() !== 'offline') return;
+    if (this.connecting) this.reconnectRequested = true;
+    else void this.connect();
+  };
 
   protected canRemove(message: ChatMessage): boolean {
     return !message.removedAt && (this.owner() || message.authorId === this.userId());
@@ -193,14 +278,17 @@ export class GroupChatComponent implements OnInit, OnDestroy {
   }
 
   private async subscribe(connection: HubConnection): Promise<void> {
-    if (!this.active()) return;
+    if (!this.active() || !this.isOnline()) return;
+    const generation = this.networkGeneration;
     try {
       await connection.invoke('JoinGroup', this.groupId());
-      if (!this.active()) return;
+      if (!this.active() || !this.isOnline() || generation !== this.networkGeneration) return;
       this.state.set('ready');
       await this.syncHistory();
+      void this.flushPending();
+      this.scheduleReceipts();
     } catch (error) {
-      if (!this.active()) return;
+      if (!this.active() || generation !== this.networkGeneration) return;
       if (this.hasCode(error, 'chat_not_available')) this.revoke();
       else {
         await connection.stop();
@@ -281,7 +369,42 @@ export class GroupChatComponent implements OnInit, OnDestroy {
   }
 
   private receive(message: ChatMessage): void {
-    if (this.active()) this.merge([message]);
+    if (this.active() && this.isOnline()) this.merge([message]);
+  }
+
+  private scheduleReceipts(delay = 50): void {
+    if (
+      this.receiptTimer !== undefined ||
+      !this.receiptQueue.size ||
+      this.state() !== 'ready' ||
+      !this.isOnline()
+    )
+      return;
+    this.receiptTimer = setTimeout(() => {
+      this.receiptTimer = undefined;
+      void this.flushReceipts();
+    }, delay);
+  }
+
+  private async flushReceipts(): Promise<void> {
+    if (!this.connection || !this.active() || this.state() !== 'ready' || !this.isOnline()) return;
+    const ids = [...this.receiptQueue].slice(0, 100);
+    if (!ids.length) return;
+    for (const id of ids) {
+      this.receiptQueue.delete(id);
+      this.acknowledged.add(id);
+    }
+    let delay = 50;
+    try {
+      await this.connection.invoke('AcknowledgeMessages', this.groupId(), ids);
+    } catch {
+      for (const id of ids) {
+        this.acknowledged.delete(id);
+        this.receiptQueue.add(id);
+      }
+      delay = 1000;
+    }
+    if (this.active()) this.scheduleReceipts(delay);
   }
 
   private async reconcileMessages(current: () => boolean): Promise<void> {
@@ -300,7 +423,11 @@ export class GroupChatComponent implements OnInit, OnDestroy {
           .filter((row) => !checked.has(row.id) || visible.has(row.id))
           .map((row) => {
             const removedAt = visible.get(row.id)?.removedAt;
-            return removedAt && !row.removedAt ? { ...row, text: null, removedAt } : row;
+            const delivered = row.delivered || visible.get(row.id)?.delivered;
+            if (delivered) this.delivered.add(row.id);
+            return removedAt && !row.removedAt
+              ? { ...row, text: null, removedAt, delivered }
+              : { ...row, delivered };
           }),
       );
     }
@@ -310,15 +437,28 @@ export class GroupChatComponent implements OnInit, OnDestroy {
     const stored = new Map(this.rows().map((item) => [item.id, item]));
     let changed = false;
     for (const message of messages) {
+      if (message.groupId !== this.groupId()) continue;
+      if (message.authorId === this.userId() && message.clientMessageId)
+        this.completeAttempt(message.clientMessageId);
+      if (
+        message.authorId !== this.userId() &&
+        !message.removedAt &&
+        !this.acknowledged.has(message.id)
+      )
+        this.receiptQueue.add(message.id);
+      if (message.delivered) this.delivered.add(message.id);
       const existing = stored.get(message.id);
       if (
-        message.groupId === this.groupId() &&
-        (!existing || (message.removedAt && !existing.removedAt))
+        !existing ||
+        (message.removedAt && !existing.removedAt) ||
+        (this.delivered.has(message.id) && !existing.delivered)
       ) {
-        stored.set(message.id, message);
+        const newest = existing?.removedAt ? existing : message;
+        stored.set(message.id, { ...newest, delivered: this.delivered.has(message.id) });
         changed = true;
       }
     }
+    this.scheduleReceipts();
     if (!changed) return;
     const log = this.log()?.nativeElement;
     const logTop = log?.getBoundingClientRect().top ?? 0;
@@ -355,6 +495,11 @@ export class GroupChatComponent implements OnInit, OnDestroy {
     this.olderError.set(false);
     this.before.set(null);
     this.rows.set([]);
+    this.pending.set(null);
+    this.receiptQueue.clear();
+    this.acknowledged.clear();
+    this.delivered.clear();
+    clearTimeout(this.receiptTimer);
     this.draft.reset();
     this.draftAttempt = undefined;
     void this.connection?.stop();

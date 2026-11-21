@@ -10,6 +10,8 @@ export interface ChatMessage {
   text: string | null;
   createdAt: string;
   removedAt?: string | null;
+  delivered?: boolean;
+  clientMessageId?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

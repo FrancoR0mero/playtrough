@@ -20,9 +20,9 @@ describe('Group live chat', () => {
   async function setup(
     initial: Observable<ChatHistoryPage> = of({ items: [], nextCursor: null, through: '0' }),
   ) {
-    const events = new Map<string, (value: ChatMessage | number) => void>();
+    const events = new Map<string, (value: ChatMessage | number | string[]) => void>();
     const connection = {
-      on: vi.fn((name: string, callback: (value: ChatMessage | number) => void) =>
+      on: vi.fn((name: string, callback: (value: ChatMessage | number | string[]) => void) =>
         events.set(name, callback),
       ),
       onclose: vi.fn(),
@@ -108,6 +108,67 @@ describe('Group live chat', () => {
     expect(connection.invoke.mock.calls[2]).toEqual(first);
     expect(root.querySelectorAll('[role="log"] li')).toHaveLength(1);
     expect(textarea.value).toBe('');
+  });
+
+  it('queues the message when the browser goes offline even if the hub was connected', async () => {
+    const status = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(true);
+    try {
+      const { fixture, root, textarea, submit, connection, events } = await setup();
+      status.mockReturnValue(false);
+      window.dispatchEvent(new Event('offline'));
+      textarea.value = 'Hola 🎮';
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      submit();
+      fixture.detectChanges();
+      expect(connection.stop).toHaveBeenCalledOnce();
+      expect(connection.invoke.mock.calls.map(([method]) => method)).toEqual(['JoinGroup']);
+      expect(root.querySelector('[data-delivery="pending"]')?.getAttribute('title')).toBe(
+        'Esperando conexión',
+      );
+      connection.invoke.mockImplementation(async (method) =>
+        method === 'SendMessage' ? message : undefined,
+      );
+      status.mockReturnValue(true);
+      window.dispatchEvent(new Event('online'));
+      await vi.waitFor(() =>
+        expect(connection.invoke).toHaveBeenCalledWith(
+          'SendMessage',
+          42,
+          expect.any(String),
+          'Hola 🎮',
+        ),
+      );
+      fixture.detectChanges();
+      expect(connection.invoke.mock.calls.map(([method]) => method)).toEqual([
+        'JoinGroup',
+        'JoinGroup',
+        'SendMessage',
+      ]);
+      expect(root.querySelector('[data-delivery="pending"]')).toBeNull();
+      expect(root.querySelector('[data-delivery="sent"]')?.textContent).toContain('✓');
+      events.get('MessagesDelivered')!([message.id]);
+      fixture.detectChanges();
+      expect(root.querySelector('[data-delivery="delivered"]')?.textContent).toContain('✓✓');
+    } finally {
+      status.mockRestore();
+    }
+  });
+
+  it('acknowledges incoming messages from both live delivery and history only once per tab', async () => {
+    const incoming = { ...message, id: '46', authorId: 8 };
+    const { connection, events } = await setup(
+      of({ items: [incoming, message], nextCursor: null, through: '47' }),
+    );
+    events.get('MessageCreated')!(incoming);
+    events.get('MessageCreated')!({ ...incoming, id: '48' });
+    const acknowledged = () =>
+      connection.invoke.mock.calls.flatMap(([method, , ids]) =>
+        method === 'AcknowledgeMessages' ? (ids as string[]) : [],
+      );
+    await vi.waitFor(() => expect(acknowledged()).toEqual(['46', '48']));
+    events.get('MessageCreated')!(incoming);
+    await new Promise((resolve) => setTimeout(resolve, 75));
+    expect(acknowledged()).toEqual(['46', '48']);
   });
 
   it('resubscribes after reconnect and clears displayed chat if access is revoked', async () => {

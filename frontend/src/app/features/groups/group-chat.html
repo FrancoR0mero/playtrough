@@ -78,6 +78,18 @@
               <time [attr.datetime]="message.createdAt" class="text-xs text-slate-400">{{
                 message.createdAt | date: 'HH:mm'
               }}</time>
+              @if (message.authorId === userId() && !message.removedAt) {
+                <span
+                  class="whitespace-nowrap text-sm text-indigo-300"
+                  [attr.title]="message.delivered ? 'Recibido por todos' : 'Enviado al servidor'"
+                  [attr.data-delivery]="message.delivered ? 'delivered' : 'sent'"
+                >
+                  <span aria-hidden="true">{{ message.delivered ? '✓✓' : '✓' }}</span>
+                  <span class="sr-only">{{
+                    message.delivered ? 'Recibido por todos' : 'Enviado al servidor'
+                  }}</span>
+                </span>
+              }
             </div>
             @if (message.removedAt) {
               <p class="mt-1 text-sm italic text-slate-400">Mensaje retirado</p>
@@ -100,13 +112,36 @@
           </div>
         </li>
       }
+      @if (pending(); as attempt) {
+        <li class="flex justify-end">
+          <div
+            class="max-w-[88%] min-w-0 rounded-lg border border-indigo-500 bg-slate-900 px-3 py-2"
+          >
+            <p class="wrap-anywhere whitespace-pre-wrap text-slate-100">{{ attempt.text }}</p>
+            <span
+              class="mt-1 inline-flex items-center text-slate-300"
+              data-delivery="pending"
+              [attr.title]="online() && state() === 'ready' ? 'Enviando' : 'Esperando conexión'"
+            >
+              <span
+                aria-hidden="true"
+                class="relative size-4 rounded-sm border border-current before:absolute before:top-0.5 before:left-1.5 before:h-1.5 before:w-px before:bg-current after:absolute after:top-2 after:left-1.5 after:h-px after:w-1 after:bg-current"
+              ></span>
+              <span class="sr-only">{{
+                online() && state() === 'ready' ? 'Enviando' : 'Esperando conexión'
+              }}</span>
+            </span>
+          </div>
+        </li>
+      }
     </ol>
   </div>
   @if (state() === 'offline') {
     <button
       type="button"
       (click)="connect()"
-      class="ui-button mt-3 min-h-11 border border-slate-600 px-4 text-white"
+      [disabled]="!online()"
+      class="ui-button mt-3 min-h-11 border border-slate-600 px-4 text-white disabled:opacity-50"
     >
       Reconectar
     </button>
@@ -121,7 +156,7 @@
         [formControl]="draft"
         rows="2"
         maxlength="4000"
-        [readOnly]="sending()"
+        [readOnly]="pending() !== null"
         aria-describedby="group-chat-count"
         [attr.aria-invalid]="count() > settings.maxLength"
         class="w-full resize-y rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white"
@@ -136,11 +171,9 @@
         <button
           type="submit"
           class="ui-button min-h-11 bg-accent px-5 text-white disabled:opacity-50"
-          [disabled]="
-            state() !== 'ready' || sending() || count() === 0 || count() > settings.maxLength
-          "
+          [disabled]="pending() !== null || count() === 0 || count() > settings.maxLength"
         >
-          {{ sending() ? 'Enviando…' : 'Enviar' }}
+          Enviar
         </button>
       </div>
     </form>
