@@ -109,7 +109,8 @@ public sealed class SocialNotificationTests
         await using var scope = context.Factory.Services.CreateAsyncScope();
         var worker = scope.ServiceProvider.GetRequiredService<OutboxProcessor>();
         using var created = await owner.PostAsJsonAsync("/api/groups",
-            new { name = "Grupo privado", description = "Descripción", topic = "Retro", privacy = "private" });
+            new { name = "Grupo privado", description = "Descripción", genreId = "rpg",
+                subgenreIds = new[] { "jrpg" }, privacy = "private" });
         created.EnsureSuccessStatusCode();
         var group = created.Headers.Location!.AbsolutePath;
         var link = group[4..];

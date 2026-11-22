@@ -124,7 +124,8 @@ public sealed class GroupReviewsEndpointsTests
     private static async Task<string> CreateGroup(HttpClient owner, string privacy = "public")
     {
         using var response = await owner.PostAsJsonAsync("/api/groups",
-            new { name = "Grupo de prueba", description = "Descripción", topic = "Retro", privacy });
+            new { name = "Grupo de prueba", description = "Descripción", genreId = "rpg",
+                subgenreIds = new[] { "jrpg" }, privacy });
         response.EnsureSuccessStatusCode();
         return response.Headers.Location!.AbsolutePath;
     }

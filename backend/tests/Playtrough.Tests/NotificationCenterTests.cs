@@ -75,7 +75,7 @@ public sealed class NotificationCenterTests
         await using var scope = context.Factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var now = DateTime.UtcNow;
-        var group = new SocialGroup { OwnerId = User(actor), Privacy = GroupPrivacy.Private, CreatedAt = now };
+        var group = new SocialGroup { OwnerId = User(actor), Privacy = GroupPrivacy.Private, CreatedAt = now, GenreId = "otros" };
         var member = new GroupMember { Group = group, UserId = User(recipient), JoinedAt = now };
         db.GroupMembers.Add(member);
         await db.SaveChangesAsync();

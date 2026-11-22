@@ -341,9 +341,6 @@ builder.Services.AddScoped<GroupService>();
 builder.Services.AddScoped<GroupClassificationService>();
 builder.Services.AddScoped<GroupAccess>();
 builder.Services.AddScoped<GroupMembershipService>();
-builder.Services.AddOptions<GroupSettings>().BindConfiguration(GroupSettings.SectionName)
-    .Validate(settings => settings.HasValidTopics(), "Groups:Topics debe contener temáticas válidas y únicas.")
-    .ValidateOnStart();
 builder.Services.AddScoped<IFeedService, FeedService>();
 builder.Services.AddOptions<TimelineSettings>().BindConfiguration(TimelineSettings.SectionName)
     .ValidateDataAnnotations().Validate(s => s.DefaultLimit <= s.MaxLimit,

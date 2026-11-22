@@ -282,7 +282,8 @@ public sealed class ChatLiveTests
     private static async Task<int> CreateGroup(HttpClient client)
     {
         using var response = await client.PostAsJsonAsync("/api/groups",
-            new { name = "Chat", description = "Prueba de chat", topic = "Retro", privacy = "public" });
+            new { name = "Chat", description = "Prueba de chat", genreId = "rpg",
+                subgenreIds = new[] { "jrpg" }, privacy = "public" });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<GroupDto>())!.Id;
     }

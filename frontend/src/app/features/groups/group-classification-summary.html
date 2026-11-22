@@ -1,7 +1,5 @@
 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-  @if (group().genre; as genre) {
-    <span class="font-medium text-indigo-300">{{ genre.name }}</span>
-  }
+  <span class="font-medium text-indigo-300">{{ group().genre.name }}</span>
   @if (subgenres().length) {
     <ul aria-label="Subgéneros" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-200">
       @for (subgenre of subgenres(); track subgenre.id) {

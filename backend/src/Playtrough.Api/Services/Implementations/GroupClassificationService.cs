@@ -49,13 +49,6 @@ public sealed class GroupClassificationService(AppDbContext db)
         return new(genreId, subgenres, tags);
     }
 
-    internal static GroupClassificationSelection FromLegacyTopic(string? topic)
-    {
-        var normalized = topic?.Trim().ToLowerInvariant();
-        var tags = normalized is "cooperativo" or "competitivo" or "indie" or "retro" ? new[] { normalized } : [];
-        return new(GroupClassificationCatalog.OtherGenre, [], tags);
-    }
-
     private static string[] Normalize(string[]? ids)
         => ids?.Select(id => id?.Trim().ToLowerInvariant() ?? "").ToArray() ?? [];
 

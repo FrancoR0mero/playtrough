@@ -8,23 +8,26 @@ namespace Playtrough.Api.Services.Implementations;
 
 public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvider clock, ChatConnections chat)
 {
-    internal async Task<GroupDto> CreateAsync(int ownerId, string name, string description, string topic,
+    internal async Task<GroupDto> CreateAsync(int ownerId, string name, string description,
         GroupPrivacy privacy, GroupClassificationSelection classification, CancellationToken ct)
     {
         var now = clock.GetUtcNow().UtcDateTime;
         var group = new SocialGroup
         {
-            OwnerId = ownerId, Name = name, Description = description, Topic = topic,
-            GenreId = classification.GenreId, Privacy = privacy, CreatedAt = now, ConcurrencyToken = Guid.NewGuid(),
+            OwnerId = ownerId, Name = name, Description = description,
+            GenreId = classification.GenreId!, Privacy = privacy, CreatedAt = now, ConcurrencyToken = Guid.NewGuid(),
         };
         group.Subgenres.AddRange(classification.SubgenreIds.Select(id => new GroupSubgenreAssignment { SubgenreId = id }));
         group.Tags.AddRange(classification.TagIds.Select(id => new GroupTagAssignment { TagId = id }));
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
         db.GroupMembers.Add(new GroupMember { Group = group, UserId = ownerId, JoinedAt = now });
         await db.SaveChangesAsync(ct);
-        return ToDto(await WithClassification(db.SocialGroups.AsNoTracking()).SingleAsync(item => item.Id == group.Id, ct));
+        var created = await WithClassification(db.SocialGroups.AsNoTracking()).SingleAsync(item => item.Id == group.Id, ct);
+        await transaction.CommitAsync(ct);
+        return ToDto(created);
     }
 
-    internal async Task<GroupPageDto> ListAsync(string? text, string? topic, GroupClassificationSelection classification,
+    internal async Task<GroupPageDto> ListAsync(string? text, GroupClassificationSelection classification,
         int? cursor, int limit, CancellationToken ct)
     {
         var groups = access.ActiveGroups();
@@ -35,7 +38,6 @@ public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvid
                 EF.Functions.Like(group.Name.ToUpper(), pattern, LikePattern.EscapeCharacter) ||
                 EF.Functions.Like(group.Description.ToUpper(), pattern, LikePattern.EscapeCharacter));
         }
-        if (topic is not null) groups = groups.Where(group => group.Topic == topic);
         if (classification.GenreId is { } genre) groups = groups.Where(group => group.GenreId == genre);
         foreach (var subgenre in classification.SubgenreIds)
             groups = groups.Where(group => group.Subgenres.Any(link => link.SubgenreId == subgenre));
@@ -63,10 +65,8 @@ public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvid
         var status = row.Group.OwnerId == viewer ? "owner" : row.Active ? "member" :
             row.Request == GroupJoinRequestStatus.Pending ? "pending" :
             row.Request == GroupJoinRequestStatus.Rejected ? "rejected" : row.Removed ? "removed" : "none";
-        var profile = new GroupProfileDto(group.Id, group.Name, group.Description, group.Topic, group.Privacy, status)
-        {
-            Genre = group.Genre, Subgenres = group.Subgenres, Tags = group.Tags,
-        };
+        var profile = new GroupProfileDto(group.Id, group.Name, group.Description, group.Privacy,
+            group.Genre, group.Subgenres, group.Tags, status);
         return (profile, status == "owner" ? row.Group.ConcurrencyToken : null);
     }
 
@@ -77,34 +77,25 @@ public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvid
         => db.GroupSubgenreAssignments.AnyAsync(link => link.GroupId == id, ct);
 
     internal async Task<bool> UpdateAsync(int id, int owner, Guid version, string name, string description,
-        string topic, GroupPrivacy privacy, GroupClassificationSelection? classification, CancellationToken ct)
+        GroupPrivacy privacy, GroupClassificationSelection classification, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var next = Guid.NewGuid();
-        var changed = await CurrentVersion(id, owner, version).ExecuteUpdateAsync(update =>
-        {
-            update
-                .SetProperty(group => group.Name, name)
-                .SetProperty(group => group.Description, description)
-                .SetProperty(group => group.Topic, topic)
-                .SetProperty(group => group.Privacy, privacy)
-                .SetProperty(group => group.ConcurrencyToken, next);
-            if (classification is not null)
-                update.SetProperty(group => group.GenreId, classification.GenreId);
-        }, ct);
+        var changed = await CurrentVersion(id, owner, version).ExecuteUpdateAsync(update => update
+            .SetProperty(group => group.Name, name)
+            .SetProperty(group => group.Description, description)
+            .SetProperty(group => group.GenreId, classification.GenreId!)
+            .SetProperty(group => group.Privacy, privacy)
+            .SetProperty(group => group.ConcurrencyToken, next), ct);
         if (changed != 1) return false;
 
-        if (classification is not null)
-        {
-            await db.GroupSubgenreAssignments.Where(link => link.GroupId == id).ExecuteDeleteAsync(ct);
-            await db.GroupTagAssignments.Where(link => link.GroupId == id).ExecuteDeleteAsync(ct);
-            db.GroupSubgenreAssignments.AddRange(classification.SubgenreIds.Select(subgenreId =>
-                new GroupSubgenreAssignment { GroupId = id, SubgenreId = subgenreId }));
-            db.GroupTagAssignments.AddRange(classification.TagIds.Select(tagId =>
-                new GroupTagAssignment { GroupId = id, TagId = tagId }));
-            await db.SaveChangesAsync(ct);
-        }
-
+        await db.GroupSubgenreAssignments.Where(link => link.GroupId == id).ExecuteDeleteAsync(ct);
+        await db.GroupTagAssignments.Where(link => link.GroupId == id).ExecuteDeleteAsync(ct);
+        db.GroupSubgenreAssignments.AddRange(classification.SubgenreIds.Select(subgenreId =>
+            new GroupSubgenreAssignment { GroupId = id, SubgenreId = subgenreId }));
+        db.GroupTagAssignments.AddRange(classification.TagIds.Select(tagId =>
+            new GroupTagAssignment { GroupId = id, TagId = tagId }));
+        await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return true;
     }
@@ -161,13 +152,11 @@ public sealed class GroupService(AppDbContext db, GroupAccess access, TimeProvid
             .AsSingleQuery();
 
     private static GroupDto ToDto(SocialGroup group)
-        => new(group.Id, group.Name, group.Description, group.Topic,
-            group.Privacy == GroupPrivacy.Private ? "private" : "public")
-        {
-            Genre = group.Genre is { } genre ? new(genre.Id, genre.Name) : null,
-            Subgenres = group.Subgenres.Select(link => link.Subgenre).OrderBy(item => item.Name, StringComparer.Ordinal)
+        => new(group.Id, group.Name, group.Description,
+            group.Privacy == GroupPrivacy.Private ? "private" : "public",
+            new(group.Genre.Id, group.Genre.Name),
+            group.Subgenres.Select(link => link.Subgenre).OrderBy(item => item.Name, StringComparer.Ordinal)
                 .Select(item => new GroupSubgenreDto(item.Id, item.Name, item.GenreId, item.Alias)).ToArray(),
-            Tags = group.Tags.Select(link => link.Tag).OrderBy(item => item.Name, StringComparer.Ordinal)
-                .Select(item => new GroupTagDto(item.Id, item.Name, item.Category)).ToArray(),
-        };
+            group.Tags.Select(link => link.Tag).OrderBy(item => item.Name, StringComparer.Ordinal)
+                .Select(item => new GroupTagDto(item.Id, item.Name, item.Category)).ToArray());
 }

@@ -52,15 +52,8 @@
         }
       </select>
     </label>
-    <button
-      type="submit"
-      [disabled]="form.invalid"
-      class="ui-button min-h-11 border border-slate-600 px-5 text-white disabled:opacity-50"
-    >
-      Buscar
-    </button>
     @if (catalog(); as classification) {
-      <details class="sm:col-span-full">
+      <details class="sm:col-span-full lg:row-start-2">
         <summary class="min-h-11 cursor-pointer py-3 text-sm font-medium text-indigo-300 underline">
           Filtrar por etiquetas
           @if (form.controls.tagIds.value.length; as selected) {
@@ -77,6 +70,13 @@
         />
       </details>
     }
+    <button
+      type="submit"
+      [disabled]="form.invalid"
+      class="ui-button min-h-11 border border-slate-600 px-5 text-white disabled:opacity-50 lg:col-start-4 lg:row-start-1"
+    >
+      Buscar
+    </button>
   </form>
 
   @if (catalogLoading()) {

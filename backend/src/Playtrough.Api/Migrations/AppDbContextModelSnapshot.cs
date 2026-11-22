@@ -2008,8 +2008,14 @@ namespace Playtrough.Api.Migrations
                         .HasAnnotation("MySQL:Charset", "utf8mb4");
 
                     b.Property<string>("GenreId")
+                        .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("varchar(40)");
+
+                    b.Property<string>("LegacyTopic")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2023,12 +2029,6 @@ namespace Playtrough.Api.Migrations
                     b.Property<int>("Privacy")
                         .HasColumnType("int");
 
-                    b.Property<string>("Topic")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasAnnotation("MySQL:Charset", "utf8mb4");
-
                     b.HasKey("Id");
 
                     b.HasIndex("GenreId");
@@ -2038,8 +2038,6 @@ namespace Playtrough.Api.Migrations
                     b.HasIndex("DeletedAt", "Id");
 
                     b.HasIndex("DeletedAt", "GenreId", "Id");
-
-                    b.HasIndex("DeletedAt", "Topic", "Id");
 
                     b.ToTable("SocialGroups");
                 });
@@ -2412,11 +2410,13 @@ namespace Playtrough.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Playtrough.Api.Models.GroupSubgenre", null)
+                    b.HasOne("Playtrough.Api.Models.GroupSubgenre", "Subgenre")
                         .WithMany()
                         .HasForeignKey("SubgenreId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Subgenre");
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.GroupTagAssignment", b =>
@@ -2427,11 +2427,13 @@ namespace Playtrough.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Playtrough.Api.Models.GroupTag", null)
+                    b.HasOne("Playtrough.Api.Models.GroupTag", "Tag")
                         .WithMany()
                         .HasForeignKey("TagId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Tag");
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>
@@ -2543,16 +2545,19 @@ namespace Playtrough.Api.Migrations
 
             modelBuilder.Entity("Playtrough.Api.Models.SocialGroup", b =>
                 {
-                    b.HasOne("Playtrough.Api.Models.GroupGenre", null)
+                    b.HasOne("Playtrough.Api.Models.GroupGenre", "Genre")
                         .WithMany()
                         .HasForeignKey("GenreId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Genre");
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.TimelineEntry", b =>

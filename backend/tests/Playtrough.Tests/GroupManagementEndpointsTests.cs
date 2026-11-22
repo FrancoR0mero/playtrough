@@ -33,7 +33,7 @@ public sealed class GroupManagementEndpointsTests
         await Expect(Write(stranger, HttpMethod.Delete, group, version), HttpStatusCode.NotFound);
         await Expect(Write(owner, HttpMethod.Put, group, null), HttpStatusCode.PreconditionRequired);
         await Expect(Write(owner, HttpMethod.Delete, group, "\"invalid\""), HttpStatusCode.BadRequest);
-        await Expect(Write(owner, HttpMethod.Put, group, version, new { name = " ", description = "", topic = "Inválido", privacy = "otra" }),
+        await Expect(Write(owner, HttpMethod.Put, group, version, new { name = " ", description = "", genreId = "invalido", privacy = "otra" }),
             HttpStatusCode.BadRequest);
         Assert.Equal(version, await Version(owner, group));
 
@@ -41,8 +41,9 @@ public sealed class GroupManagementEndpointsTests
         var next = await Version(owner, group);
         Assert.NotEqual(version, next);
         var profile = (await owner.GetFromJsonAsync<GroupProfileDto>(group))!;
-        Assert.Equal(("Nombre actualizado", "Nueva descripción", "Indie", "private"),
-            (profile.Name, profile.Description, profile.Topic, profile.Privacy));
+        Assert.Equal(("Nombre actualizado", "Nueva descripción", "rpg", "private"),
+            (profile.Name, profile.Description, profile.Genre.Id, profile.Privacy));
+        Assert.Equal("indie", Assert.Single(profile.Tags).Id);
         await Expect(Write(owner, HttpMethod.Put, group, version), HttpStatusCode.PreconditionFailed);
         await Expect(Write(owner, HttpMethod.Delete, group, version), HttpStatusCode.PreconditionFailed);
         Assert.Equal(next, await Version(owner, group));
@@ -66,7 +67,8 @@ public sealed class GroupManagementEndpointsTests
         Assert.Equal("pending", await Join(visitor, group));
 
         await Expect(Write(owner, HttpMethod.Put, group, await Version(owner, group),
-            new { name = "Grupo abierto", description = "Descripción", topic = "Indie", privacy = "public" }), HttpStatusCode.NoContent);
+            new { name = "Grupo abierto", description = "Descripción", genreId = "rpg",
+                subgenreIds = new[] { "jrpg" }, tagIds = new[] { "indie" }, privacy = "public" }), HttpStatusCode.NoContent);
         Assert.Equal("member", await Join(visitor, group));
         Assert.Empty((await owner.GetFromJsonAsync<GroupPeoplePageDto<GroupJoinRequestDto>>(group + "/join-requests"))!.Items);
 
@@ -117,7 +119,8 @@ public sealed class GroupManagementEndpointsTests
     private static async Task<string> Create(HttpClient owner)
     {
         using var response = await owner.PostAsJsonAsync("/api/groups",
-            new { name = "Grupo", description = "Descripción", topic = "Retro", privacy = "public" });
+            new { name = "Grupo", description = "Descripción", genreId = "rpg",
+                subgenreIds = new[] { "jrpg" }, tagIds = new[] { "retro" }, privacy = "public" });
         response.EnsureSuccessStatusCode();
         return response.Headers.Location!.AbsolutePath;
     }
@@ -141,7 +144,8 @@ public sealed class GroupManagementEndpointsTests
         using var request = new HttpRequestMessage(method, group);
         if (version is not null) request.Headers.TryAddWithoutValidation("If-Match", version);
         if (method == HttpMethod.Put) request.Content = JsonContent.Create(body ??
-            new { name = "Nombre actualizado", description = "Nueva descripción", topic = "Indie", privacy = "private" });
+            new { name = "Nombre actualizado", description = "Nueva descripción", genreId = "rpg",
+                subgenreIds = new[] { "jrpg" }, tagIds = new[] { "indie" }, privacy = "private" });
         return await client.SendAsync(request);
     }
 

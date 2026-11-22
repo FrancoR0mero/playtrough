@@ -7,8 +7,8 @@
 @memberId = 2
 @groupVersion = "REEMPLAZAR_ETAG"
 
-### Temáticas disponibles (configurables en Groups:Topics)
-GET {{baseUrl}}/api/groups/topics
+### Catálogo de géneros, subgéneros y etiquetas
+GET {{baseUrl}}/api/groups/classification
 Authorization: Bearer {{token}}
 
 ### Crear grupo y membresía del propietario (201)
@@ -19,16 +19,18 @@ Content-Type: application/json
 {
   "name": "Club Retro",
   "description": "Un grupo para compartir juegos de otras generaciones.",
-  "topic": "Retro",
+  "genreId": "rpg",
+  "subgenreIds": ["jrpg", "rpg-por-turnos"],
+  "tagIds": ["retro", "pc"],
   "privacy": "private"
 }
 
-### Buscar por nombre o descripción y temática
-GET {{baseUrl}}/api/groups?q=club&topic=Retro&limit=20
+### Buscar por texto y clasificación. Repetí tagIds para exigir todas las etiquetas.
+GET {{baseUrl}}/api/groups?q=club&genreId=rpg&subgenreIds=jrpg&tagIds=retro&tagIds=pc&limit=20
 Authorization: Bearer {{token}}
 
 ### Continuar con nextCursor y los mismos filtros
-GET {{baseUrl}}/api/groups?q=club&topic=Retro&limit=20&cursor={{cursor}}
+GET {{baseUrl}}/api/groups?q=club&genreId=rpg&subgenreIds=jrpg&tagIds=retro&tagIds=pc&limit=20&cursor={{cursor}}
 Authorization: Bearer {{token}}
 
 ### Ficha y estado de membresía propio (copiar el id de la respuesta de creación)
@@ -80,7 +82,7 @@ Authorization: Bearer {{token}}
 If-Match: {{groupVersion}}
 Content-Type: application/json
 
-{"name":"Club Retro","description":"Proponé juegos para el próximo encuentro.","topic":"Retro","privacy":"public"}
+{"name":"Club Retro","description":"Proponé juegos para el próximo encuentro.","genreId":"rpg","subgenreIds":["jrpg"],"tagIds":["retro","pc"],"privacy":"public"}
 
 ### Eliminar con la versión vigente (204). La ficha y el interior pasan a devolver 404
 DELETE {{baseUrl}}/api/groups/{{groupId}}

@@ -25,13 +25,14 @@ public sealed class GroupsEndpointsTests
 
         using var owner = await context.AuthenticatedClientAsync();
         using var visitor = await context.AuthenticatedClientAsync();
-        Assert.Contains("Retro", (await owner.GetFromJsonAsync<string[]>(Groups + "/topics"))!);
         using var response = await owner.PostAsJsonAsync(Groups,
-            new { name = "  Equipo 🎮  ", description = "  Juegos de antes  ", topic = "retro", privacy = "private", ownerId = int.MaxValue });
+            new { name = "  Equipo 🎮  ", description = "  Juegos de antes  ", genreId = "RPG",
+                subgenreIds = new[] { "jrpg" }, tagIds = new[] { "Retro" }, privacy = "private", ownerId = int.MaxValue });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var created = (await response.Content.ReadFromJsonAsync<GroupDto>())!;
-        Assert.Equal(("Equipo 🎮", "Juegos de antes", "Retro", "private"),
-            (created.Name, created.Description, created.Topic, created.Privacy));
+        Assert.Equal(("Equipo 🎮", "Juegos de antes", "rpg", "private"),
+            (created.Name, created.Description, created.Genre.Id, created.Privacy));
+        Assert.Equal("retro", Assert.Single(created.Tags).Id);
         Assert.Equal($"{Groups}/{created.Id}", response.Headers.Location!.AbsolutePath);
 
         using var scope = context.Factory.Services.CreateScope();
@@ -49,7 +50,7 @@ public sealed class GroupsEndpointsTests
         Assert.Equal(created.Genre, listed.Genre);
         Assert.Equal(created.Tags, listed.Tags);
         var detail = await visitor.GetFromJsonAsync<JsonElement>($"{Groups}/{created.Id}");
-        Assert.Equal(new[] { "description", "genre", "id", "membership", "name", "privacy", "subgenres", "tags", "topic" },
+        Assert.Equal(new[] { "description", "genre", "id", "membership", "name", "privacy", "subgenres", "tags" },
             detail.EnumerateObject().Select(field => field.Name).OrderBy(name => name).ToArray());
         Assert.Equal("none", detail.GetProperty("membership").GetString());
     }
@@ -60,12 +61,13 @@ public sealed class GroupsEndpointsTests
         using var context = new GamesApiTestContext();
         using var client = await context.AuthenticatedClientAsync();
         using var response = await client.PostAsJsonAsync(Groups,
-            new { name = " ", description = new string('x', 501), topic = "Otro", privacy = "friends" });
+            new { name = " ", description = new string('x', 501), genreId = "invalido",
+                subgenreIds = new[] { "jrpg" }, privacy = "friends" });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(new[] { "description", "name", "privacy", "topic" },
+        Assert.Equal(new[] { "description", "genreId", "name", "privacy", "subgenreIds" },
             problem.GetProperty("errors").EnumerateObject().Select(field => field.Name).OrderBy(name => name).ToArray());
-        foreach (var query in new[] { "limit=51", "cursor=0", "topic=Otro", "q=" + new string('x', 101) })
+        foreach (var query in new[] { "limit=51", "cursor=0", "genreId=invalido", "q=" + new string('x', 101) })
         {
             using var invalid = await client.GetAsync($"{Groups}?{query}");
             Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
@@ -74,7 +76,7 @@ public sealed class GroupsEndpointsTests
     }
 
     [Fact]
-    public async Task DiscoveryPagesEqualNamesAndFiltersLiteralTextTopicAndDeletedGroups()
+    public async Task DiscoveryPagesEqualNamesAndFiltersLiteralTextTagsAndDeletedGroups()
     {
         using var context = new GamesApiTestContext();
         using var client = await context.AuthenticatedClientAsync();
@@ -82,13 +84,13 @@ public sealed class GroupsEndpointsTests
         var newer = await Create(client, "100% Retro");
         var deleted = await Create(client, "100% Retro");
         await Create(client, "1000 Retro");
-        await Create(client, "100% Retro", "Indie");
+        await Create(client, "100% Retro", "indie");
         using var scope = context.Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.SocialGroups.Where(group => group.Id == deleted.Id)
             .ExecuteUpdateAsync(update => update.SetProperty(group => group.DeletedAt, DateTime.UtcNow));
 
-        var url = $"{Groups}?q=100%25%20retro&topic=Retro&limit=1";
+        var url = $"{Groups}?q=100%25%20retro&tagIds=retro&limit=1";
         var first = (await client.GetFromJsonAsync<GroupPageDto>(url))!;
         Assert.Equal(newer.Id, Assert.Single(first.Items).Id);
         Assert.Equal(newer.Id, first.NextCursor);
@@ -116,12 +118,13 @@ public sealed class GroupsEndpointsTests
         Assert.False(await db.GroupMembers.AnyAsync());
     }
 
-    private static object Draft(string name, string topic = "Retro")
-        => new { name, description = "Descripción del grupo", topic, privacy = "public" };
+    private static object Draft(string name, string tag = "retro")
+        => new { name, description = "Descripción del grupo", genreId = "rpg",
+            subgenreIds = new[] { "jrpg" }, tagIds = new[] { tag }, privacy = "public" };
 
-    private static async Task<GroupDto> Create(HttpClient client, string name, string topic = "Retro")
+    private static async Task<GroupDto> Create(HttpClient client, string name, string tag = "retro")
     {
-        using var response = await client.PostAsJsonAsync(Groups, Draft(name, topic));
+        using var response = await client.PostAsJsonAsync(Groups, Draft(name, tag));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<GroupDto>())!;
     }

@@ -46,8 +46,7 @@ export interface SaveGroup {
 
 export interface SocialGroup extends Pick<SaveGroup, 'name' | 'description' | 'privacy'> {
   id: number;
-  topic: string;
-  genre: GroupGenre | null;
+  genre: GroupGenre;
   subgenres: GroupSubgenre[];
   tags: GroupTag[];
 }

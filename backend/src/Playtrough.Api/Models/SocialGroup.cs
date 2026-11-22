@@ -6,15 +6,13 @@ public sealed class SocialGroup
 {
     public const int MaxNameLength = 80;
     public const int MaxDescriptionLength = 500;
-    public const int MaxTopicLength = 50;
 
     public int Id { get; set; }
     public int OwnerId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public string Topic { get; set; } = string.Empty;
-    public string? GenreId { get; set; }
-    public GroupGenre? Genre { get; set; }
+    public string GenreId { get; set; } = null!;
+    public GroupGenre Genre { get; set; } = null!;
     public List<GroupSubgenreAssignment> Subgenres { get; } = [];
     public List<GroupTagAssignment> Tags { get; } = [];
     public GroupPrivacy Privacy { get; set; }

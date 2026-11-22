@@ -1,14 +1,11 @@
 namespace Playtrough.Api.Dtos.Groups;
 
-public record GroupDto(int Id, string Name, string Description, string Topic, string Privacy)
-{
-    public GroupGenreDto? Genre { get; init; }
-    public IReadOnlyList<GroupSubgenreDto> Subgenres { get; init; } = [];
-    public IReadOnlyList<GroupTagDto> Tags { get; init; } = [];
-}
+public record GroupDto(int Id, string Name, string Description, string Privacy,
+    GroupGenreDto Genre, IReadOnlyList<GroupSubgenreDto> Subgenres, IReadOnlyList<GroupTagDto> Tags);
 public sealed record GroupPageDto(IReadOnlyList<GroupDto> Items, int? NextCursor);
-public sealed record GroupProfileDto(int Id, string Name, string Description, string Topic, string Privacy,
-    string Membership) : GroupDto(Id, Name, Description, Topic, Privacy);
+public sealed record GroupProfileDto(int Id, string Name, string Description, string Privacy,
+    GroupGenreDto Genre, IReadOnlyList<GroupSubgenreDto> Subgenres, IReadOnlyList<GroupTagDto> Tags, string Membership)
+    : GroupDto(Id, Name, Description, Privacy, Genre, Subgenres, Tags);
 public sealed record GroupMembershipDto(string Status);
 public sealed record GroupPeoplePageDto<T>(IReadOnlyList<T> Items, int? NextCursor);
 public sealed record GroupReviewPageDto(IReadOnlyList<GroupReviewDto> Items, int? NextCursor);
@@ -27,7 +24,6 @@ public sealed class SaveGroupRequest
 {
     public string? Name { get; init; }
     public string? Description { get; init; }
-    public string? Topic { get; init; }
     public string? GenreId { get; init; }
     public string[]? SubgenreIds { get; init; }
     public string[]? TagIds { get; init; }

@@ -12,7 +12,8 @@ internal sealed class SocialGroupConfiguration : IEntityTypeConfiguration<Social
             .HasAnnotation("MySQL:Charset", "utf8mb4");
         entity.Property(group => group.Description).HasMaxLength(SocialGroup.MaxDescriptionLength)
             .HasAnnotation("MySQL:Charset", "utf8mb4");
-        entity.Property(group => group.Topic).HasMaxLength(SocialGroup.MaxTopicLength)
+        // Historic custom topics have no automatic genre or tag mapping.
+        entity.Property<string?>("LegacyTopic").HasMaxLength(50)
             .HasAnnotation("MySQL:Charset", "utf8mb4");
         entity.Property(group => group.GenreId).HasMaxLength(GroupClassificationConfiguration.IdLength);
         entity.HasOne(group => group.Genre).WithMany().HasForeignKey(group => group.GenreId).OnDelete(DeleteBehavior.Restrict);
@@ -25,7 +26,6 @@ internal sealed class SocialGroupConfiguration : IEntityTypeConfiguration<Social
         entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(group => group.OwnerId)
             .OnDelete(DeleteBehavior.Restrict);
         entity.HasIndex(group => new { group.DeletedAt, group.Id });
-        entity.HasIndex(group => new { group.DeletedAt, group.Topic, group.Id });
     }
 }
 

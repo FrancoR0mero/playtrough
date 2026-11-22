@@ -31,7 +31,6 @@ const group = {
   id: 42,
   name: 'Club Retro',
   description: 'Juegos clásicos',
-  topic: 'Retro',
   genre: rpg,
   subgenres: [jrpg, soulslike],
   tags: [retro, pc],

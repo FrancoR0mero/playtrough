@@ -54,7 +54,7 @@ export class GroupFormComponent implements OnInit {
   protected readonly keepsExistingGenre = computed(() => {
     const group = this.group();
     return (
-      this.genreId() === 'otros' && group?.genre?.id === 'otros' && group.subgenres.length === 0
+      this.genreId() === 'otros' && group?.genre.id === 'otros' && group.subgenres.length === 0
     );
   });
   protected readonly catalogLoading = signal(false);
@@ -111,7 +111,7 @@ export class GroupFormComponent implements OnInit {
         this.form.reset({
           name: group.name,
           description: group.description,
-          genreId: group.genre?.id ?? '',
+          genreId: group.genre.id,
           subgenreIds: group.subgenres.map((item) => item.id),
           tagIds: group.tags.map((item) => item.id),
           privacy: group.privacy,

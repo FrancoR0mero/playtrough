@@ -146,8 +146,8 @@ public sealed class ChatOutboxTests
         await using var db = context.CreateDb(false);
         var author = context.UserIds[0];
         var now = context.Clock.UtcNow.UtcDateTime;
-        var firstGroup = new SocialGroup { OwnerId = author, CreatedAt = now };
-        var secondGroup = new SocialGroup { OwnerId = author, CreatedAt = now };
+        var firstGroup = new SocialGroup { OwnerId = author, CreatedAt = now, GenreId = "otros" };
+        var secondGroup = new SocialGroup { OwnerId = author, CreatedAt = now, GenreId = "otros" };
         db.SocialGroups.AddRange(firstGroup, secondGroup);
         await db.SaveChangesAsync();
         var clientId = Guid.NewGuid();

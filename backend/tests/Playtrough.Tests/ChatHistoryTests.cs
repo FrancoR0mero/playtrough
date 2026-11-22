@@ -124,7 +124,8 @@ public sealed class ChatHistoryTests
     private static async Task<int> CreateGroupAsync(HttpClient owner)
     {
         using var response = await owner.PostAsJsonAsync("/api/groups",
-            new { name = "Chat", description = "Historial del grupo", topic = "Retro", privacy = "public" });
+            new { name = "Chat", description = "Historial del grupo", genreId = "rpg",
+                subgenreIds = new[] { "jrpg" }, privacy = "public" });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<GroupDto>())!.Id;
     }

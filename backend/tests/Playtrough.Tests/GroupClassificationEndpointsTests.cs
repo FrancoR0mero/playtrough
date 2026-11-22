@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.Extensions.DependencyInjection;
@@ -132,32 +133,76 @@ public sealed class GroupClassificationEndpointsTests
     [Fact]
     public async Task BackfillReusesKnownTagsAndLeavesClassifiedGroupsUntouched()
     {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE SocialGroups (Id INTEGER PRIMARY KEY, Topic TEXT, GenreId TEXT);
+            CREATE TABLE GroupTagAssignments (GroupId INTEGER, TagId TEXT, PRIMARY KEY (GroupId, TagId));
+            INSERT INTO SocialGroups VALUES (1, ' RETRO ', NULL), (2, 'General', NULL),
+                (3, 'Personalizado', NULL), (4, 'Cooperativo', 'rpg');
+            INSERT INTO GroupTagAssignments VALUES (4, 'pc');
+            """;
+        await command.ExecuteNonQueryAsync();
+        for (var run = 0; run < 2; run++)
+        {
+            foreach (var sql in new BackfillGroupClassification().UpOperations.OfType<SqlOperation>())
+            {
+                command.CommandText = sql.Sql;
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+
+        command.CommandText = """
+            SELECT g.Id, g.GenreId, a.TagId
+            FROM SocialGroups g LEFT JOIN GroupTagAssignments a ON a.GroupId = g.Id ORDER BY g.Id
+            """;
+        await using var reader = await command.ExecuteReaderAsync();
+        var rows = new List<(int, string, string?)>();
+        while (await reader.ReadAsync())
+            rows.Add((reader.GetInt32(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
+        Assert.Equal(new (int, string, string?)[] { (1, "otros", "retro"), (2, "otros", null),
+            (3, "otros", null), (4, "rpg", "pc") }, rows);
+    }
+
+    [Fact]
+    public async Task LegacyGroupCanBeEditedAndRequiresSubgenresWhenReclassified()
+    {
         using var context = new GamesApiTestContext();
         using var owner = await context.AuthenticatedClientAsync();
         var existing = await Create(owner, ["jrpg"], ["pc"]);
         using var scope = context.Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var ownerId = await db.SocialGroups.Where(group => group.Id == existing.Id).Select(group => group.OwnerId).SingleAsync();
-        foreach (var topic in new[] { " RETRO ", "General", "Personalizado" })
-            db.SocialGroups.Add(new() { Name = topic, Topic = topic, Description = "Histórico", OwnerId = ownerId });
+        var legacy = new Playtrough.Api.Models.SocialGroup
+        {
+            Name = "Histórico", Description = "Descripción", GenreId = "otros", OwnerId = ownerId,
+            ConcurrencyToken = Guid.NewGuid(),
+        };
+        db.SocialGroups.Add(legacy);
         await db.SaveChangesAsync();
 
-        foreach (var sql in new BackfillGroupClassification().UpOperations.OfType<SqlOperation>())
-            await db.Database.ExecuteSqlRawAsync(sql.Sql);
+        var url = $"{Groups}/{legacy.Id}";
+        using var detail = await owner.GetAsync(url);
+        var profile = (await detail.Content.ReadFromJsonAsync<GroupProfileDto>())!;
+        Assert.Equal("otros", profile.Genre.Id);
+        Assert.Empty(profile.Subgenres);
+        using var wrong = await Update("rpg");
+        Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+        using var saved = await Update("otros");
+        Assert.Equal(HttpStatusCode.NoContent, saved.StatusCode);
+        Assert.Equal("Nuevo nombre", (await owner.GetFromJsonAsync<GroupProfileDto>(url))!.Name);
 
-        var groups = (await owner.GetFromJsonAsync<GroupPageDto>(Groups))!.Items;
-        var retro = Assert.Single(groups, group => group.Name == " RETRO ");
-        Assert.Equal("otros", retro.Genre!.Id);
-        Assert.Equal("retro", Assert.Single(retro.Tags).Id);
-        Assert.Empty(retro.Subgenres);
-        Assert.All(groups.Where(group => group.Name is "General" or "Personalizado"), group =>
+        async Task<HttpResponseMessage> Update(string genreId)
         {
-            Assert.Equal("otros", group.Genre!.Id);
-            Assert.Empty(group.Tags);
-        });
-        var classified = Assert.Single(groups, group => group.Id == existing.Id);
-        Assert.Equal("rpg", classified.Genre!.Id);
-        Assert.Equal("pc", Assert.Single(classified.Tags).Id);
+            using var request = new HttpRequestMessage(HttpMethod.Put, url)
+            {
+                Content = JsonContent.Create(new { name = "Nuevo nombre", description = "Descripción",
+                    privacy = "public", genreId, subgenreIds = Array.Empty<string>() }),
+            };
+            request.Headers.IfMatch.Add(detail.Headers.ETag!);
+            return await owner.SendAsync(request);
+        }
     }
 
     private static async Task<GroupDto> Create(HttpClient client, string[] subgenreIds, string[] tagIds)
