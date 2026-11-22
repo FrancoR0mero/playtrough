@@ -8,10 +8,12 @@ public sealed class GroupSubgenreAssignment
 {
     public int GroupId { get; set; }
     public string SubgenreId { get; set; } = null!;
+    public GroupSubgenre Subgenre { get; set; } = null!;
 }
 
 public sealed class GroupTagAssignment
 {
     public int GroupId { get; set; }
     public string TagId { get; set; } = null!;
+    public GroupTag Tag { get; set; } = null!;
 }

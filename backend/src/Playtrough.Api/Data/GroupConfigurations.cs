@@ -15,7 +15,7 @@ internal sealed class SocialGroupConfiguration : IEntityTypeConfiguration<Social
         entity.Property(group => group.Topic).HasMaxLength(SocialGroup.MaxTopicLength)
             .HasAnnotation("MySQL:Charset", "utf8mb4");
         entity.Property(group => group.GenreId).HasMaxLength(GroupClassificationConfiguration.IdLength);
-        entity.HasOne<GroupGenre>().WithMany().HasForeignKey(group => group.GenreId).OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne(group => group.Genre).WithMany().HasForeignKey(group => group.GenreId).OnDelete(DeleteBehavior.Restrict);
         entity.HasMany(group => group.Subgenres).WithOne().HasForeignKey(link => link.GroupId);
         entity.HasMany(group => group.Tags).WithOne().HasForeignKey(link => link.GroupId);
         entity.HasIndex(group => new { group.DeletedAt, group.GenreId, group.Id });

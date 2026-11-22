@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Playtrough.Api.Data;
 using Playtrough.Api.Dtos.Groups;
 using Playtrough.Api.Models;
 using Playtrough.Api.Services;
@@ -13,17 +14,24 @@ namespace Playtrough.Api.Controllers;
 [ApiController, Authorize, Route("api/groups"), Tags("Groups")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-public sealed class GroupsController(GroupService groups, IOptions<GroupSettings> settings) : ControllerBase
+public sealed class GroupsController(GroupService groups, GroupClassificationService classification,
+    IOptions<GroupSettings> settings) : ControllerBase
 {
+    /// <summary>Consultar los géneros, subgéneros y etiquetas disponibles para grupos.</summary>
+    [HttpGet("classification")]
+    public Task<GroupClassificationDto> Classification(CancellationToken ct) => classification.GetAsync(ct);
+
     /// <summary>Consultar las temáticas disponibles para grupos.</summary>
     [HttpGet("topics")]
     public ActionResult<string[]> Topics() => settings.Value.Topics;
 
     /// <summary>Descubrir grupos públicos y privados mediante su ficha básica.</summary>
-    /// <remarks>Filtra por texto y temática. Usá nextCursor con los mismos filtros para continuar el listado.</remarks>
+    /// <remarks>Los filtros de texto y clasificación se combinan. Repetí subgenreIds o tagIds para exigir todas las selecciones.
+    /// Usá nextCursor con los mismos filtros para continuar el listado.</remarks>
     [HttpGet]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<GroupPageDto>> List([FromQuery] string? q, [FromQuery] string? topic,
+        [FromQuery] string? genreId, [FromQuery] string[]? subgenreIds, [FromQuery] string[]? tagIds,
         [FromQuery] int? cursor, [FromQuery] int limit = 20, CancellationToken ct = default)
     {
         var text = PlainText.Sanitize(q);
@@ -31,7 +39,9 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
         if (text is { Length: > 100 }) ModelState.AddModelError("q", "La búsqueda admite hasta 100 caracteres.");
         if (topic is not null && selectedTopic is null) ModelState.AddModelError("topic", "Elegí una temática válida.");
         if (!HasValidPage(cursor, limit)) return ValidationProblem(ModelState);
-        return await groups.ListAsync(text, selectedTopic, cursor, limit, ct);
+        var filters = await classification.ValidateAsync(genreId, subgenreIds, tagIds, ModelState, forWrite: false, ct);
+        if (!ModelState.IsValid) return ValidationProblem(ModelState);
+        return await groups.ListAsync(text, selectedTopic, filters, cursor, limit, ct);
     }
 
     /// <summary>Consultar la ficha de un grupo y la membresía propia.</summary>
@@ -68,9 +78,10 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
     public async Task<ActionResult<GroupDto>> Create(SaveGroupRequest request, CancellationToken ct)
     {
         if (UserId() is not { } ownerId) return Challenge();
-        if (ValidateDraft(request) is not { } draft) return ValidationProblem(ModelState);
+        if (await ValidateDraft(request, null, ct) is not { } draft) return ValidationProblem(ModelState);
 
-        var group = await groups.CreateAsync(ownerId, draft.Name, draft.Description, draft.Topic, draft.Privacy, ct);
+        var group = await groups.CreateAsync(ownerId, draft.Name, draft.Description, draft.Topic, draft.Privacy,
+            draft.Classification!, ct);
         return CreatedAtAction(nameof(Get), new { group.Id }, group);
     }
 
@@ -88,8 +99,9 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
         var current = await groups.FindOwnedAsync(id, owner, ct);
         if (current is null) return NotFound();
         if (ReadVersion(out var version) is { } error) return error;
-        if (ValidateDraft(request, current.Topic) is not { } draft) return ValidationProblem(ModelState);
-        if (await groups.UpdateAsync(id, owner, version, draft.Name, draft.Description, draft.Topic, draft.Privacy, ct))
+        if (await ValidateDraft(request, current, ct) is not { } draft) return ValidationProblem(ModelState);
+        if (await groups.UpdateAsync(id, owner, version, draft.Name, draft.Description, draft.Topic, draft.Privacy,
+                draft.Classification, ct))
             return NoContent();
         return await WriteConflict(id, owner, ct);
     }
@@ -111,14 +123,33 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
         return await WriteConflict(id, owner, ct);
     }
 
-    private (string Name, string Description, string Topic, GroupPrivacy Privacy)? ValidateDraft(
-        SaveGroupRequest request, string? currentTopic = null)
+    private async Task<(string Name, string Description, string Topic, GroupPrivacy Privacy,
+        GroupClassificationSelection? Classification)?> ValidateDraft(
+        SaveGroupRequest request, SocialGroup? current, CancellationToken ct)
     {
         var name = PlainText.Sanitize(request.Name);
         var description = PlainText.Sanitize(request.Description);
-        var topic = FindTopic(request.Topic);
-        if (topic is null && string.Equals(currentTopic, request.Topic?.Trim(), StringComparison.OrdinalIgnoreCase))
-            topic = currentTopic;
+        string? topic;
+        GroupClassificationSelection? selection;
+        if (request.Topic is not null && request.GenreId is null && request.SubgenreIds is null && request.TagIds is null)
+        {
+            topic = FindTopic(request.Topic);
+            if (topic is null && string.Equals(current?.Topic, request.Topic.Trim(), StringComparison.OrdinalIgnoreCase))
+                topic = current?.Topic;
+            if (topic is null) ModelState.AddModelError("topic", "Elegí una temática válida.");
+            selection = current?.GenreId is not null && current.Topic == topic ? null
+                : GroupClassificationService.FromLegacyTopic(topic);
+        }
+        else
+        {
+            topic = current?.Topic ?? settings.Value.Topics[0];
+            var allowExistingUnclassified = request.SubgenreIds is { Length: 0 }
+                && current?.GenreId == GroupClassificationCatalog.OtherGenre
+                && string.Equals(request.GenreId?.Trim(), current.GenreId, StringComparison.OrdinalIgnoreCase)
+                && !await groups.HasSubgenresAsync(current.Id, ct);
+            selection = await classification.ValidateAsync(request.GenreId, request.SubgenreIds, request.TagIds,
+                ModelState, forWrite: true, ct, allowExistingUnclassified);
+        }
         var privacy = request.Privacy switch
         {
             "public" => GroupPrivacy.Public,
@@ -129,9 +160,8 @@ public sealed class GroupsController(GroupService groups, IOptions<GroupSettings
             ModelState.AddModelError("name", "Ingresá un nombre de hasta 80 caracteres.");
         if (description is not { Length: <= SocialGroup.MaxDescriptionLength })
             ModelState.AddModelError("description", "Ingresá una descripción de hasta 500 caracteres.");
-        if (topic is null) ModelState.AddModelError("topic", "Elegí una temática válida.");
         if (privacy is null) ModelState.AddModelError("privacy", "Elegí público o privado.");
-        return ModelState.IsValid ? (name!, description!, topic!, privacy!.Value) : null;
+        return ModelState.IsValid ? (name!, description!, topic!, privacy!.Value, selection) : null;
     }
 
     private ObjectResult? ReadVersion(out Guid version)

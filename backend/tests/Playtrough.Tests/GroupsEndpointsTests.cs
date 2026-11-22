@@ -44,9 +44,12 @@ public sealed class GroupsEndpointsTests
         Assert.NotEqual(Guid.Empty, stored.ConcurrencyToken);
 
         var page = (await visitor.GetFromJsonAsync<GroupPageDto>(Groups))!;
-        Assert.Equal(created, Assert.Single(page.Items));
+        var listed = Assert.Single(page.Items);
+        Assert.Equal(created.Id, listed.Id);
+        Assert.Equal(created.Genre, listed.Genre);
+        Assert.Equal(created.Tags, listed.Tags);
         var detail = await visitor.GetFromJsonAsync<JsonElement>($"{Groups}/{created.Id}");
-        Assert.Equal(new[] { "description", "id", "membership", "name", "privacy", "topic" },
+        Assert.Equal(new[] { "description", "genre", "id", "membership", "name", "privacy", "subgenres", "tags", "topic" },
             detail.EnumerateObject().Select(field => field.Name).OrderBy(name => name).ToArray());
         Assert.Equal("none", detail.GetProperty("membership").GetString());
     }

@@ -38,14 +38,14 @@ internal static class GroupClassificationConfiguration
         {
             entity.HasKey(link => new { link.GroupId, link.SubgenreId });
             entity.Property(link => link.SubgenreId).HasMaxLength(IdLength);
-            entity.HasOne<GroupSubgenre>().WithMany().HasForeignKey(link => link.SubgenreId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(link => link.Subgenre).WithMany().HasForeignKey(link => link.SubgenreId).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(link => new { link.SubgenreId, link.GroupId });
         });
         model.Entity<GroupTagAssignment>(entity =>
         {
             entity.HasKey(link => new { link.GroupId, link.TagId });
             entity.Property(link => link.TagId).HasMaxLength(IdLength);
-            entity.HasOne<GroupTag>().WithMany().HasForeignKey(link => link.TagId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(link => link.Tag).WithMany().HasForeignKey(link => link.TagId).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(link => new { link.TagId, link.GroupId });
         });
     }

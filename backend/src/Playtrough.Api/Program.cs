@@ -338,6 +338,7 @@ builder.Services.AddScoped<ReactionService>();
 builder.Services.AddScoped<TimelineCommentService>();
 builder.Services.AddScoped<ITimelineService, TimelineService>();
 builder.Services.AddScoped<GroupService>();
+builder.Services.AddScoped<GroupClassificationService>();
 builder.Services.AddScoped<GroupAccess>();
 builder.Services.AddScoped<GroupMembershipService>();
 builder.Services.AddOptions<GroupSettings>().BindConfiguration(GroupSettings.SectionName)
