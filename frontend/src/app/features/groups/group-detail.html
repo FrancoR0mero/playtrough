@@ -6,8 +6,10 @@
   >
   @if (group(); as item) {
     <h1 class="page-heading mt-3 wrap-anywhere text-white">{{ item.name }}</h1>
-    <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-y border-white/10 py-3 text-sm">
-      <span class="font-medium text-indigo-300">{{ item.topic }}</span>
+    <div
+      class="mt-4 flex flex-wrap justify-between gap-x-6 gap-y-2 border-y border-white/10 py-3 text-sm"
+    >
+      <app-group-classification-summary [group]="item" />
       <span class="text-slate-300">{{ item.privacy === 'private' ? 'Privado' : 'Público' }}</span>
     </div>
     <p class="mt-5 max-w-prose wrap-anywhere whitespace-pre-line leading-relaxed text-slate-200">

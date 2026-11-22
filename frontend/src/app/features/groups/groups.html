@@ -11,7 +11,7 @@
   <form
     [formGroup]="form"
     (ngSubmit)="search()"
-    class="mt-7 grid items-end gap-3 border-y border-white/10 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.5fr)_auto]"
+    class="mt-7 grid items-end gap-3 border-y border-white/10 py-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]"
   >
     <label class="flex min-w-0 flex-col gap-2 text-sm font-medium text-slate-200">
       Buscar grupos
@@ -24,14 +24,31 @@
       />
     </label>
     <label class="flex min-w-0 flex-col gap-2 text-sm font-medium text-slate-200">
-      Temática
+      Género principal
       <select
-        formControlName="topic"
+        formControlName="genreId"
+        (change)="form.controls.subgenreId.reset()"
+        [attr.disabled]="catalog() ? null : ''"
         class="min-h-11 rounded-lg border border-slate-600 bg-slate-900 px-3 text-base text-white"
       >
-        <option value="">Todas</option>
-        @for (topic of topics(); track topic) {
-          <option [value]="topic">{{ topic }}</option>
+        <option value="">Todos los géneros</option>
+        @for (genre of catalog()?.genres; track genre.id) {
+          <option [value]="genre.id">{{ genre.name }}</option>
+        }
+      </select>
+    </label>
+    <label class="flex min-w-0 flex-col gap-2 text-sm font-medium text-slate-200">
+      Subgénero
+      <select
+        formControlName="subgenreId"
+        [attr.disabled]="genreId() ? null : ''"
+        class="min-h-11 rounded-lg border border-slate-600 bg-slate-900 px-3 text-base text-white disabled:text-slate-400"
+      >
+        <option value="">
+          {{ genreId() ? 'Todos los subgéneros' : 'Elegí un género primero' }}
+        </option>
+        @for (subgenre of subgenres(); track subgenre.id) {
+          <option [value]="subgenre.id">{{ subgenre.name }}</option>
         }
       </select>
     </label>
@@ -42,12 +59,32 @@
     >
       Buscar
     </button>
+    @if (catalog(); as classification) {
+      <details class="sm:col-span-full">
+        <summary class="min-h-11 cursor-pointer py-3 text-sm font-medium text-indigo-300 underline">
+          Filtrar por etiquetas
+          @if (form.controls.tagIds.value.length; as selected) {
+            <span class="text-slate-300">({{ selected }})</span>
+          }
+        </summary>
+        <p class="mb-3 text-sm text-slate-300">
+          Los resultados deben incluir todas las etiquetas elegidas.
+        </p>
+        <app-group-tag-picker
+          [tags]="classification.tags"
+          [selected]="form.controls.tagIds.value"
+          (selectedChange)="form.controls.tagIds.setValue($event)"
+        />
+      </details>
+    }
   </form>
 
-  @if (topicsError()) {
+  @if (catalogLoading()) {
+    <p role="status" class="mt-3 text-sm text-slate-300">Cargando filtros de clasificación…</p>
+  } @else if (catalogError()) {
     <p role="alert" class="mt-3 text-sm text-red-300">
-      No pudimos cargar las temáticas.
-      <button type="button" (click)="loadTopics()" class="min-h-11 underline">Reintentar</button>
+      No pudimos cargar los filtros de clasificación.
+      <button type="button" (click)="loadCatalog()" class="min-h-11 underline">Reintentar</button>
     </p>
   }
 
@@ -60,7 +97,7 @@
       <li>
         <a
           [routerLink]="['/groups', group.id]"
-          class="block rounded py-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:grid sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-start sm:gap-6"
+          class="block rounded py-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-6"
         >
           <div class="min-w-0">
             <h2 class="text-lg font-semibold wrap-anywhere text-white">{{ group.name }}</h2>
@@ -69,12 +106,10 @@
             >
               {{ group.description }}
             </p>
+            <app-group-classification-summary class="mt-3 block" [group]="group" [compact]="true" />
           </div>
-          <p
-            class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm wrap-anywhere text-slate-300 sm:mt-1 sm:justify-end"
-          >
-            <span class="font-medium text-indigo-300">{{ group.topic }}</span>
-            <span>{{ group.privacy === 'private' ? 'Privado' : 'Público' }}</span>
+          <p class="mt-2 text-sm text-slate-300 sm:mt-1">
+            {{ group.privacy === 'private' ? 'Privado' : 'Público' }}
           </p>
         </a>
       </li>

@@ -80,22 +80,36 @@ describe('Groups', () => {
     const harness = await RouterTestingHarness.create('/groups');
     const http = TestBed.inject(HttpTestingController);
     const root = harness.routeNativeElement!;
-    http.expectOne(url + '/topics').flush(['Retro']);
+    http.expectOne(url + '/classification').flush(catalog);
     http.expectOne(url).flush({ items: [], nextCursor: null });
     harness.detectChanges();
     expect(root.textContent).toContain('No encontramos grupos');
 
     changeField(root, 'q', ' club ', 'input');
-    changeField(root, 'topic', 'Retro', 'change');
-    submit(root);
-    http.expectOne(url + '?q=club&topic=Retro').flush({ items: [group], nextCursor: 42 });
+    changeField(root, 'genreId', 'rpg', 'change');
     harness.detectChanges();
-    expect(root.querySelector('a[href="/groups/42"]')?.textContent).toContain('Privado');
+    expect(root.querySelector('option[value="fps"]')).toBeNull();
+    changeField(root, 'subgenreId', 'jrpg', 'change');
+    root.querySelector('summary')!.click();
+    checkbox(root, 'retro').click();
+    checkbox(root, 'pc').click();
+    submit(root);
+    const filterUrl = url + '?q=club&genreId=rpg&subgenreIds=jrpg&tagIds=retro&tagIds=pc';
+    http.expectOne(filterUrl).flush({ items: [group], nextCursor: 42 });
+    harness.detectChanges();
+    const card = root.querySelector('a[href="/groups/42"]');
+    for (const value of ['Privado', 'RPG', 'JRPG', 'Soulslike', 'Retro', 'PC']) {
+      expect(card?.textContent).toContain(value);
+    }
+    // Changing the draft does not change any already-applied filters.
+    changeField(root, 'genreId', 'disparos', 'change');
+    harness.detectChanges();
+    expect(root.querySelector<HTMLSelectElement>('[formcontrolname="subgenreId"]')?.value).toBe('');
     const more = Array.from(root.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === 'Cargar más',
     )!;
     more.click();
-    http.expectOne(url + '?q=club&topic=Retro&cursor=42').flush({
+    http.expectOne(filterUrl + '&cursor=42').flush({
       items: [{ ...group, id: 41, name: 'Otro club' }],
       nextCursor: null,
     });
@@ -103,6 +117,10 @@ describe('Groups', () => {
     expect(
       Array.from(root.querySelectorAll('li a')).map((link) => link.getAttribute('href')),
     ).toEqual(['/groups/42', '/groups/41']);
+    submit(root);
+    http
+      .expectOne(url + '?q=club&genreId=disparos&tagIds=retro&tagIds=pc')
+      .flush({ items: [], nextCursor: null });
   });
 
   it('validates a group, sends the normalized draft and opens the created group', async () => {
@@ -186,6 +204,10 @@ describe('Groups', () => {
     const root = harness.routeNativeElement!;
     http.expectOne(url + '/42').flush({ ...group, membership: 'none' });
     harness.detectChanges();
+    const summary = root.querySelector('app-group-classification-summary')?.textContent;
+    for (const value of ['RPG', 'JRPG', 'Soulslike', 'Retro', 'PC']) {
+      expect(summary).toContain(value);
+    }
     http.expectNone(url + '/42/members');
     button(root, 'Solicitar acceso').click();
     http.expectOne({ method: 'PUT', url: url + '/42/membership' }).flush({ status: 'pending' });
@@ -394,7 +416,7 @@ describe('Groups', () => {
     removal.flush(null, { status: 204, statusText: 'No Content' });
     await finished;
     harness.detectChanges();
-    http.expectOne(url + '/topics').flush(['Retro']);
+    http.expectOne(url + '/classification').flush(catalog);
     http.expectOne(url).flush({ items: [], nextCursor: null });
     harness.detectChanges();
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Grupos');

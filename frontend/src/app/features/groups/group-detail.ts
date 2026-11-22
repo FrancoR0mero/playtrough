@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, map, of, startWith, Subject, switchMap } from 'rxjs';
 import { GroupConfirmation, GroupConfirmationComponent } from './group-confirmation';
 import { GroupChatComponent } from './group-chat';
+import { GroupClassificationSummaryComponent } from './group-classification-summary';
 import { GroupPeopleComponent } from './group-people';
 import { GroupReviewsComponent } from './group-reviews';
 import { GroupProfile, GroupsApi } from './groups-api';
@@ -18,6 +19,7 @@ import { GroupProfile, GroupsApi } from './groups-api';
     GroupPeopleComponent,
     GroupReviewsComponent,
     GroupChatComponent,
+    GroupClassificationSummaryComponent,
   ],
   templateUrl: './group-detail.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

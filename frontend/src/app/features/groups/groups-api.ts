@@ -28,6 +28,13 @@ export interface GroupClassificationCatalog {
   tags: GroupTag[];
 }
 
+export interface GroupFilters {
+  q: string;
+  genreId: string;
+  subgenreId: string;
+  tagIds: string[];
+}
+
 export interface SaveGroup {
   name: string;
   description: string;
@@ -105,18 +112,16 @@ export class GroupsApi {
   private readonly http = inject(HttpClient);
   private readonly url = `${environment.apiUrl}/groups`;
 
-  topics() {
-    return this.http.get<string[]>(`${this.url}/topics`);
-  }
-
   classification() {
     return this.http.get<GroupClassificationCatalog>(`${this.url}/classification`);
   }
 
-  list(q: string, topic: string, cursor: number | null) {
+  list({ q, genreId, subgenreId, tagIds }: GroupFilters, cursor: number | null) {
     let params = new HttpParams();
     if (q) params = params.set('q', q);
-    if (topic) params = params.set('topic', topic);
+    if (genreId) params = params.set('genreId', genreId);
+    if (subgenreId) params = params.append('subgenreIds', subgenreId);
+    for (const tagId of tagIds) params = params.append('tagIds', tagId);
     if (cursor !== null) params = params.set('cursor', cursor);
     return this.http.get<GroupPage<SocialGroup>>(this.url, { params });
   }
