@@ -8,16 +8,17 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, map, of, startWith, Subject, switchMap } from 'rxjs';
 import { normalizePlainText } from '../../shared/plain-text';
-import { GroupPrivacy, GroupProfile, GroupsApi } from './groups-api';
+import { GroupTagPickerComponent } from './group-tag-picker';
+import { GroupClassificationCatalog, GroupPrivacy, GroupProfile, GroupsApi } from './groups-api';
 
 @Component({
   selector: 'app-group-form',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, GroupTagPickerComponent],
   templateUrl: './group-form.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -38,16 +39,26 @@ export class GroupFormComponent implements OnInit {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(500)],
     }),
-    topic: new FormControl('', { nonNullable: true, validators: Validators.required }),
+    genreId: new FormControl('', { nonNullable: true, validators: Validators.required }),
+    subgenreIds: new FormControl<string[]>([], { nonNullable: true }),
+    tagIds: new FormControl<string[]>([], { nonNullable: true }),
     privacy: new FormControl<GroupPrivacy>('public', { nonNullable: true }),
   });
-  private readonly topics = signal<string[]>([]);
-  protected readonly availableTopics = computed(() => {
-    const topic = this.group()?.topic;
-    return topic && !this.topics().includes(topic) ? [...this.topics(), topic] : this.topics();
+  protected readonly genreId = toSignal(this.form.controls.genreId.valueChanges, {
+    initialValue: '',
   });
-  protected readonly topicsLoading = signal(false);
-  protected readonly topicsError = signal(false);
+  protected readonly catalog = signal<GroupClassificationCatalog | null>(null);
+  protected readonly availableSubgenres = computed(
+    () => this.catalog()?.subgenres.filter((item) => item.genreId === this.genreId()) ?? [],
+  );
+  protected readonly keepsExistingGenre = computed(() => {
+    const group = this.group();
+    return (
+      this.genreId() === 'otros' && group?.genre?.id === 'otros' && group.subgenres.length === 0
+    );
+  });
+  protected readonly catalogLoading = signal(false);
+  protected readonly catalogError = signal(false);
   protected readonly saving = signal(false);
   protected readonly error = signal('');
   protected readonly editId = signal<string | null>(null);
@@ -56,7 +67,7 @@ export class GroupFormComponent implements OnInit {
   protected readonly conflict = signal(false);
 
   ngOnInit(): void {
-    this.loadTopics();
+    this.loadCatalog();
     this.route.paramMap
       .pipe(
         switchMap((params) => {
@@ -100,7 +111,9 @@ export class GroupFormComponent implements OnInit {
         this.form.reset({
           name: group.name,
           description: group.description,
-          topic: group.topic,
+          genreId: group.genre?.id ?? '',
+          subgenreIds: group.subgenres.map((item) => item.id),
+          tagIds: group.tags.map((item) => item.id),
           privacy: group.privacy,
         });
         this.group.set(group);
@@ -111,22 +124,33 @@ export class GroupFormComponent implements OnInit {
     this.reload.next();
   }
 
-  protected loadTopics(): void {
-    this.topicsLoading.set(true);
-    this.topicsError.set(false);
+  protected loadCatalog(): void {
+    this.catalogLoading.set(true);
+    this.catalogError.set(false);
     this.api
-      .topics()
+      .classification()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (topics) => {
-          this.topics.set(topics);
-          this.topicsLoading.set(false);
+        next: (catalog) => {
+          this.catalog.set(catalog);
+          this.catalogLoading.set(false);
         },
         error: () => {
-          this.topicsError.set(true);
-          this.topicsLoading.set(false);
+          this.catalogError.set(true);
+          this.catalogLoading.set(false);
         },
       });
+  }
+
+  protected resetSubgenres(): void {
+    this.form.controls.subgenreIds.reset();
+  }
+
+  protected toggleSubgenre(id: string, checked: boolean): void {
+    const control = this.form.controls.subgenreIds;
+    control.setValue(
+      checked ? [...control.value, id] : control.value.filter((item) => item !== id),
+    );
   }
 
   protected save(): void {
@@ -134,23 +158,25 @@ export class GroupFormComponent implements OnInit {
     const editId = this.editId();
     if (
       this.saving() ||
-      this.topicsLoading() ||
-      this.topicsError() ||
+      this.catalogLoading() ||
+      this.catalogError() ||
       this.conflict() ||
       (editId !== null && !group?.version)
     )
       return;
     this.error.set('');
-    const { name, description, topic, privacy } = this.form.getRawValue();
+    const { name, description, genreId, subgenreIds, tagIds, privacy } = this.form.getRawValue();
     const draft = {
       name: normalizePlainText(name),
       description: normalizePlainText(description),
-      topic,
+      genreId,
+      subgenreIds,
+      tagIds,
       privacy,
     };
     this.form.patchValue({ name: draft.name, description: draft.description });
     this.form.markAllAsTouched();
-    if (this.form.invalid) return;
+    if (this.form.invalid || (!subgenreIds.length && !this.keepsExistingGenre())) return;
 
     this.saving.set(true);
     const request = group?.version

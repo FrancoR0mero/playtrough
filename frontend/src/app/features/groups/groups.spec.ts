@@ -14,11 +14,27 @@ import { GroupsComponent } from './groups';
 const url = `${environment.apiUrl}/groups`;
 const version = '"36aba57c-1189-4e9f-a3ff-c3835b5b5435"';
 const updatedVersion = '"36aba57c-1189-4e9f-a3ff-c3835b5b5436"';
+const rpg = { id: 'rpg', name: 'RPG' };
+const shooter = { id: 'disparos', name: 'Disparos' };
+const other = { id: 'otros', name: 'Otros' };
+const jrpg = { id: 'jrpg', genreId: 'rpg', name: 'JRPG', alias: null };
+const soulslike = { id: 'soulslike', genreId: 'rpg', name: 'Soulslike', alias: null };
+const fps = { id: 'fps', genreId: 'disparos', name: 'FPS', alias: null };
+const retro = { id: 'retro', category: 'estilo', name: 'Retro' };
+const pc = { id: 'pc', category: 'plataforma', name: 'PC' };
+const catalog = {
+  genres: [rpg, shooter, other],
+  subgenres: [jrpg, soulslike, fps],
+  tags: [retro, pc],
+};
 const group = {
   id: 42,
   name: 'Club Retro',
   description: 'Juegos clásicos',
   topic: 'Retro',
+  genre: rpg,
+  subgenres: [jrpg, soulslike],
+  tags: [retro, pc],
   privacy: 'private',
 };
 const ownerMember = {
@@ -93,7 +109,7 @@ describe('Groups', () => {
     const harness = await RouterTestingHarness.create('/groups/new');
     const http = TestBed.inject(HttpTestingController);
     const root = harness.routeNativeElement!;
-    http.expectOne(url + '/topics').flush(['Retro']);
+    http.expectOne(url + '/classification').flush(catalog);
     harness.detectChanges();
     submit(root);
     harness.detectChanges();
@@ -102,15 +118,28 @@ describe('Groups', () => {
 
     changeField(root, 'name', ' Club Retro ', 'input');
     changeField(root, 'description', ' Juegos clásicos ', 'input');
-    changeField(root, 'topic', 'Retro', 'change');
+    changeField(root, 'genreId', 'rpg', 'change');
+    harness.detectChanges();
+    expect(root.querySelector('input[value="fps"]')).toBeNull();
+    submit(root);
+    harness.detectChanges();
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain(
+      'Elegí al menos un subgénero',
+    );
+    checkbox(root, 'jrpg').click();
+    checkbox(root, 'soulslike').click();
+    checkbox(root, 'retro').click();
+    checkbox(root, 'pc').click();
     changeField(root, 'privacy', 'private', 'change');
     submit(root);
     const request = http.expectOne({ method: 'POST', url });
     expect(request.request.body).toEqual({
       name: 'Club Retro',
       description: 'Juegos clásicos',
-      topic: 'Retro',
       privacy: 'private',
+      genreId: 'rpg',
+      subgenreIds: ['jrpg', 'soulslike'],
+      tagIds: ['retro', 'pc'],
     });
     const finished = firstValueFrom(
       TestBed.inject(Router).events.pipe(filter((event) => event instanceof NavigationEnd)),
@@ -122,6 +151,33 @@ describe('Groups', () => {
     http.expectOne(url + '/42/members').flush({ items: [ownerMember], nextCursor: null });
     http.expectOne(url + '/42/join-requests').flush({ items: [], nextCursor: null });
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain('Club Retro');
+  });
+
+  it('clears subgenres when changing genre and keeps independent tags', async () => {
+    const harness = await RouterTestingHarness.create('/groups/new');
+    const http = TestBed.inject(HttpTestingController);
+    const root = harness.routeNativeElement!;
+    http.expectOne(url + '/classification').flush(catalog);
+    harness.detectChanges();
+    changeField(root, 'name', 'Club', 'input');
+    changeField(root, 'description', 'Descripción', 'input');
+    changeField(root, 'genreId', 'rpg', 'change');
+    harness.detectChanges();
+    checkbox(root, 'jrpg').click();
+    checkbox(root, 'retro').click();
+    changeField(root, 'genreId', 'disparos', 'change');
+    harness.detectChanges();
+    expect(root.querySelector('input[value="jrpg"]')).toBeNull();
+    expect(checkbox(root, 'retro').checked).toBe(true);
+    checkbox(root, 'fps').click();
+    submit(root);
+    const request = http.expectOne({ method: 'POST', url });
+    expect(request.request.body).toMatchObject({
+      genreId: 'disparos',
+      subgenreIds: ['fps'],
+      tagIds: ['retro'],
+    });
+    request.flush(null, { status: 400, statusText: 'Bad Request' });
   });
 
   it('lets a private visitor request and cancel access while keeping the member list hidden', async () => {
@@ -270,11 +326,13 @@ describe('Groups', () => {
     const root = harness.routeNativeElement!;
     const profile = { ...group, membership: 'owner' };
     http.expectOne(url + '/42').flush(profile, { headers: { ETag: version } });
-    http.expectOne(url + '/topics').flush(['Indie']);
+    http.expectOne(url + '/classification').flush(catalog);
     harness.detectChanges();
     const name = root.querySelector<HTMLInputElement>('#group-name')!;
     expect(name.value).toBe(group.name);
-    expect(root.querySelector<HTMLSelectElement>('#group-topic')?.value).toBe('Retro');
+    expect(root.querySelector<HTMLSelectElement>('#group-genre')?.value).toBe('rpg');
+    expect(checkbox(root, 'jrpg').checked).toBe(true);
+    expect(checkbox(root, 'retro').checked).toBe(true);
     changeField(root, 'name', ' Mi borrador ', 'input');
     submit(root);
     const stale = http.expectOne({ method: 'PUT', url: url + '/42' });
@@ -309,7 +367,7 @@ describe('Groups', () => {
     const harness = await RouterTestingHarness.create('/groups/42/edit');
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(url + '/42').flush({ ...group, membership: 'member' });
-    http.expectOne(url + '/topics').flush(['Retro']);
+    http.expectOne(url + '/classification').flush(catalog);
     harness.detectChanges();
     expect(harness.routeNativeElement?.querySelector('form')).toBeNull();
     expect(harness.routeNativeElement?.textContent).toContain('Solo el propietario puede editar');
@@ -365,6 +423,10 @@ function changeField(root: HTMLElement, name: string, value: string, event: stri
   const field = root.querySelector<HTMLInputElement>(`[formcontrolname="${name}"]`)!;
   field.value = value;
   field.dispatchEvent(new Event(event, { bubbles: true }));
+}
+
+function checkbox(root: HTMLElement, value: string): HTMLInputElement {
+  return root.querySelector<HTMLInputElement>(`input[type="checkbox"][value="${value}"]`)!;
 }
 
 function submit(root: HTMLElement): void {

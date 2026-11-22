@@ -63,25 +63,28 @@
         </div>
         <div class="grid gap-5 sm:grid-cols-2">
           <div>
-            <label for="group-topic" class="text-sm font-medium text-slate-200">Temática</label>
+            <label for="group-genre" class="text-sm font-medium text-slate-200"
+              >Género principal</label
+            >
             <select
-              id="group-topic"
-              formControlName="topic"
+              id="group-genre"
+              formControlName="genreId"
+              (change)="resetSubgenres()"
               required
-              [attr.aria-invalid]="form.controls.topic.touched && form.controls.topic.invalid"
-              aria-describedby="group-topic-error"
+              [attr.aria-invalid]="form.controls.genreId.touched && form.controls.genreId.invalid"
+              aria-describedby="group-genre-error"
               class="mt-2 block min-h-11 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-white"
             >
               <option value="" disabled>
-                {{ topicsLoading() ? 'Cargando temáticas…' : 'Elegí una temática' }}
+                {{ catalogLoading() ? 'Cargando géneros…' : 'Elegí un género' }}
               </option>
-              @for (topic of availableTopics(); track topic) {
-                <option [value]="topic">{{ topic }}</option>
+              @for (genre of catalog()?.genres; track genre.id) {
+                <option [value]="genre.id">{{ genre.name }}</option>
               }
             </select>
-            <p id="group-topic-error" class="mt-1 text-sm text-red-300">
-              @if (form.controls.topic.touched && form.controls.topic.invalid) {
-                Elegí una temática.
+            <p id="group-genre-error" class="mt-1 text-sm text-red-300">
+              @if (form.controls.genreId.touched && form.controls.genreId.invalid) {
+                Elegí un género principal.
               }
             </p>
           </div>
@@ -101,11 +104,68 @@
             }
           </label>
         </div>
+        @if (catalog(); as classification) {
+          <fieldset class="min-w-0" aria-describedby="group-subgenres-hint">
+            <legend class="text-sm font-medium text-slate-200">Subgéneros</legend>
+            @if (
+              genreId() &&
+              form.controls.subgenreIds.touched &&
+              !form.controls.subgenreIds.value.length &&
+              !keepsExistingGenre()
+            ) {
+              <p id="group-subgenres-hint" role="alert" class="mt-1 text-sm text-red-300">
+                Elegí al menos un subgénero.
+              </p>
+            } @else {
+              <p id="group-subgenres-hint" class="mt-1 text-sm text-slate-300">
+                @if (!genreId()) {
+                  Elegí el género principal para ver sus subgéneros.
+                } @else if (keepsExistingGenre()) {
+                  Podés completar la clasificación de este grupo eligiendo sus subgéneros.
+                } @else {
+                  Elegí al menos uno.
+                }
+              </p>
+            }
+            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              @for (subgenre of availableSubgenres(); track subgenre.id) {
+                <label
+                  class="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-white"
+                >
+                  <input
+                    #option
+                    type="checkbox"
+                    name="subgenreIds"
+                    [value]="subgenre.id"
+                    [checked]="form.controls.subgenreIds.value.includes(subgenre.id)"
+                    (change)="toggleSubgenre(subgenre.id, option.checked)"
+                    class="size-4 shrink-0 accent-accent"
+                  />
+                  {{ subgenre.name }}
+                  @if (subgenre.alias) {
+                    ({{ subgenre.alias }})
+                  }
+                </label>
+              }
+            </div>
+          </fieldset>
+          <fieldset class="min-w-0 border-t border-white/10">
+            <legend class="pr-3 text-sm font-medium text-slate-200">
+              Etiquetas <span class="font-normal text-slate-400">(opcional)</span>
+            </legend>
+            <app-group-tag-picker
+              class="mt-3 block"
+              [tags]="classification.tags"
+              [selected]="form.controls.tagIds.value"
+              (selectedChange)="form.controls.tagIds.setValue($event)"
+            />
+          </fieldset>
+        }
       </fieldset>
-      @if (topicsError()) {
+      @if (catalogError()) {
         <p role="alert" class="mt-4 text-sm text-red-300">
-          No pudimos cargar las temáticas.
-          <button type="button" (click)="loadTopics()" class="min-h-11 underline">
+          No pudimos cargar la clasificación.
+          <button type="button" (click)="loadCatalog()" class="min-h-11 underline">
             Reintentar
           </button>
         </p>
@@ -124,7 +184,7 @@
       }
       <button
         type="submit"
-        [disabled]="saving() || topicsLoading() || topicsError() || conflict()"
+        [disabled]="saving() || catalogLoading() || catalogError() || conflict()"
         class="ui-button mt-6 min-h-11 bg-accent px-5 text-white disabled:opacity-60"
       >
         @if (editId()) {

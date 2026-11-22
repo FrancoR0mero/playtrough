@@ -6,15 +6,43 @@ import type { ChatMessage } from './group-chat-connection';
 
 export type GroupPrivacy = 'public' | 'private';
 
+export interface GroupGenre {
+  id: string;
+  name: string;
+}
+
+export interface GroupSubgenre extends GroupGenre {
+  genreId: string;
+  alias: string | null;
+}
+
+export type GroupTagCategory = 'modalidad' | 'estilo' | 'plataforma';
+
+export interface GroupTag extends GroupGenre {
+  category: GroupTagCategory;
+}
+
+export interface GroupClassificationCatalog {
+  genres: GroupGenre[];
+  subgenres: GroupSubgenre[];
+  tags: GroupTag[];
+}
+
 export interface SaveGroup {
   name: string;
   description: string;
-  topic: string;
   privacy: GroupPrivacy;
+  genreId: string;
+  subgenreIds: string[];
+  tagIds: string[];
 }
 
-export interface SocialGroup extends SaveGroup {
+export interface SocialGroup extends Pick<SaveGroup, 'name' | 'description' | 'privacy'> {
   id: number;
+  topic: string;
+  genre: GroupGenre | null;
+  subgenres: GroupSubgenre[];
+  tags: GroupTag[];
 }
 
 export type MembershipStatus = 'owner' | 'member' | 'pending' | 'rejected' | 'removed' | 'none';
@@ -79,6 +107,10 @@ export class GroupsApi {
 
   topics() {
     return this.http.get<string[]>(`${this.url}/topics`);
+  }
+
+  classification() {
+    return this.http.get<GroupClassificationCatalog>(`${this.url}/classification`);
   }
 
   list(q: string, topic: string, cursor: number | null) {
