@@ -464,6 +464,137 @@ namespace Playtrough.Api.Migrations
                     b.ToTable("Games", (string)null);
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.GroupGenre", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("GroupGenres");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "accion",
+                            Name = "Acción"
+                        },
+                        new
+                        {
+                            Id = "aventura",
+                            Name = "Aventura"
+                        },
+                        new
+                        {
+                            Id = "rpg",
+                            Name = "RPG"
+                        },
+                        new
+                        {
+                            Id = "disparos",
+                            Name = "Disparos"
+                        },
+                        new
+                        {
+                            Id = "plataformas",
+                            Name = "Plataformas"
+                        },
+                        new
+                        {
+                            Id = "estrategia",
+                            Name = "Estrategia"
+                        },
+                        new
+                        {
+                            Id = "simulacion",
+                            Name = "Simulación"
+                        },
+                        new
+                        {
+                            Id = "gestion-construccion",
+                            Name = "Gestión y construcción"
+                        },
+                        new
+                        {
+                            Id = "puzles-logica",
+                            Name = "Puzles y lógica"
+                        },
+                        new
+                        {
+                            Id = "terror",
+                            Name = "Terror"
+                        },
+                        new
+                        {
+                            Id = "supervivencia",
+                            Name = "Supervivencia"
+                        },
+                        new
+                        {
+                            Id = "deportes",
+                            Name = "Deportes"
+                        },
+                        new
+                        {
+                            Id = "carreras-conduccion",
+                            Name = "Carreras y conducción"
+                        },
+                        new
+                        {
+                            Id = "lucha",
+                            Name = "Lucha"
+                        },
+                        new
+                        {
+                            Id = "ritmo-musica",
+                            Name = "Ritmo y música"
+                        },
+                        new
+                        {
+                            Id = "cartas-juegos-mesa",
+                            Name = "Cartas y juegos de mesa"
+                        },
+                        new
+                        {
+                            Id = "party-games",
+                            Name = "Party games"
+                        },
+                        new
+                        {
+                            Id = "roguelike-roguelite",
+                            Name = "Roguelike y roguelite"
+                        },
+                        new
+                        {
+                            Id = "sandbox-mundo-abierto",
+                            Name = "Sandbox y mundo abierto"
+                        },
+                        new
+                        {
+                            Id = "narrativa-interactiva",
+                            Name = "Visual novels y narrativa interactiva"
+                        },
+                        new
+                        {
+                            Id = "educacion-creatividad",
+                            Name = "Educación y creatividad"
+                        },
+                        new
+                        {
+                            Id = "otros",
+                            Name = "Otros"
+                        });
+                });
+
             modelBuilder.Entity("Playtrough.Api.Models.GroupJoinRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -585,6 +716,967 @@ namespace Playtrough.Api.Migrations
                     b.HasIndex("RecipientId");
 
                     b.ToTable("GroupMessageReceipts");
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.GroupSubgenre", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Alias")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("GenreId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GenreId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("GroupSubgenres");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "hack-and-slash",
+                            GenreId = "accion",
+                            Name = "Hack and slash"
+                        },
+                        new
+                        {
+                            Id = "beat-em-up",
+                            GenreId = "accion",
+                            Name = "Beat 'em up"
+                        },
+                        new
+                        {
+                            Id = "run-and-gun",
+                            GenreId = "accion",
+                            Name = "Run and gun"
+                        },
+                        new
+                        {
+                            Id = "character-action",
+                            GenreId = "accion",
+                            Name = "Character action"
+                        },
+                        new
+                        {
+                            Id = "musou",
+                            GenreId = "accion",
+                            Name = "Musou"
+                        },
+                        new
+                        {
+                            Id = "sigilo",
+                            GenreId = "accion",
+                            Name = "Sigilo"
+                        },
+                        new
+                        {
+                            Id = "parkour",
+                            GenreId = "accion",
+                            Name = "Parkour"
+                        },
+                        new
+                        {
+                            Id = "point-and-click",
+                            GenreId = "aventura",
+                            Name = "Point and click"
+                        },
+                        new
+                        {
+                            Id = "aventura-grafica",
+                            GenreId = "aventura",
+                            Name = "Aventura gráfica"
+                        },
+                        new
+                        {
+                            Id = "aventura-textual",
+                            GenreId = "aventura",
+                            Name = "Aventura textual"
+                        },
+                        new
+                        {
+                            Id = "aventura-exploracion",
+                            GenreId = "aventura",
+                            Name = "Aventura de exploración"
+                        },
+                        new
+                        {
+                            Id = "jrpg",
+                            GenreId = "rpg",
+                            Name = "JRPG"
+                        },
+                        new
+                        {
+                            Id = "wrpg",
+                            GenreId = "rpg",
+                            Name = "WRPG"
+                        },
+                        new
+                        {
+                            Id = "rpg-de-accion",
+                            Alias = "ARPG",
+                            GenreId = "rpg",
+                            Name = "RPG de acción"
+                        },
+                        new
+                        {
+                            Id = "crpg",
+                            GenreId = "rpg",
+                            Name = "CRPG"
+                        },
+                        new
+                        {
+                            Id = "tactical-rpg",
+                            GenreId = "rpg",
+                            Name = "Tactical RPG"
+                        },
+                        new
+                        {
+                            Id = "dungeon-crawler",
+                            GenreId = "rpg",
+                            Name = "Dungeon crawler"
+                        },
+                        new
+                        {
+                            Id = "soulslike",
+                            GenreId = "rpg",
+                            Name = "Soulslike"
+                        },
+                        new
+                        {
+                            Id = "mmorpg",
+                            GenreId = "rpg",
+                            Name = "MMORPG"
+                        },
+                        new
+                        {
+                            Id = "monster-collecting",
+                            GenreId = "rpg",
+                            Name = "Monster collecting"
+                        },
+                        new
+                        {
+                            Id = "rpg-por-turnos",
+                            GenreId = "rpg",
+                            Name = "RPG por turnos"
+                        },
+                        new
+                        {
+                            Id = "rpg-narrativo",
+                            GenreId = "rpg",
+                            Name = "RPG narrativo"
+                        },
+                        new
+                        {
+                            Id = "fps",
+                            GenreId = "disparos",
+                            Name = "FPS"
+                        },
+                        new
+                        {
+                            Id = "tps",
+                            GenreId = "disparos",
+                            Name = "TPS"
+                        },
+                        new
+                        {
+                            Id = "hero-shooter",
+                            GenreId = "disparos",
+                            Name = "Hero shooter"
+                        },
+                        new
+                        {
+                            Id = "tactical-shooter",
+                            GenreId = "disparos",
+                            Name = "Tactical shooter"
+                        },
+                        new
+                        {
+                            Id = "arena-shooter",
+                            GenreId = "disparos",
+                            Name = "Arena shooter"
+                        },
+                        new
+                        {
+                            Id = "looter-shooter",
+                            GenreId = "disparos",
+                            Name = "Looter shooter"
+                        },
+                        new
+                        {
+                            Id = "extraction-shooter",
+                            GenreId = "disparos",
+                            Name = "Extraction shooter"
+                        },
+                        new
+                        {
+                            Id = "bullet-hell",
+                            GenreId = "disparos",
+                            Name = "Bullet hell"
+                        },
+                        new
+                        {
+                            Id = "boomer-shooter",
+                            GenreId = "disparos",
+                            Name = "Boomer shooter"
+                        },
+                        new
+                        {
+                            Id = "metroidvania",
+                            GenreId = "plataformas",
+                            Name = "Metroidvania"
+                        },
+                        new
+                        {
+                            Id = "precision-platformer",
+                            GenreId = "plataformas",
+                            Name = "Precision platformer"
+                        },
+                        new
+                        {
+                            Id = "puzzle-platformer",
+                            GenreId = "plataformas",
+                            Name = "Puzzle platformer"
+                        },
+                        new
+                        {
+                            Id = "cinematic-platformer",
+                            GenreId = "plataformas",
+                            Name = "Cinematic platformer"
+                        },
+                        new
+                        {
+                            Id = "collectathon",
+                            GenreId = "plataformas",
+                            Name = "Collectathon"
+                        },
+                        new
+                        {
+                            Id = "endless-runner",
+                            GenreId = "plataformas",
+                            Name = "Endless runner"
+                        },
+                        new
+                        {
+                            Id = "rts",
+                            GenreId = "estrategia",
+                            Name = "RTS"
+                        },
+                        new
+                        {
+                            Id = "tbs",
+                            GenreId = "estrategia",
+                            Name = "TBS"
+                        },
+                        new
+                        {
+                            Id = "4x",
+                            GenreId = "estrategia",
+                            Name = "4X"
+                        },
+                        new
+                        {
+                            Id = "tower-defense",
+                            GenreId = "estrategia",
+                            Name = "Tower defense"
+                        },
+                        new
+                        {
+                            Id = "moba",
+                            GenreId = "estrategia",
+                            Name = "MOBA"
+                        },
+                        new
+                        {
+                            Id = "auto-battler",
+                            GenreId = "estrategia",
+                            Name = "Auto battler"
+                        },
+                        new
+                        {
+                            Id = "gran-estrategia",
+                            GenreId = "estrategia",
+                            Name = "Gran estrategia"
+                        },
+                        new
+                        {
+                            Id = "estrategia-tactica",
+                            GenreId = "estrategia",
+                            Name = "Estrategia táctica"
+                        },
+                        new
+                        {
+                            Id = "simulador-vida",
+                            GenreId = "simulacion",
+                            Name = "Simulador de vida"
+                        },
+                        new
+                        {
+                            Id = "simulador-vuelo",
+                            GenreId = "simulacion",
+                            Name = "Simulador de vuelo"
+                        },
+                        new
+                        {
+                            Id = "simulador-conduccion",
+                            GenreId = "simulacion",
+                            Name = "Simulador de conducción"
+                        },
+                        new
+                        {
+                            Id = "simulador-granja",
+                            GenreId = "simulacion",
+                            Name = "Simulador de granja"
+                        },
+                        new
+                        {
+                            Id = "simulador-negocios",
+                            GenreId = "simulacion",
+                            Name = "Simulador de negocios"
+                        },
+                        new
+                        {
+                            Id = "simulador-construccion",
+                            GenreId = "simulacion",
+                            Name = "Simulador de construcción"
+                        },
+                        new
+                        {
+                            Id = "city-builder",
+                            GenreId = "gestion-construccion",
+                            Name = "City builder"
+                        },
+                        new
+                        {
+                            Id = "gestion-colonias",
+                            GenreId = "gestion-construccion",
+                            Name = "Gestión de colonias"
+                        },
+                        new
+                        {
+                            Id = "gestion-recursos",
+                            GenreId = "gestion-construccion",
+                            Name = "Gestión de recursos"
+                        },
+                        new
+                        {
+                            Id = "automatizacion-fabricas",
+                            GenreId = "gestion-construccion",
+                            Name = "Automatización de fábricas"
+                        },
+                        new
+                        {
+                            Id = "match-3",
+                            GenreId = "puzles-logica",
+                            Name = "Match-3"
+                        },
+                        new
+                        {
+                            Id = "sokoban",
+                            GenreId = "puzles-logica",
+                            Name = "Sokoban"
+                        },
+                        new
+                        {
+                            Id = "puzles-fisica",
+                            GenreId = "puzles-logica",
+                            Name = "Puzles de física"
+                        },
+                        new
+                        {
+                            Id = "puzles-espaciales",
+                            GenreId = "puzles-logica",
+                            Name = "Puzles espaciales"
+                        },
+                        new
+                        {
+                            Id = "objetos-ocultos",
+                            GenreId = "puzles-logica",
+                            Name = "Objetos ocultos"
+                        },
+                        new
+                        {
+                            Id = "escape-room",
+                            GenreId = "puzles-logica",
+                            Name = "Escape room"
+                        },
+                        new
+                        {
+                            Id = "survival-horror",
+                            GenreId = "terror",
+                            Name = "Survival horror"
+                        },
+                        new
+                        {
+                            Id = "horror-psicologico",
+                            GenreId = "terror",
+                            Name = "Horror psicológico"
+                        },
+                        new
+                        {
+                            Id = "horror-accion",
+                            GenreId = "terror",
+                            Name = "Horror de acción"
+                        },
+                        new
+                        {
+                            Id = "horror-narrativo",
+                            GenreId = "terror",
+                            Name = "Horror narrativo"
+                        },
+                        new
+                        {
+                            Id = "horror-cooperativo",
+                            GenreId = "terror",
+                            Name = "Horror cooperativo"
+                        },
+                        new
+                        {
+                            Id = "survival-crafting",
+                            GenreId = "supervivencia",
+                            Name = "Survival crafting"
+                        },
+                        new
+                        {
+                            Id = "supervivencia-mundo-abierto",
+                            GenreId = "supervivencia",
+                            Name = "Supervivencia en mundo abierto"
+                        },
+                        new
+                        {
+                            Id = "supervivencia-zombi",
+                            GenreId = "supervivencia",
+                            Name = "Supervivencia zombi"
+                        },
+                        new
+                        {
+                            Id = "supervivencia-espacial",
+                            GenreId = "supervivencia",
+                            Name = "Supervivencia espacial"
+                        },
+                        new
+                        {
+                            Id = "supervivencia-cooperativa",
+                            GenreId = "supervivencia",
+                            Name = "Supervivencia cooperativa"
+                        },
+                        new
+                        {
+                            Id = "futbol",
+                            GenreId = "deportes",
+                            Name = "Fútbol"
+                        },
+                        new
+                        {
+                            Id = "baloncesto",
+                            GenreId = "deportes",
+                            Name = "Baloncesto"
+                        },
+                        new
+                        {
+                            Id = "tenis",
+                            GenreId = "deportes",
+                            Name = "Tenis"
+                        },
+                        new
+                        {
+                            Id = "golf",
+                            GenreId = "deportes",
+                            Name = "Golf"
+                        },
+                        new
+                        {
+                            Id = "deportes-extremos",
+                            GenreId = "deportes",
+                            Name = "Deportes extremos"
+                        },
+                        new
+                        {
+                            Id = "gestion-deportiva",
+                            GenreId = "deportes",
+                            Name = "Gestión deportiva"
+                        },
+                        new
+                        {
+                            Id = "arcade-racing",
+                            GenreId = "carreras-conduccion",
+                            Name = "Arcade racing"
+                        },
+                        new
+                        {
+                            Id = "sim-racing",
+                            GenreId = "carreras-conduccion",
+                            Name = "Sim racing"
+                        },
+                        new
+                        {
+                            Id = "kart-racing",
+                            GenreId = "carreras-conduccion",
+                            Name = "Kart racing"
+                        },
+                        new
+                        {
+                            Id = "rally",
+                            GenreId = "carreras-conduccion",
+                            Name = "Rally"
+                        },
+                        new
+                        {
+                            Id = "street-racing",
+                            GenreId = "carreras-conduccion",
+                            Name = "Street racing"
+                        },
+                        new
+                        {
+                            Id = "carreras-futuristas",
+                            GenreId = "carreras-conduccion",
+                            Name = "Carreras futuristas"
+                        },
+                        new
+                        {
+                            Id = "lucha-2d",
+                            GenreId = "lucha",
+                            Name = "Lucha 2D"
+                        },
+                        new
+                        {
+                            Id = "lucha-3d",
+                            GenreId = "lucha",
+                            Name = "Lucha 3D"
+                        },
+                        new
+                        {
+                            Id = "lucha-arena",
+                            GenreId = "lucha",
+                            Name = "Lucha de arena"
+                        },
+                        new
+                        {
+                            Id = "lucha-plataformas",
+                            GenreId = "lucha",
+                            Name = "Lucha de plataformas"
+                        },
+                        new
+                        {
+                            Id = "lucha-equipos",
+                            GenreId = "lucha",
+                            Name = "Lucha por equipos"
+                        },
+                        new
+                        {
+                            Id = "baile-ritmico",
+                            GenreId = "ritmo-musica",
+                            Name = "Baile rítmico"
+                        },
+                        new
+                        {
+                            Id = "karaoke",
+                            GenreId = "ritmo-musica",
+                            Name = "Karaoke"
+                        },
+                        new
+                        {
+                            Id = "instrumentos-virtuales",
+                            GenreId = "ritmo-musica",
+                            Name = "Instrumentos virtuales"
+                        },
+                        new
+                        {
+                            Id = "ritmo-por-notas",
+                            GenreId = "ritmo-musica",
+                            Name = "Ritmo por notas"
+                        },
+                        new
+                        {
+                            Id = "deckbuilding",
+                            GenreId = "cartas-juegos-mesa",
+                            Name = "Deckbuilding"
+                        },
+                        new
+                        {
+                            Id = "cartas-coleccionables",
+                            GenreId = "cartas-juegos-mesa",
+                            Name = "Cartas coleccionables"
+                        },
+                        new
+                        {
+                            Id = "juegos-mesa-digitales",
+                            GenreId = "cartas-juegos-mesa",
+                            Name = "Juegos de mesa digitales"
+                        },
+                        new
+                        {
+                            Id = "juegos-de-dados",
+                            GenreId = "cartas-juegos-mesa",
+                            Name = "Juegos de dados"
+                        },
+                        new
+                        {
+                            Id = "ajedrez",
+                            GenreId = "cartas-juegos-mesa",
+                            Name = "Ajedrez"
+                        },
+                        new
+                        {
+                            Id = "minijuegos",
+                            GenreId = "party-games",
+                            Name = "Minijuegos"
+                        },
+                        new
+                        {
+                            Id = "trivia",
+                            GenreId = "party-games",
+                            Name = "Trivia"
+                        },
+                        new
+                        {
+                            Id = "deduccion-social",
+                            GenreId = "party-games",
+                            Name = "Deducción social"
+                        },
+                        new
+                        {
+                            Id = "dibujo-adivinanzas",
+                            GenreId = "party-games",
+                            Name = "Dibujo y adivinanzas"
+                        },
+                        new
+                        {
+                            Id = "roguelike-tradicional",
+                            GenreId = "roguelike-roguelite",
+                            Name = "Roguelike tradicional"
+                        },
+                        new
+                        {
+                            Id = "roguelite-accion",
+                            GenreId = "roguelike-roguelite",
+                            Name = "Roguelite de acción"
+                        },
+                        new
+                        {
+                            Id = "roguelite-cartas",
+                            GenreId = "roguelike-roguelite",
+                            Name = "Roguelite de cartas"
+                        },
+                        new
+                        {
+                            Id = "roguelite-tactico",
+                            GenreId = "roguelike-roguelite",
+                            Name = "Roguelite táctico"
+                        },
+                        new
+                        {
+                            Id = "construccion-libre",
+                            GenreId = "sandbox-mundo-abierto",
+                            Name = "Construcción libre"
+                        },
+                        new
+                        {
+                            Id = "sandbox-fisico",
+                            GenreId = "sandbox-mundo-abierto",
+                            Name = "Sandbox físico"
+                        },
+                        new
+                        {
+                            Id = "mundo-abierto-procedural",
+                            GenreId = "sandbox-mundo-abierto",
+                            Name = "Mundo abierto procedural"
+                        },
+                        new
+                        {
+                            Id = "exploracion-mundo-abierto",
+                            GenreId = "sandbox-mundo-abierto",
+                            Name = "Exploración en mundo abierto"
+                        },
+                        new
+                        {
+                            Id = "novela-visual-cinetica",
+                            GenreId = "narrativa-interactiva",
+                            Name = "Novela visual cinética"
+                        },
+                        new
+                        {
+                            Id = "novela-visual-ramificada",
+                            GenreId = "narrativa-interactiva",
+                            Name = "Novela visual ramificada"
+                        },
+                        new
+                        {
+                            Id = "simulador-citas",
+                            GenreId = "narrativa-interactiva",
+                            Name = "Simulador de citas"
+                        },
+                        new
+                        {
+                            Id = "narrativa-elecciones",
+                            GenreId = "narrativa-interactiva",
+                            Name = "Narrativa de elecciones"
+                        },
+                        new
+                        {
+                            Id = "aprendizaje-idiomas",
+                            GenreId = "educacion-creatividad",
+                            Name = "Aprendizaje de idiomas"
+                        },
+                        new
+                        {
+                            Id = "juegos-matematicos",
+                            GenreId = "educacion-creatividad",
+                            Name = "Juegos matemáticos"
+                        },
+                        new
+                        {
+                            Id = "programacion-educativa",
+                            GenreId = "educacion-creatividad",
+                            Name = "Programación educativa"
+                        },
+                        new
+                        {
+                            Id = "creacion-artistica",
+                            GenreId = "educacion-creatividad",
+                            Name = "Creación artística"
+                        },
+                        new
+                        {
+                            Id = "creacion-niveles",
+                            GenreId = "educacion-creatividad",
+                            Name = "Creación de niveles"
+                        },
+                        new
+                        {
+                            Id = "experimentales",
+                            GenreId = "otros",
+                            Name = "Experimentales"
+                        },
+                        new
+                        {
+                            Id = "hibridos",
+                            GenreId = "otros",
+                            Name = "Híbridos"
+                        },
+                        new
+                        {
+                            Id = "sin-subgenero-especifico",
+                            GenreId = "otros",
+                            Name = "Sin subgénero específico"
+                        });
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.GroupSubgenreAssignment", b =>
+                {
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SubgenreId")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.HasKey("GroupId", "SubgenreId");
+
+                    b.HasIndex("SubgenreId", "GroupId");
+
+                    b.ToTable("GroupSubgenreAssignments");
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.GroupTag", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("GroupTags");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "cooperativo",
+                            Category = "modalidad",
+                            Name = "Cooperativo"
+                        },
+                        new
+                        {
+                            Id = "competitivo",
+                            Category = "modalidad",
+                            Name = "Competitivo"
+                        },
+                        new
+                        {
+                            Id = "un-jugador",
+                            Category = "modalidad",
+                            Name = "Un jugador"
+                        },
+                        new
+                        {
+                            Id = "multijugador",
+                            Category = "modalidad",
+                            Name = "Multijugador"
+                        },
+                        new
+                        {
+                            Id = "pvp",
+                            Category = "modalidad",
+                            Name = "PvP"
+                        },
+                        new
+                        {
+                            Id = "pve",
+                            Category = "modalidad",
+                            Name = "PvE"
+                        },
+                        new
+                        {
+                            Id = "pvpve",
+                            Category = "modalidad",
+                            Name = "PvPvE"
+                        },
+                        new
+                        {
+                            Id = "local",
+                            Category = "modalidad",
+                            Name = "Local"
+                        },
+                        new
+                        {
+                            Id = "online",
+                            Category = "modalidad",
+                            Name = "Online"
+                        },
+                        new
+                        {
+                            Id = "indie",
+                            Category = "estilo",
+                            Name = "Indie"
+                        },
+                        new
+                        {
+                            Id = "retro",
+                            Category = "estilo",
+                            Name = "Retro"
+                        },
+                        new
+                        {
+                            Id = "clasico",
+                            Category = "estilo",
+                            Name = "Clásico"
+                        },
+                        new
+                        {
+                            Id = "hardcore",
+                            Category = "estilo",
+                            Name = "Hardcore"
+                        },
+                        new
+                        {
+                            Id = "casual",
+                            Category = "estilo",
+                            Name = "Casual"
+                        },
+                        new
+                        {
+                            Id = "speedrunning",
+                            Category = "estilo",
+                            Name = "Speedrunning"
+                        },
+                        new
+                        {
+                            Id = "completionist",
+                            Category = "estilo",
+                            Name = "Completionist"
+                        },
+                        new
+                        {
+                            Id = "coleccionismo",
+                            Category = "estilo",
+                            Name = "Coleccionismo"
+                        },
+                        new
+                        {
+                            Id = "pc",
+                            Category = "plataforma",
+                            Name = "PC"
+                        },
+                        new
+                        {
+                            Id = "playstation",
+                            Category = "plataforma",
+                            Name = "PlayStation"
+                        },
+                        new
+                        {
+                            Id = "xbox",
+                            Category = "plataforma",
+                            Name = "Xbox"
+                        },
+                        new
+                        {
+                            Id = "nintendo",
+                            Category = "plataforma",
+                            Name = "Nintendo"
+                        },
+                        new
+                        {
+                            Id = "android",
+                            Category = "plataforma",
+                            Name = "Android"
+                        },
+                        new
+                        {
+                            Id = "ios",
+                            Category = "plataforma",
+                            Name = "iOS"
+                        },
+                        new
+                        {
+                            Id = "retro-gaming",
+                            Category = "plataforma",
+                            Name = "Retro gaming"
+                        });
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.GroupTagAssignment", b =>
+                {
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TagId")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.HasKey("GroupId", "TagId");
+
+                    b.HasIndex("TagId", "GroupId");
+
+                    b.ToTable("GroupTagAssignments");
                 });
 
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>
@@ -915,6 +2007,10 @@ namespace Playtrough.Api.Migrations
                         .HasColumnType("varchar(500)")
                         .HasAnnotation("MySQL:Charset", "utf8mb4");
 
+                    b.Property<string>("GenreId")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -935,9 +2031,13 @@ namespace Playtrough.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("GenreId");
+
                     b.HasIndex("OwnerId");
 
                     b.HasIndex("DeletedAt", "Id");
+
+                    b.HasIndex("DeletedAt", "GenreId", "Id");
 
                     b.HasIndex("DeletedAt", "Topic", "Id");
 
@@ -1295,6 +2395,45 @@ namespace Playtrough.Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Playtrough.Api.Models.GroupSubgenre", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.GroupGenre", null)
+                        .WithMany()
+                        .HasForeignKey("GenreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.GroupSubgenreAssignment", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.SocialGroup", null)
+                        .WithMany("Subgenres")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.GroupSubgenre", null)
+                        .WithMany()
+                        .HasForeignKey("SubgenreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.GroupTagAssignment", b =>
+                {
+                    b.HasOne("Playtrough.Api.Models.SocialGroup", null)
+                        .WithMany("Tags")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Playtrough.Api.Models.GroupTag", null)
+                        .WithMany()
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Playtrough.Api.Models.LibraryEntry", b =>
                 {
                     b.HasOne("Playtrough.Api.Models.Game", null)
@@ -1404,6 +2543,11 @@ namespace Playtrough.Api.Migrations
 
             modelBuilder.Entity("Playtrough.Api.Models.SocialGroup", b =>
                 {
+                    b.HasOne("Playtrough.Api.Models.GroupGenre", null)
+                        .WithMany()
+                        .HasForeignKey("GenreId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Playtrough.Api.Models.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("OwnerId")
@@ -1498,6 +2642,13 @@ namespace Playtrough.Api.Migrations
                         .HasForeignKey("BlockerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Playtrough.Api.Models.SocialGroup", b =>
+                {
+                    b.Navigation("Subgenres");
+
+                    b.Navigation("Tags");
                 });
 #pragma warning restore 612, 618
         }

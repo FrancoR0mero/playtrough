@@ -25,6 +25,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<TimelineEntryComment> TimelineEntryComments => Set<TimelineEntryComment>();
     public DbSet<TimelineEntryCommentReaction> TimelineEntryCommentReactions => Set<TimelineEntryCommentReaction>();
     public DbSet<SocialGroup> SocialGroups => Set<SocialGroup>();
+    public DbSet<GroupGenre> GroupGenres => Set<GroupGenre>();
+    public DbSet<GroupSubgenre> GroupSubgenres => Set<GroupSubgenre>();
+    public DbSet<GroupTag> GroupTags => Set<GroupTag>();
+    public DbSet<GroupSubgenreAssignment> GroupSubgenreAssignments => Set<GroupSubgenreAssignment>();
+    public DbSet<GroupTagAssignment> GroupTagAssignments => Set<GroupTagAssignment>();
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
     public DbSet<GroupJoinRequest> GroupJoinRequests => Set<GroupJoinRequest>();
     public DbSet<GroupMessage> GroupMessages => Set<GroupMessage>();
@@ -49,6 +54,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.ApplyConfiguration(new TimelineEntryCommentConfiguration());
         builder.ApplyConfiguration(new TimelineEntryCommentReactionConfiguration());
         builder.ApplyConfiguration(new SocialGroupConfiguration());
+        GroupClassificationConfiguration.Configure(builder);
         builder.ApplyConfiguration(new GroupMemberConfiguration());
         builder.ApplyConfiguration(new GroupJoinRequestConfiguration());
         builder.ApplyConfiguration(new GroupMessageConfiguration());

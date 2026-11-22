@@ -13,6 +13,9 @@ public sealed class SocialGroup
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Topic { get; set; } = string.Empty;
+    public string? GenreId { get; set; }
+    public List<GroupSubgenreAssignment> Subgenres { get; } = [];
+    public List<GroupTagAssignment> Tags { get; } = [];
     public GroupPrivacy Privacy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }
