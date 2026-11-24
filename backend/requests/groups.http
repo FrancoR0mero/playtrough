@@ -1,0 +1,90 @@
+@baseUrl = http://localhost:5000
+@token = REEMPLAZAR_ACCESS_TOKEN
+@applicantToken = REEMPLAZAR_ACCESS_TOKEN_SOLICITANTE
+@groupId = 1
+@cursor = 1
+@requestId = 1
+@memberId = 2
+@groupVersion = "REEMPLAZAR_ETAG"
+
+### Catálogo de géneros, subgéneros y etiquetas
+GET {{baseUrl}}/api/groups/classification
+Authorization: Bearer {{token}}
+
+### Crear grupo y membresía del propietario (201)
+POST {{baseUrl}}/api/groups
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Club Retro",
+  "description": "Un grupo para compartir juegos de otras generaciones.",
+  "genreId": "rpg",
+  "subgenreIds": ["jrpg", "rpg-por-turnos"],
+  "tagIds": ["retro", "pc"],
+  "privacy": "private"
+}
+
+### Buscar por texto y clasificación. Repetí tagIds para exigir todas las etiquetas.
+GET {{baseUrl}}/api/groups?q=club&genreId=rpg&subgenreIds=jrpg&tagIds=retro&tagIds=pc&limit=20
+Authorization: Bearer {{token}}
+
+### Continuar con nextCursor y los mismos filtros
+GET {{baseUrl}}/api/groups?q=club&genreId=rpg&subgenreIds=jrpg&tagIds=retro&tagIds=pc&limit=20&cursor={{cursor}}
+Authorization: Bearer {{token}}
+
+### Ficha y estado de membresía propio (copiar el id de la respuesta de creación)
+GET {{baseUrl}}/api/groups/{{groupId}}
+Authorization: Bearer {{token}}
+
+### Unirse a público o solicitar acceso a privado
+PUT {{baseUrl}}/api/groups/{{groupId}}/membership
+Authorization: Bearer {{applicantToken}}
+
+### Listar solicitudes pendientes como propietario (copiar el id de la solicitud)
+GET {{baseUrl}}/api/groups/{{groupId}}/join-requests?limit=20
+Authorization: Bearer {{token}}
+
+### Resolver la solicitud como propietario (approve o reject)
+POST {{baseUrl}}/api/groups/{{groupId}}/join-requests/{{requestId}}/decision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"decision":"approve"}
+
+### Consultar miembros como integrante del grupo
+GET {{baseUrl}}/api/groups/{{groupId}}/members?limit=20
+Authorization: Bearer {{applicantToken}}
+
+### Reseñas visibles de integrantes (nextCursor nulo indica fin)
+GET {{baseUrl}}/api/groups/{{groupId}}/reviews?limit=20
+Authorization: Bearer {{applicantToken}}
+
+### Continuar reseñas con nextCursor de la respuesta anterior
+GET {{baseUrl}}/api/groups/{{groupId}}/reviews?limit=20&cursor={{cursor}}
+Authorization: Bearer {{applicantToken}}
+
+### Expulsar como propietario (copiar el userId del miembro)
+DELETE {{baseUrl}}/api/groups/{{groupId}}/members/{{memberId}}
+Authorization: Bearer {{token}}
+
+### Salir o cancelar una solicitud pendiente
+DELETE {{baseUrl}}/api/groups/{{groupId}}/membership
+Authorization: Bearer {{applicantToken}}
+
+### Obtener el ETag de la ficha como propietario (copiarlo en groupVersion con comillas)
+GET {{baseUrl}}/api/groups/{{groupId}}
+Authorization: Bearer {{token}}
+
+### Editar el grupo. Volver a obtener el ETag después de guardar (204)
+PUT {{baseUrl}}/api/groups/{{groupId}}
+Authorization: Bearer {{token}}
+If-Match: {{groupVersion}}
+Content-Type: application/json
+
+{"name":"Club Retro","description":"Proponé juegos para el próximo encuentro.","genreId":"rpg","subgenreIds":["jrpg"],"tagIds":["retro","pc"],"privacy":"public"}
+
+### Eliminar con la versión vigente (204). La ficha y el interior pasan a devolver 404
+DELETE {{baseUrl}}/api/groups/{{groupId}}
+Authorization: Bearer {{token}}
+If-Match: {{groupVersion}}

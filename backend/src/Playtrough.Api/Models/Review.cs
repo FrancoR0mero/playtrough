@@ -10,4 +10,6 @@ public sealed class Review
     public DateTime CreatedAt { get; set; }
     public DateTime? EditedAt { get; set; }
     public Guid ConcurrencyToken { get; set; }
+    public int LikeCount { get; set; }
+    public int DislikeCount { get; set; }
 }

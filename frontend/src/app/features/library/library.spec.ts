@@ -19,11 +19,13 @@ describe('Personal library screen', () => {
   let http: HttpTestingController;
   let storage: TokenStorageService;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+  let ownerParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
   let navigate: ReturnType<typeof vi.spyOn>;
   const url = `${environment.apiUrl}/library`;
   beforeEach(() => {
     vi.useFakeTimers();
     params = new BehaviorSubject(convertToParamMap({}));
+    ownerParams = new BehaviorSubject(convertToParamMap({}));
     TestBed.configureTestingModule({
       imports: [LibraryComponent],
       providers: [
@@ -31,7 +33,10 @@ describe('Personal library screen', () => {
         provideHttpClient(withInterceptors([jwtInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: ActivatedRoute, useValue: { queryParamMap: params.asObservable() } },
+        {
+          provide: ActivatedRoute,
+          useValue: { paramMap: ownerParams, queryParamMap: params.asObservable() },
+        },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -681,5 +686,60 @@ describe('Personal library screen', () => {
     (document.querySelector('[data-action="close"]') as HTMLButtonElement).click();
     await fixture.whenStable();
     expect(document.activeElement).toBe(tab('playing'));
+  });
+  it('shows another library with states and filters, without management controls', () => {
+    ownerParams.next(convertToParamMap({ username: 'bea' }));
+    start({ status: 'playing', sort: 'name' });
+    const response = http.expectOne((req) => req.url === `${environment.apiUrl}/users/bea/library`);
+    expect(response.request.params.get('status')).toBe('playing');
+    expect(response.request.params.get('sort')).toBe('name');
+    response.flush({ ...EMPTY_LIBRARY, items: [LIBRARY_GAMES[0]], counts: LIBRARY_COUNTS });
+    fixture.detectChanges();
+    expect(element('h1')?.textContent).toContain('Biblioteca de bea');
+    expect(element('[data-library-badge]')?.textContent).toContain('Jugando');
+    expect(element('app-library-card-menu')).toBeNull();
+    expect(element('a[href="/games"]')).toBeNull();
+    expect(element('a[href="/profile/bea"]')).not.toBeNull();
+    TestBed.inject(LibraryService).changeStatus(17, 'completed').subscribe();
+    http.expectOne(`${url}/17/status`).flush({ ...LIBRARY_GAMES[0], status: 'completed' });
+    fixture.detectChanges();
+    expect(element('[data-library-badge]')?.textContent).toContain('Jugando');
+  });
+
+  it('clears games and counters when access is revoked on refresh and can retry', () => {
+    ownerParams.next(convertToParamMap({ username: 'bea' }));
+    start();
+    const foreignUrl = `${environment.apiUrl}/users/bea/library`;
+    http
+      .expectOne((req) => req.url === foreignUrl)
+      .flush({ ...EMPTY_LIBRARY, items: LIBRARY_GAMES, counts: LIBRARY_COUNTS, hasMore: true });
+    fixture.detectChanges();
+    expect(cards()).toHaveLength(2);
+    window.dispatchEvent(new Event('focus'));
+    http
+      .expectOne((req) => req.url === foreignUrl)
+      .flush({ code: 'history_restricted' }, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    expect(cards()).toHaveLength(0);
+    expect(tab('all').textContent).toContain('0');
+    expect(element('[data-action="load-more"]')).toBeNull();
+    expect(element('[role="alert"]')?.textContent).toContain('privada');
+    click('retry-library-list');
+    http.expectOne((req) => req.url === foreignUrl).flush(EMPTY_LIBRARY);
+    fixture.detectChanges();
+    expect(element('[data-library-empty]')?.textContent).toContain('todavía no tiene juegos');
+  });
+
+  it('cancels a previous owner request when navigating between libraries', () => {
+    ownerParams.next(convertToParamMap({ username: 'bea' }));
+    start();
+    const previous = http.expectOne((req) => req.url === `${environment.apiUrl}/users/bea/library`);
+    ownerParams.next(convertToParamMap({ username: 'cami' }));
+    expect(previous.cancelled).toBe(true);
+    http
+      .expectOne((req) => req.url === `${environment.apiUrl}/users/cami/library`)
+      .flush(EMPTY_LIBRARY);
+    fixture.detectChanges();
+    expect(element('h1')?.textContent).toContain('Biblioteca de cami');
   });
 });

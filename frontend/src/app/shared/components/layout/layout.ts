@@ -13,21 +13,35 @@ import { HasRoleDirective } from '../../directives/has-role';
 import { NAVIGATION_ITEMS } from './layout-navigation';
 import { RateLimitNoticeService } from '../../services/rate-limit-notice';
 import { SiteFooterComponent } from './site-footer';
+import { UserAvatarComponent } from '../user-avatar/user-avatar';
+import { PeopleSearchComponent } from '../people-search/people-search';
+import { FriendsState } from '../../../features/friends/services/friends-state';
+import { NotificationsBellComponent } from '../../../features/notifications/notifications-bell';
 
 @Component({
   selector: 'app-layout',
   host: { '(keydown.escape)': 'closeMenu(true)' },
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, HasRoleDirective, SiteFooterComponent],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    HasRoleDirective,
+    SiteFooterComponent,
+    UserAvatarComponent,
+    PeopleSearchComponent,
+    NotificationsBellComponent,
+  ],
   templateUrl: './layout.html',
   styleUrl: './layout.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LayoutComponent {
   protected readonly auth = inject(AuthService);
+  protected readonly friends = inject(FriendsState);
   protected readonly rateLimitNotice = inject(RateLimitNoticeService);
   protected readonly loggingOut = signal(false);
   protected readonly menuOpen = signal(false);
-  protected readonly navigationItems = NAVIGATION_ITEMS;
+  protected readonly navigationItems = NAVIGATION_ITEMS.filter((item) => item.path !== '/profile');
   private readonly menuToggle = viewChild<ElementRef<HTMLButtonElement>>('menuToggle');
   private readonly router = inject(Router);
 

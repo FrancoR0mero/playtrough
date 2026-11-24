@@ -1,0 +1,61 @@
+<section class="page-container" aria-labelledby="entry-detail-title">
+  <div class="max-w-3xl">
+    <button type="button" (click)="back()" class="min-h-11 text-sm text-violet-300 hover:underline">
+      Volver
+    </button>
+    <h1 #title id="entry-detail-title" tabindex="-1" class="page-heading text-white">
+      {{ entry()?.game?.name ?? 'Detalle de actividad' }}
+    </h1>
+    @if (loading()) {
+      <div
+        role="status"
+        aria-label="Cargando entrada"
+        class="my-6 flex gap-4 motion-safe:animate-pulse"
+      >
+        <div class="h-24 w-36 rounded-xl bg-slate-800"></div>
+        <div class="h-6 w-40 rounded bg-slate-800"></div>
+      </div>
+    } @else if (unavailable()) {
+      <div class="py-6">
+        <p role="alert" class="text-slate-200">
+          No encontramos esta entrada o ya no está disponible
+        </p>
+        <a routerLink="/feed" class="inline-flex min-h-11 items-center text-violet-300 underline"
+          >Ir al inicio</a
+        >
+      </div>
+    } @else if (failed()) {
+      <div class="py-6">
+        <p role="alert" class="text-red-300">
+          {{ cooldown.message() || 'No pudimos cargar la entrada. Volvé a intentarlo.' }}
+        </p>
+        <button
+          type="button"
+          (click)="load()"
+          [disabled]="cooldown.remaining() > 0"
+          class="min-h-11 text-violet-300 underline disabled:opacity-60"
+        >
+          Reintentar
+        </button>
+      </div>
+    } @else if (entry(); as item) {
+      <app-timeline-entry-card
+        [entry]="item"
+        [perspective]="own() ? 'self' : 'other'"
+        [showAuthor]="true"
+        [detail]="true"
+        [commentCount]="count()"
+        (compose)="focusComposer()"
+        (missing)="markUnavailable()"
+      />
+      @for (entry of [item]; track entry.id) {
+        <app-entry-comments
+          [entryId]="entry.id"
+          [count]="count()"
+          (countChanged)="count.set($event)"
+          (unavailable)="markUnavailable()"
+        />
+      }
+    }
+  </div>
+</section>

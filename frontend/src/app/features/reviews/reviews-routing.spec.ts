@@ -1,3 +1,6 @@
+import { FriendsState } from '../friends/services/friends-state';
+import { createFriendsStateMock } from '../friends/friends-test-helpers';
+import { NotificationsState } from '../notifications/notifications-state';
 import { Location } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -18,7 +21,13 @@ describe('Reviews routing and navigation', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [LayoutComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter(routes)],
+      providers: [
+        { provide: FriendsState, useValue: createFriendsStateMock() },
+        { provide: NotificationsState, useValue: { unreadCount: () => 0 } },
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(routes),
+      ],
     });
     http = TestBed.inject(HttpTestingController);
     storage = TestBed.inject(TokenStorageService);
@@ -159,6 +168,8 @@ describe('Reviews routing and navigation', () => {
     const nav = fixture.nativeElement.querySelector('nav[aria-label="Navegación móvil"]');
     expect(nav.querySelector('a[href="/games"]').getAttribute('aria-current')).toBe('page');
     expect(nav.querySelector('a[href*="/reviews"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('footer a[href="https://gamebrain.co/api"]')).not.toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('footer a[href="https://gamebrain.co/api"]'),
+    ).not.toBeNull();
   });
 });

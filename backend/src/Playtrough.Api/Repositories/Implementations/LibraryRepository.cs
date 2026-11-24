@@ -5,11 +5,26 @@ using Playtrough.Api.Models;
 using Playtrough.Api.Repositories.Interfaces;
 using Playtrough.Api.Services.Contracts;
 using Playtrough.Api.Catalog;
+using Playtrough.Api.Services.Implementations;
+using Microsoft.Extensions.Options;
 
 namespace Playtrough.Api.Repositories.Implementations;
 
-public sealed class LibraryRepository(AppDbContext db, TimeProvider? clock = null) : ILibraryRepository
+public sealed class LibraryRepository(AppDbContext db, TimelineWriter timeline, TimeProvider? clock = null) : ILibraryRepository
 {
+    // Preserve direct construction used by existing integrations/tests. DI uses
+    // the constructor above and its configured TimelineWriter.
+    public LibraryRepository(AppDbContext db, TimeProvider? clock = null)
+        : this(db, new TimelineWriter(db, Options.Create(new FeedSettings())), clock) { }
+
+    public async Task<IReadOnlyList<int>> MetadataRefreshIdsAsync(IReadOnlyList<int> gameIds, DateTime now,
+        CancellationToken ct = default)
+        => await db.Games.AsNoTracking()
+            .Where(game => gameIds.Contains(game.Id) && game.GameBrainId != null
+                && (game.MetadataExpiresAt == null || game.MetadataExpiresAt <= now))
+            .OrderBy(game => game.Id)
+            .Select(game => game.GameBrainId!.Value).ToListAsync(ct);
+
     public Task<bool> GameExistsAsync(int gameId, CancellationToken ct = default)
         => db.Games.AnyAsync(game => game.Id == gameId, ct);
 
@@ -79,6 +94,7 @@ public sealed class LibraryRepository(AppDbContext db, TimeProvider? clock = nul
     {
         db.LibraryEntries.Add(entry);
         db.LibraryEvents.Add(change);
+        var timelineEntry = timeline.AddLibraryEvent(change);
         try
         {
             // EF wraps both statements in one transaction; never save the event separately.
@@ -87,13 +103,13 @@ public sealed class LibraryRepository(AppDbContext db, TimeProvider? clock = nul
         }
         catch (DbUpdateException) when (!ct.IsCancellationRequested)
         {
-            Detach(entry, change);
+            Detach(entry, change, timelineEntry);
             // Follow GameRepository's race recovery: reread the unique identity, without
             // parsing provider messages. Other persistence failures must still propagate.
             if (await FindAsync(entry.UserId, entry.GameId, ct) is not null) return false;
             throw;
         }
-        finally { Detach(entry, change); }
+        finally { Detach(entry, change, timelineEntry); }
     }
 
     public async Task<bool> TryChangeStatusAsync(LibraryEntry entry, Guid previousToken, LibraryEvent change,
@@ -105,17 +121,17 @@ public sealed class LibraryRepository(AppDbContext db, TimeProvider? clock = nul
         tracked.Property(value => value.ConcurrencyToken).IsModified = true;
         tracked.Property(value => value.ConcurrencyToken).OriginalValue = previousToken;
         db.LibraryEvents.Add(change);
-        return await SaveMutationAsync(entry, change, ct);
+        return await SaveMutationAsync(entry, change, timeline.AddLibraryEvent(change), ct);
     }
 
     public async Task<bool> TryRemoveAsync(LibraryEntry entry, LibraryEvent change, CancellationToken ct = default)
     {
         db.LibraryEntries.Remove(entry);
         db.LibraryEvents.Add(change);
-        return await SaveMutationAsync(entry, change, ct);
+        return await SaveMutationAsync(entry, change, null, ct);
     }
 
-    private async Task<bool> SaveMutationAsync(LibraryEntry entry, LibraryEvent change, CancellationToken ct)
+    private async Task<bool> SaveMutationAsync(LibraryEntry entry, LibraryEvent change, TimelineEntry? timelineEntry, CancellationToken ct)
     {
         try
         {
@@ -125,11 +141,12 @@ public sealed class LibraryRepository(AppDbContext db, TimeProvider? clock = nul
         catch (DbUpdateConcurrencyException) when (!ct.IsCancellationRequested) { return false; }
         // A failed event or concurrency check rolls back the entire SaveChanges transaction.
         // Detach both objects so a retry (or later save in this scope) cannot leak an event.
-        finally { Detach(entry, change); }
+        finally { Detach(entry, change, timelineEntry); }
     }
 
-    private void Detach(LibraryEntry entry, LibraryEvent change)
+    private void Detach(LibraryEntry entry, LibraryEvent change, TimelineEntry? timelineEntry)
     {
+        if (timelineEntry is not null) db.Entry(timelineEntry).State = EntityState.Detached;
         db.Entry(entry).State = EntityState.Detached;
         db.Entry(change).State = EntityState.Detached;
     }

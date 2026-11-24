@@ -1,0 +1,212 @@
+<section class="mx-auto mt-7 max-w-4xl" aria-labelledby="group-chat-title">
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+    <h2 id="group-chat-title" class="text-xl font-semibold text-white">Chat del grupo</h2>
+    <p role="status" class="text-sm text-slate-300">
+      @switch (state()) {
+        @case ('connecting') {
+          Conectando…
+        }
+        @case ('ready') {
+          Conectado
+        }
+        @case ('reconnecting') {
+          Reconectando…
+        }
+        @case ('offline') {
+          Chat desconectado
+        }
+        @case ('revoked') {
+          Ya no tenés acceso al chat
+        }
+      }
+    </p>
+  </div>
+  @if (state() === 'ready') {
+    <details open class="border-b border-white/10 py-2">
+      <summary class="cursor-pointer rounded py-1 text-sm font-medium text-slate-200">
+        En el chat ({{ participants().length }})
+      </summary>
+      <ul
+        class="mt-1 flex max-h-24 flex-wrap gap-x-4 gap-y-1 overflow-y-auto text-sm text-slate-300"
+      >
+        @for (person of participants(); track person.userId) {
+          <li class="wrap-anywhere">
+            {{ person.username }}
+            @if (person.userId === userId()) {
+              <span class="text-slate-400">(vos)</span>
+            }
+          </li>
+        }
+      </ul>
+    </details>
+  }
+  @if (before() !== null) {
+    <button
+      type="button"
+      (click)="loadOlder()"
+      [disabled]="olderLoading() || syncing() || state() !== 'ready'"
+      class="ui-button my-2 min-h-11 border border-slate-600 px-4 text-sm text-white disabled:opacity-50"
+    >
+      {{
+        olderLoading()
+          ? 'Cargando anteriores…'
+          : olderError()
+            ? 'Reintentar anteriores'
+            : 'Cargar mensajes anteriores'
+      }}
+    </button>
+  }
+  @if (syncing()) {
+    <p role="status" class="mt-2 text-sm text-slate-300">Sincronizando historial…</p>
+  }
+  @if (historyError()) {
+    <p role="alert" class="mt-2 text-sm text-red-300">No pudimos sincronizar el historial.</p>
+    <button
+      type="button"
+      (click)="syncHistory()"
+      class="min-h-11 text-sm text-indigo-300 underline"
+    >
+      Reintentar historial
+    </button>
+  }
+  <div
+    #messageLog
+    role="log"
+    aria-label="Mensajes del grupo"
+    tabindex="0"
+    class="min-h-48 max-h-[52vh] overflow-y-auto rounded-b-lg border-b border-white/10 bg-slate-950/40 p-3 sm:p-5"
+  >
+    @if (!rows().length && state() === 'ready' && !syncing() && !historyError()) {
+      <p class="text-sm text-slate-300">Todavía no hay mensajes visibles.</p>
+    }
+    <ol class="grid gap-3">
+      @for (message of rows(); track message.id) {
+        <li
+          class="flex"
+          [attr.data-message-id]="message.id"
+          [class.justify-end]="message.authorId === userId()"
+        >
+          <div
+            class="max-w-[88%] min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2"
+            [class.border-indigo-500]="message.authorId === userId()"
+          >
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p class="wrap-anywhere text-sm font-medium text-indigo-200">
+                {{ message.username }}
+              </p>
+              <time [attr.datetime]="message.createdAt" class="text-xs text-slate-400">{{
+                message.createdAt | date: 'HH:mm'
+              }}</time>
+              @if (message.authorId === userId() && !message.removedAt) {
+                <span
+                  class="whitespace-nowrap text-sm text-indigo-300"
+                  [attr.title]="message.delivered ? 'Recibido por todos' : 'Enviado al servidor'"
+                  [attr.data-delivery]="message.delivered ? 'delivered' : 'sent'"
+                >
+                  <span aria-hidden="true">{{ message.delivered ? '✓✓' : '✓' }}</span>
+                  <span class="sr-only">{{
+                    message.delivered ? 'Recibido por todos' : 'Enviado al servidor'
+                  }}</span>
+                </span>
+              }
+            </div>
+            @if (message.removedAt) {
+              <p class="mt-1 text-sm italic text-slate-400">Mensaje retirado</p>
+            } @else {
+              <p class="mt-1 wrap-anywhere whitespace-pre-wrap text-slate-100">
+                {{ message.text }}
+              </p>
+              @if (canRemove(message)) {
+                <button
+                  type="button"
+                  (click)="confirmRemoval(message)"
+                  [disabled]="removing() !== null"
+                  [attr.aria-label]="'Retirar mensaje de ' + message.username"
+                  class="mt-1 min-h-11 text-sm text-slate-300 underline hover:text-white disabled:opacity-50"
+                >
+                  Retirar
+                </button>
+              }
+            }
+          </div>
+        </li>
+      }
+      @if (pending(); as attempt) {
+        <li class="flex justify-end">
+          <div
+            class="max-w-[88%] min-w-0 rounded-lg border border-indigo-500 bg-slate-900 px-3 py-2"
+          >
+            <p class="wrap-anywhere whitespace-pre-wrap text-slate-100">{{ attempt.text }}</p>
+            <span
+              class="mt-1 inline-flex items-center text-slate-300"
+              data-delivery="pending"
+              [attr.title]="online() && state() === 'ready' ? 'Enviando' : 'Esperando conexión'"
+            >
+              <span
+                aria-hidden="true"
+                class="relative size-4 rounded-sm border border-current before:absolute before:top-0.5 before:left-1.5 before:h-1.5 before:w-px before:bg-current after:absolute after:top-2 after:left-1.5 after:h-px after:w-1 after:bg-current"
+              ></span>
+              <span class="sr-only">{{
+                online() && state() === 'ready' ? 'Enviando' : 'Esperando conexión'
+              }}</span>
+            </span>
+          </div>
+        </li>
+      }
+    </ol>
+  </div>
+  @if (state() === 'offline') {
+    <button
+      type="button"
+      (click)="connect()"
+      [disabled]="!online()"
+      class="ui-button mt-3 min-h-11 border border-slate-600 px-4 text-white disabled:opacity-50"
+    >
+      Reconectar
+    </button>
+  }
+  @if (state() !== 'revoked') {
+    <form class="mt-4" (submit)="$event.preventDefault(); send()">
+      <p aria-live="polite" class="wrap-anywhere min-h-6 text-sm text-indigo-200">
+        {{ typingLabel() }}
+      </p>
+      <label for="group-chat-message" class="mb-2 block text-sm font-medium text-slate-200"
+        >Mensaje</label
+      >
+      <textarea
+        #messageInput
+        id="group-chat-message"
+        [formControl]="draft"
+        rows="2"
+        maxlength="4000"
+        [readOnly]="pending() !== null"
+        (input)="noteTyping(messageInput.value)"
+        (blur)="stopTyping()"
+        aria-describedby="group-chat-count"
+        [attr.aria-invalid]="count() > settings.maxLength"
+        class="w-full resize-y rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-white"
+      ></textarea>
+      <div class="mt-2 flex flex-wrap items-center justify-end gap-3">
+        <span
+          id="group-chat-count"
+          class="text-sm text-slate-300"
+          [class.text-red-300]="count() > settings.maxLength"
+          >{{ count() }} / {{ settings.maxLength }}</span
+        >
+        <button
+          type="submit"
+          class="ui-button min-h-11 bg-accent px-5 text-white disabled:opacity-50"
+          [disabled]="pending() !== null || count() === 0 || count() > settings.maxLength"
+        >
+          Enviar
+        </button>
+      </div>
+    </form>
+  }
+  @if (error()) {
+    <p role="alert" class="mt-2 text-sm text-red-300">{{ error() }}</p>
+  }
+  @if (removalError()) {
+    <p role="alert" class="mt-2 text-sm text-red-300">{{ removalError() }}</p>
+  }
+</section>

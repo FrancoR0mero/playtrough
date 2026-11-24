@@ -17,6 +17,7 @@ import { TokenStorageService } from './features/auth/services/token-storage';
 import { of } from 'rxjs';
 import { LibraryService } from './features/library/services/library';
 import { EMPTY_LIBRARY } from './features/library/library-test-helpers';
+import { DEFAULT_PRIVACY, MY_PROFILE } from './features/profile/profile-test-helpers';
 
 describe('Application route access', () => {
   let storage: TokenStorageService;
@@ -48,18 +49,54 @@ describe('Application route access', () => {
 
   it('protects profile and redirects guests to login', async () => {
     expect(routes.find((route) => route.path === 'profile')?.canActivate).toEqual([authGuard]);
+    expect(routes.find((route) => route.path === 'profile/:username')?.canActivate).toEqual([
+      authGuard,
+    ]);
     await RouterTestingHarness.create('/profile');
     const router = TestBed.inject(Router);
     expect(router.url.split('?')[0]).toBe('/auth/login');
     expect(router.parseUrl(router.url).queryParams['returnUrl']).toBe('/profile');
   });
 
-  it('shows the current account in profile without requesting a new backend endpoint', async () => {
+  it('loads the current account from the profile endpoint', async () => {
     storage.save(createSession());
     const harness = await RouterTestingHarness.create('/profile');
+    httpMock.expectOne(`${environment.apiUrl}/users/me`).flush(MY_PROFILE);
+    harness.detectChanges();
     expect(harness.routeNativeElement?.textContent).toContain(createSession().user.email);
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Mi perfil');
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent?.trim()).toBe('Mi perfil');
     httpMock.expectNone(() => true);
+  });
+
+  it('opens privacy from the profile gear and loads saved preferences', async () => {
+    storage.save(createSession());
+    const harness = await RouterTestingHarness.create('/profile');
+    httpMock.expectOne(`${environment.apiUrl}/users/me`).flush(MY_PROFILE);
+    harness.detectChanges();
+    const gear = harness.routeNativeElement?.querySelector<HTMLAnchorElement>(
+      '[data-action="privacy-settings"]',
+    );
+    expect(gear?.getAttribute('aria-label')).toBe('Configuración de privacidad');
+    gear!.click();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/profile/settings/privacy');
+    httpMock.expectOne(`${environment.apiUrl}/users/me/privacy`).flush(DEFAULT_PRIVACY);
+    harness.detectChanges();
+    expect(harness.routeNativeElement?.textContent).toContain('Configuración de privacidad');
+  });
+
+  it.each([
+    '/profile/settings/privacy',
+    '/profile/settings/blocked',
+    '/profile/jugador/library',
+    '/notifications',
+    '/notifications/preferences',
+  ])('protects direct navigation to %s', async (path) => {
+    await RouterTestingHarness.create(path);
+    const router = TestBed.inject(Router);
+    expect(router.url.split('?')[0]).toBe('/auth/login');
+    expect(router.parseUrl(router.url).queryParams['returnUrl']).toBe(path);
   });
 
   it('protects role administration with both guards and Admin as the minimum role', () => {

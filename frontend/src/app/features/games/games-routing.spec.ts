@@ -1,3 +1,6 @@
+import { FriendsState } from '../friends/services/friends-state';
+import { createFriendsStateMock } from '../friends/friends-test-helpers';
+import { NotificationsState } from '../notifications/notifications-state';
 import { provideHttpClient } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -24,7 +27,13 @@ describe('Game catalog routing and layout', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [LayoutComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter(routes)],
+      providers: [
+        { provide: FriendsState, useValue: createFriendsStateMock() },
+        { provide: NotificationsState, useValue: { unreadCount: () => 0 } },
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(routes),
+      ],
     });
     storage = TestBed.inject(TokenStorageService);
     storage.clear();

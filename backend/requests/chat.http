@@ -1,0 +1,46 @@
+@baseUrl = http://localhost:5000
+@token = REEMPLAZAR_ACCESS_TOKEN
+@groupId = 1
+@before = 20
+@after = 0
+@through = 40
+@messageId = 1
+
+# El cliente SignalR invoca JoinGroup(groupId), SendMessage(groupId, clientMessageId, text) y LeaveGroup(groupId).
+# JoinGroup devuelve la presencia visible inicial. GetPresence(groupId) consulta los participantes activos y su estado de escritura.
+# SetTyping(groupId, typing) actualiza la pestaña actual sin enviar el borrador. El estado de escritura vence en cinco segundos.
+# Reutilizar el UUID y el texto del mismo envío al reintentar. El resultado y MessageCreated comparten id.
+# AcknowledgeMessages(groupId, ids) confirma la recepción en el cliente, con un máximo de 100 IDs como texto.
+# El autor recibe MessagesDelivered con los IDs confirmados por todos los destinatarios del envío.
+# El historial y /state incluyen delivered para el autor. Un mensaje anterior a la migración permanece como enviado.
+
+### Negociar una conexión SignalR autenticada (200)
+POST {{baseUrl}}/hubs/chat/negotiate?negotiateVersion=1
+Authorization: Bearer {{token}}
+
+### Negociar sin un token (401)
+POST {{baseUrl}}/hubs/chat/negotiate?negotiateVersion=1
+
+### Última página del historial
+GET {{baseUrl}}/api/groups/{{groupId}}/messages?limit=30
+Authorization: Bearer {{token}}
+
+### Cargar anteriores usando nextCursor como before
+GET {{baseUrl}}/api/groups/{{groupId}}/messages?limit=30&before={{before}}
+Authorization: Bearer {{token}}
+
+### Iniciar recuperación después del último punto sincronizado
+GET {{baseUrl}}/api/groups/{{groupId}}/messages?limit=30&after={{after}}
+Authorization: Bearer {{token}}
+
+### Continuar la recuperación con el mismo through y el nuevo nextCursor como after
+GET {{baseUrl}}/api/groups/{{groupId}}/messages?limit=30&after={{after}}&through={{through}}
+Authorization: Bearer {{token}}
+
+### Revalidar mensajes que ya están abiertos. Repetir ids para verificar un lote
+GET {{baseUrl}}/api/groups/{{groupId}}/messages/state?ids={{messageId}}
+Authorization: Bearer {{token}}
+
+### Retirar un mensaje propio o retirar como propietario. Devuelve id y removedAt
+DELETE {{baseUrl}}/api/groups/{{groupId}}/messages/{{messageId}}
+Authorization: Bearer {{token}}

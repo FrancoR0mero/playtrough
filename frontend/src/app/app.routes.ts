@@ -20,7 +20,19 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/auth/forgot-password').then((m) => m.ForgotPasswordComponent),
   },
+  // /feed could become the authenticated home; keep the existing default for now.
   { path: '', pathMatch: 'full', redirectTo: 'library' },
+  {
+    path: 'feed',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/feed/feed').then((m) => m.FeedComponent),
+  },
+  {
+    path: 'entries/:id',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/timeline/entry-detail').then((m) => m.EntryDetailComponent),
+  },
   {
     path: 'auth/login',
     canActivate: [guestGuard],
@@ -59,6 +71,79 @@ export const routes: Routes = [
   },
   {
     path: 'profile',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/profile/profile').then((m) => m.ProfileComponent),
+  },
+  {
+    path: 'people',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/people/people').then((m) => m.PeopleComponent),
+  },
+  {
+    path: 'notifications',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/notifications/notifications-center').then(
+        (m) => m.NotificationsCenterComponent,
+      ),
+  },
+  {
+    path: 'notifications/preferences',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/notifications/notification-preferences').then(
+        (m) => m.NotificationPreferencesComponent,
+      ),
+  },
+  {
+    path: 'friends',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/friends/friends').then((m) => m.FriendsComponent),
+  },
+  {
+    path: 'groups',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/groups/groups').then((m) => m.GroupsComponent),
+  },
+  {
+    path: 'groups/new',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/groups/group-form').then((m) => m.GroupFormComponent),
+  },
+  {
+    path: 'groups/:id/edit',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/groups/group-form').then((m) => m.GroupFormComponent),
+  },
+  {
+    path: 'groups/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/groups/group-detail').then((m) => m.GroupDetailComponent),
+  },
+  {
+    path: 'profile/settings/privacy',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/profile/privacy-settings').then((m) => m.PrivacySettingsComponent),
+  },
+  {
+    path: 'profile/settings/blocked',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/blocks/blocked-users').then((m) => m.BlockedUsersComponent),
+  },
+  {
+    path: 'profile/:username/library',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/library/library').then((m) => m.LibraryComponent),
+  },
+  {
+    path: 'profile/:username/friends',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/friends/friends').then((m) => m.FriendsComponent),
+  },
+  {
+    path: 'profile/:username',
     canActivate: [authGuard],
     loadComponent: () => import('./features/profile/profile').then((m) => m.ProfileComponent),
   },

@@ -1,0 +1,224 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  Injector,
+  OnInit,
+  afterNextRender,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
+import { Subscription, fromEvent, merge } from 'rxjs';
+import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
+import { FriendsService } from '../friends/services/friends';
+import { FriendsState } from '../friends/services/friends-state';
+import { profileError } from '../profile/profile-error';
+import { EntryNavigation } from '../timeline/entry-navigation';
+import { FeedEntryDto, TimelinePage } from '../timeline/models/timeline';
+import { TimelineService } from '../timeline/services/timeline';
+import { TimelineEntryCardComponent } from '../timeline/timeline-entry-card';
+import { TIMELINE_IMAGE_ASPECT_RATIO, TIMELINE_TEXT } from '../timeline/timeline-text';
+import { FEED_REFRESH_INTERVAL_MS, FEED_TEXT, feedTimestamp } from './feed-text';
+
+@Component({
+  selector: 'app-feed',
+  imports: [RouterLink, TimelineEntryCardComponent],
+  templateUrl: './feed.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class FeedComponent implements OnInit {
+  protected readonly text = FEED_TEXT;
+  protected readonly aspectRatio = TIMELINE_IMAGE_ASPECT_RATIO;
+  protected readonly friends = inject(FriendsState);
+  protected readonly cooldown = createRateLimitCooldown();
+  protected readonly items = signal<FeedEntryDto[]>([]);
+  protected readonly loading = signal(false);
+  protected readonly checking = signal(false);
+  protected readonly loaded = signal(false);
+  protected readonly hasMore = signal(false);
+  protected readonly error = signal<string | null>(null);
+  protected readonly pending = signal<TimelinePage<FeedEntryDto> | null>(null);
+  protected readonly announcement = signal('');
+  protected readonly entryNotice = signal('');
+  protected readonly displayTime = signal(Date.now());
+  private lastCheck = -Infinity;
+  private readonly service = inject(TimelineService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly title = viewChild<ElementRef<HTMLHeadingElement>>('title');
+  private readonly navigation = inject(EntryNavigation);
+  private readonly injector = inject(Injector);
+  protected readonly pages = signal(1);
+  private request?: Subscription;
+  private cursor: string | null = null;
+  private failed: 'first' | 'page' = 'first';
+  private dirty = false;
+  constructor() {
+    const timer = setInterval(() => {
+      this.displayTime.set(Date.now());
+      this.checkForNews();
+    }, FEED_REFRESH_INTERVAL_MS);
+    this.destroyRef.onDestroy(() => {
+      clearInterval(timer);
+      this.request?.unsubscribe();
+    });
+    merge(fromEvent(document, 'visibilitychange'), fromEvent(window, 'focus'))
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        if (document.visibilityState !== 'visible') return;
+        if (this.dirty) this.load(true);
+        else this.checkForNews();
+      });
+    inject(FriendsService)
+      .changes$.pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        this.request?.unsubscribe();
+        this.loading.set(false);
+        this.checking.set(false);
+        this.pending.set(null);
+        this.items.set([]);
+        this.hasMore.set(false);
+        this.loaded.set(false);
+        this.error.set(null);
+        this.announcement.set('');
+        this.cursor = null;
+        this.dirty = true;
+        if (document.visibilityState === 'visible') this.load(true);
+      });
+    afterNextRender(() => this.title()?.nativeElement.focus());
+  }
+  ngOnInit(): void {
+    this.load(true);
+  }
+  protected more(): void {
+    if (this.hasMore()) this.load(false);
+  }
+  protected retry(): void {
+    this.load(this.failed === 'first');
+  }
+  protected entryMissing(id: number): void {
+    this.items.update((items) => items.filter((entry) => entry.id !== id));
+    this.pending.update((page) => {
+      if (!page) return null;
+      const items = page.items.filter((entry) => entry.id !== id);
+      const fresh = items.find((entry) => !entry.isHidden);
+      const current = this.items()[0];
+      return fresh && (!current || isNewer(fresh, current)) ? { ...page, items } : null;
+    });
+    this.entryNotice.set(TIMELINE_TEXT.missingEntry);
+    this.title()?.nativeElement.focus();
+  }
+  private checkForNews(): void {
+    const now = Date.now();
+    if (
+      document.visibilityState !== 'visible' ||
+      !this.loaded() ||
+      this.loading() ||
+      this.checking() ||
+      this.cooldown.remaining() ||
+      now - this.lastCheck < FEED_REFRESH_INTERVAL_MS
+    )
+      return;
+    this.checking.set(true);
+    this.lastCheck = now;
+    this.request = this.service
+      .getFeed({ limit: 20 })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (page) => {
+          this.checking.set(false);
+          const current = this.items()[0];
+          const fresh = page.items.find((entry) => !entry.isHidden);
+          this.pending.set(fresh && (!current || isNewer(fresh, current)) ? page : null);
+        },
+        error: (error: unknown) => {
+          this.checking.set(false);
+          this.cooldown.handle(error);
+        },
+      });
+  }
+  protected seeNews(): void {
+    const page = this.pending();
+    if (!page) return;
+    this.request?.unsubscribe();
+    this.loading.set(false);
+    this.checking.set(false);
+    this.apply(page, false);
+    this.pending.set(null);
+    this.error.set(null);
+    this.title()?.nativeElement.focus();
+  }
+  private load(reset: boolean): void {
+    if (this.loading() || this.checking()) return;
+    if (this.cooldown.remaining()) {
+      this.failed = 'first';
+      this.error.set(this.text.error);
+      return;
+    }
+    this.request?.unsubscribe();
+    this.loading.set(true);
+    this.error.set(null);
+    this.announcement.set('');
+    if (reset) {
+      this.items.set([]);
+      this.cursor = null;
+      this.hasMore.set(false);
+      this.loaded.set(false);
+      this.pending.set(null);
+      this.lastCheck = Date.now();
+    }
+    const query = { limit: 20, ...(this.cursor ? { cursor: this.cursor } : {}) };
+    this.request = this.service
+      .getFeed(query)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (page) => {
+          this.loading.set(false);
+          this.dirty = false;
+          this.apply(page, !reset);
+          afterNextRender(
+            () =>
+              this.navigation.restore(
+                this.hasMore(),
+                () => this.more(),
+                () => this.title()?.nativeElement.focus(),
+              ),
+            { injector: this.injector },
+          );
+        },
+        error: (error: unknown) => {
+          this.loading.set(false);
+          this.cooldown.handle(error);
+          const invalidCursor = profileError(error).code === 'invalid_cursor';
+          this.failed = reset || invalidCursor ? 'first' : 'page';
+          this.error.set(invalidCursor ? this.text.invalidCursor : this.text.error);
+        },
+      });
+  }
+  private apply(page: TimelinePage<FeedEntryDto>, append: boolean): void {
+    this.pages.update((pages) => (append ? pages + 1 : 1));
+    const entries = new Map((append ? this.items() : []).map((entry) => [entry.id, entry]));
+    for (const entry of page.items) if (!entry.isHidden) entries.set(entry.id, entry);
+    this.items.set([...entries.values()]);
+    this.cursor = page.nextCursor;
+    this.hasMore.set(page.hasMore && page.nextCursor !== null);
+    this.loaded.set(true);
+    this.announcement.set(this.text.loaded(this.items().length));
+  }
+}
+
+function isNewer(fresh: FeedEntryDto, current: FeedEntryDto): boolean {
+  const byTime =
+    Date.parse(feedTimestamp(fresh.recordedAt)) - Date.parse(feedTimestamp(current.recordedAt));
+  if (byTime !== 0) return byTime > 0;
+  // Preserve the fractional precision that Date truncates before using the server's ID tiebreaker.
+  const fraction = (value: string) => (value.match(/\.(\d+)/)?.[1] ?? '').padEnd(7, '0');
+  const freshFraction = fraction(fresh.recordedAt);
+  const currentFraction = fraction(current.recordedAt);
+  return freshFraction === currentFraction
+    ? fresh.id > current.id
+    : freshFraction > currentFraction;
+}

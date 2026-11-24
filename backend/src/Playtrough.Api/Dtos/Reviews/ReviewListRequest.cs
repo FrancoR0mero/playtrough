@@ -11,7 +11,7 @@ public sealed class ReviewListRequest : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (Sort is not ("recent" or "top" or "low"))
-            yield return new("El orden debe ser recent, top o low.", [nameof(Sort)]);
+        if (Sort is not ("recent" or "top" or "low" or "helpful"))
+            yield return new("El orden debe ser recent, top, low o helpful.", [nameof(Sort)]);
     }
 }

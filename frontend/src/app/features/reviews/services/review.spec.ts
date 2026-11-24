@@ -81,7 +81,7 @@ describe('ReviewService', () => {
     expect(changed).toHaveBeenCalledExactlyOnceWith({ type: 'deleted', gameId: 17, ...response });
   });
 
-  it.each<ReviewSort>(['recent', 'top', 'low'])(
+  it.each<ReviewSort>(['recent', 'top', 'low', 'helpful'])(
     'lists with sort %s and explicit pagination',
     (sort) => {
       const next = vi.fn();
@@ -95,6 +95,9 @@ describe('ReviewService', () => {
             editedAt: REVIEW.editedAt,
             author: { userId: 8, username: 'player' },
             isMine: true,
+            likeCount: 3,
+            dislikeCount: 0,
+            myReaction: null,
           },
         ],
         ratingSummary: SUMMARY,

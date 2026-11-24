@@ -45,11 +45,12 @@ public sealed class ReviewsExamplesFilter : IOperationFilter, ISchemaFilter
             {
                 if (parameter.Name == "sort")
                 {
-                    parameter.Description = "recent: creación descendente; top: puntuación descendente; low: puntuación ascendente. Empates por creación e ID descendentes.";
+                    parameter.Description = "recent: creación descendente; top: puntuación descendente; low: puntuación ascendente; "
+                        + "helpful: diferencia de reacciones descendente, luego más me gusta. Empates por creación e ID descendentes.";
                     parameter.Schema = new OpenApiSchema
                     {
                         Type = JsonSchemaType.String, Default = JsonValue.Create("recent"),
-                        Enum = [JsonValue.Create("recent")!, JsonValue.Create("top")!, JsonValue.Create("low")!],
+                        Enum = [JsonValue.Create("recent")!, JsonValue.Create("top")!, JsonValue.Create("low")!, JsonValue.Create("helpful")!],
                     };
                 }
                 if (parameter.Name is "page" or "pageSize" && parameter.Schema is OpenApiSchema paging)
@@ -69,7 +70,7 @@ public sealed class ReviewsExamplesFilter : IOperationFilter, ISchemaFilter
 
         const string review = """{"id":11,"gameId":7,"rating":4.5,"text":"Opinión ficticia del juego.","createdAt":"2026-10-30T12:00:00Z","editedAt":null}""";
         var success = list ? """
-            {"items":[{"id":11,"rating":4.5,"text":null,"createdAt":"2026-10-30T12:00:00Z","editedAt":null,"author":{"userId":2,"username":"autor_ficticio"},"isMine":false}],"ratingSummary":{"average":4.5,"count":1},"page":1,"pageSize":10,"hasMore":false}
+            {"items":[{"id":11,"rating":4.5,"text":null,"createdAt":"2026-10-30T12:00:00Z","editedAt":null,"author":{"userId":2,"username":"autor_ficticio"},"isMine":false,"likeCount":2,"dislikeCount":0,"myReaction":"like"}],"ratingSummary":{"average":4.5,"count":1},"page":1,"pageSize":10,"hasMore":false}
             """ : upsert ? """{"review":REVIEW,"ratingSummary":{"average":4.5,"count":1}}""".Replace("REVIEW", review)
             : delete ? """{"ratingSummary":{"average":null,"count":0}}""" : review;
         SetExample(responses, "200", success);

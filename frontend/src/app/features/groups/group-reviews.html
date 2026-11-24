@@ -1,0 +1,43 @@
+<section class="mt-8 max-w-3xl" aria-labelledby="group-reviews-title">
+  <h2 id="group-reviews-title" class="text-xl font-semibold text-white">Reseñas del grupo</h2>
+  <ul class="mt-3 divide-y divide-white/10" [attr.aria-busy]="loading()">
+    @for (review of items(); track review.id) {
+      <li class="py-5">
+        <h3 class="text-lg font-medium text-white">
+          <a
+            [routerLink]="['/games/local', review.gameId, 'reviews']"
+            [attr.aria-label]="'Ver reseñas de ' + review.gameName"
+            class="wrap-anywhere hover:text-indigo-200 hover:underline"
+            >{{ review.gameName }}</a
+          >
+        </h3>
+        <a
+          [routerLink]="['/profile', review.username]"
+          class="mb-2 inline-block wrap-anywhere text-sm text-indigo-300 hover:underline"
+          >{{ review.username }}</a
+        >
+        <app-review-content [review]="review" [textId]="'group-review-' + review.id" />
+      </li>
+    }
+  </ul>
+  @if (loading()) {
+    <p role="status" class="mt-4 text-sm text-slate-300">Cargando reseñas…</p>
+  } @else if (error()) {
+    <p role="alert" class="mt-4 text-sm text-red-300">{{ error() }}</p>
+    <button type="button" (click)="load()" class="min-h-11 text-sm text-indigo-300 underline">
+      Reintentar
+    </button>
+  } @else if (!items().length) {
+    <p role="status" class="mt-4 text-sm text-slate-300">
+      Todavía no hay reseñas que puedas ver en este grupo.
+    </p>
+  } @else if (cursor() !== null) {
+    <button
+      type="button"
+      (click)="load()"
+      class="ui-button mt-4 min-h-11 border border-slate-600 px-4 text-white"
+    >
+      Cargar más reseñas
+    </button>
+  }
+</section>

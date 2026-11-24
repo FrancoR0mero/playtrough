@@ -1,0 +1,114 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { environment } from '../../../../environments/environment';
+import { DEFAULT_PRIVACY, MY_PROFILE, OTHER_PROFILE } from '../profile-test-helpers';
+import { UsersService } from './users';
+
+describe('UsersService', () => {
+  it('uploads multipart without overriding its boundary and deletes the current avatar', () => {
+    const service = TestBed.inject(UsersService);
+    const http = TestBed.inject(HttpTestingController);
+    const file = new File(['image'], 'photo.png', { type: 'image/png' });
+    service.uploadAvatar(file).subscribe();
+    const upload = http.expectOne(`${environment.apiUrl}/users/me/avatar`);
+    expect(upload.request.method).toBe('POST');
+    expect(upload.request.body instanceof FormData).toBe(true);
+    expect(upload.request.body.get('file')).toBe(file);
+    expect(upload.request.headers.has('Content-Type')).toBe(false);
+    upload.flush({ avatarUrl: '/api/avatars/photo.webp' });
+    service.deleteAvatar().subscribe();
+    const remove = http.expectOne(`${environment.apiUrl}/users/me/avatar`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  it('loads and updates account privacy', () => {
+    TestBed.inject(UsersService)
+      .getPrivacy()
+      .subscribe((value) => expect(value).toEqual(DEFAULT_PRIVACY));
+    const read = TestBed.inject(HttpTestingController).expectOne(
+      `${environment.apiUrl}/users/me/privacy`,
+    );
+    expect(read.request.method).toBe('GET');
+    read.flush(DEFAULT_PRIVACY);
+    const privacy = {
+      visibility: 'private' as const,
+    };
+    TestBed.inject(UsersService)
+      .updatePrivacy(privacy)
+      .subscribe((value) => expect(value).toEqual(privacy));
+    const update = TestBed.inject(HttpTestingController).expectOne(
+      `${environment.apiUrl}/users/me/privacy`,
+    );
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body).toEqual(privacy);
+    update.flush(privacy);
+  });
+  it('searches users with encoded query parameters and pagination', () => {
+    TestBed.inject(UsersService)
+      .search('a & b', 2, 10)
+      .subscribe((value) => expect(value.items).toEqual([]));
+    const request = TestBed.inject(HttpTestingController).expectOne(
+      (req) => req.url === `${environment.apiUrl}/users/search`,
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('q')).toBe('a & b');
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('10');
+    request.flush({ items: [], page: 2, pageSize: 10, hasMore: false });
+  });
+  beforeEach(() =>
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }),
+  );
+  afterEach(() => TestBed.inject(HttpTestingController).verify());
+
+  it('loads the current profile', () => {
+    TestBed.inject(UsersService)
+      .getMe()
+      .subscribe((value) => expect(value).toEqual(MY_PROFILE));
+    const request = TestBed.inject(HttpTestingController).expectOne(
+      `${environment.apiUrl}/users/me`,
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush(MY_PROFILE);
+  });
+  it('encodes usernames and accepts omitted restricted fields', () => {
+    const restricted = {
+      username: 'a/b',
+      avatarUrl: null,
+      isRestricted: true,
+      restriction: 'private',
+      relationship: { status: 'none' },
+    };
+    TestBed.inject(UsersService)
+      .getProfile('a/b')
+      .subscribe((value) => expect(value).toEqual(restricted));
+    const request = TestBed.inject(HttpTestingController).expectOne(
+      `${environment.apiUrl}/users/a%2Fb`,
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush(restricted);
+  });
+  it('loads a public profile', () => {
+    TestBed.inject(UsersService)
+      .getProfile('jugador')
+      .subscribe((value) => expect(value).toEqual(OTHER_PROFILE));
+    TestBed.inject(HttpTestingController)
+      .expectOne(`${environment.apiUrl}/users/jugador`)
+      .flush(OTHER_PROFILE);
+  });
+  it('sends only the supplied changes, including a cleared biography', () => {
+    TestBed.inject(UsersService)
+      .updateMe({ bio: null })
+      .subscribe((value) => expect(value).toEqual(MY_PROFILE));
+    const request = TestBed.inject(HttpTestingController).expectOne(
+      `${environment.apiUrl}/users/me`,
+    );
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ bio: null });
+    request.flush(MY_PROFILE);
+  });
+});

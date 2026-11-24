@@ -1,0 +1,116 @@
+<section class="page-container py-8 md:py-12" aria-labelledby="notifications-title">
+  <div class="mx-auto max-w-3xl">
+    <header class="flex flex-wrap items-end justify-between gap-4 border-b border-(--line) pb-5">
+      <div>
+        <h1 id="notifications-title" class="text-3xl font-semibold tracking-tight">
+          Notificaciones
+        </h1>
+        <p class="mt-1 text-sm text-(--muted)" aria-live="polite">
+          {{ unread() === 1 ? '1 sin leer' : unread() + ' sin leer' }}
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a
+          routerLink="/notifications/preferences"
+          class="ui-button inline-flex min-h-11 items-center rounded-md px-3 text-sm text-indigo-200 hover:bg-(--surface-raised)"
+        >
+          Preferencias
+        </a>
+        <button
+          type="button"
+          class="ui-button min-h-11 rounded-md border border-(--line) px-4 text-sm hover:bg-(--surface-raised) disabled:opacity-50"
+          [disabled]="loading() || pending() || !cutoff() || unread() === 0"
+          (click)="readAll()"
+        >
+          Marcar todas como leídas
+        </button>
+      </div>
+    </header>
+
+    @if (loading()) {
+      <p role="status" class="py-4 text-sm text-(--muted)">Cargando notificaciones…</p>
+    }
+    @if (error()) {
+      <div class="py-5">
+        <p role="alert" class="text-sm text-red-300">No pudimos cargar las notificaciones.</p>
+        <button type="button" class="min-h-11 text-sm text-indigo-300 underline" (click)="retry()">
+          Reintentar
+        </button>
+      </div>
+    } @else if (!loading() && !rows().length) {
+      <p class="py-8 text-(--muted)">Todavía no tenés notificaciones.</p>
+    }
+    @if (actionError()) {
+      <p role="alert" class="py-3 text-sm text-red-300">
+        No pudimos marcar como leída. Volvé a intentarlo.
+      </p>
+    }
+    @if (rows().length) {
+      <ul class="divide-y divide-(--line) border-b border-(--line)" [attr.aria-busy]="loading()">
+        @for (item of rows(); track item.id) {
+          <li
+            class="grid grid-cols-[0.5rem_1fr] gap-x-3 gap-y-2 px-2 py-4 sm:grid-cols-[0.5rem_1fr_auto] sm:items-center"
+            [class.bg-(--surface)]="item.readAt === null"
+          >
+            <span
+              aria-hidden="true"
+              class="mt-2 h-2 w-2 self-start rounded-full"
+              [class.bg-indigo-400]="item.readAt === null"
+            ></span>
+            <div class="min-w-0">
+              @if (item.destination) {
+                <a
+                  [routerLink]="router.parseUrl(item.destination)"
+                  class="rounded-sm font-semibold text-indigo-200 underline decoration-indigo-400/60 underline-offset-4 hover:decoration-current"
+                >
+                  {{ item.message }}
+                </a>
+              } @else {
+                <p class="font-medium">{{ item.message }}</p>
+              }
+              <p class="mt-1 text-xs text-(--muted)">
+                <time [attr.datetime]="item.createdAt">{{
+                  item.createdAt | date: 'dd/MM/yyyy HH:mm'
+                }}</time>
+                @if (!item.readAt) {
+                  <span class="sr-only">. Sin leer</span>
+                }
+              </p>
+            </div>
+            @if (!item.readAt) {
+              <button
+                type="button"
+                class="col-start-2 min-h-11 justify-self-start rounded-md px-2 text-sm text-indigo-300 hover:bg-(--surface-raised) disabled:opacity-50 sm:col-start-auto"
+                [disabled]="pending() || loading()"
+                (click)="read(item)"
+              >
+                Marcar como leída
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+    @if (olderError()) {
+      <p role="alert" class="pt-4 text-sm text-red-300">
+        No pudimos cargar las notificaciones anteriores.
+      </p>
+    }
+    @if (nextCursor()) {
+      <button
+        type="button"
+        class="ui-button mt-5 min-h-11 rounded-md border border-(--line) px-4 text-sm hover:bg-(--surface-raised) disabled:opacity-50"
+        [disabled]="loading() || loadingOlder()"
+        (click)="loadOlder()"
+      >
+        {{
+          loadingOlder()
+            ? 'Cargando anteriores…'
+            : olderError()
+              ? 'Reintentar anteriores'
+              : 'Cargar anteriores'
+        }}
+      </button>
+    }
+  </div>
+</section>

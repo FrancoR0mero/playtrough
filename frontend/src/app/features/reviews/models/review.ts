@@ -1,3 +1,5 @@
+import { ReactionSummaryDto } from '../../reactions/models/reaction';
+
 export interface RatingSummary {
   average: number | null;
   count: number;
@@ -12,9 +14,9 @@ export interface MyReviewDto {
   editedAt: string | null;
 }
 
-export type ReviewSort = 'recent' | 'top' | 'low';
+export type ReviewSort = 'recent' | 'top' | 'low' | 'helpful';
 
-export interface PublicReviewDto extends Omit<MyReviewDto, 'gameId'> {
+export interface PublicReviewDto extends Omit<MyReviewDto, 'gameId'>, ReactionSummaryDto {
   author: { userId: number; username: string };
   isMine: boolean;
 }

@@ -1,11 +1,45 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { Dialog, DialogRef } from '@angular/cdk/dialog';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Observable, Subject, Subscription, auditTime, finalize } from 'rxjs';
+import { FriendshipButtonComponent } from '../friends/friendship-button';
+import { FriendsPreviewComponent } from '../friends/friends-preview';
+import { FriendsService } from '../friends/services/friends';
+import { RelationshipDto } from '../friends/models/friend';
 import { AuthService } from '../auth/services/auth';
+import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
+import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar';
+import { MyProfileDto, ProfileDto } from './models/user';
+import { UsersService } from './services/users';
+import { profileError } from './profile-error';
+import { ProfileEditComponent, ProfileEditResult } from './profile-edit';
+import { ProfileRestrictionComponent } from './profile-restriction';
+import { BlockUserButtonComponent } from '../blocks/block-user-button';
+import { visibleSocialRefresh } from './social-refresh';
+import { TimelineComponent } from '../timeline/timeline';
+import { TIMELINE_TEXT } from '../timeline/timeline-text';
 
 @Component({
   selector: 'app-profile',
-  imports: [RouterLink],
+  imports: [
+    RouterLink,
+    UserAvatarComponent,
+    FriendshipButtonComponent,
+    FriendsPreviewComponent,
+    ProfileRestrictionComponent,
+    BlockUserButtonComponent,
+    TimelineComponent,
+  ],
   templateUrl: './profile.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -13,6 +47,215 @@ export class ProfileComponent {
   protected readonly auth = inject(AuthService);
   protected readonly loggingOut = signal(false);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly users = inject(UsersService);
+  private readonly dialogs = inject(Dialog);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly friends = inject(FriendsService);
+  private socialRequest?: Subscription;
+  private readonly socialRefresh = new Subject<void>();
+  private readonly title = viewChild<ElementRef<HTMLHeadingElement>>('title');
+  private request?: Subscription;
+  private editor?: DialogRef<ProfileEditResult, ProfileEditComponent>;
+  protected readonly own = signal(true);
+  protected readonly profile = signal<MyProfileDto | ProfileDto | null>(null);
+  protected readonly loading = signal(true);
+  protected readonly error = signal<string | null>(null);
+  protected readonly notFound = signal(false);
+  protected readonly status = signal<string | null>(null);
+  protected readonly warning = signal<string | null>(null);
+  protected readonly cooldown = createRateLimitCooldown();
+  protected readonly timelineText = TIMELINE_TEXT;
+  protected readonly tab = signal<'profile' | 'timeline'>('profile');
+  protected readonly timelineVisited = signal(false);
+
+  constructor() {
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const tab = params.get('tab') === 'timeline' ? 'timeline' : 'profile';
+      this.tab.set(tab);
+      if (tab === 'timeline') this.timelineVisited.set(true);
+    });
+    visibleSocialRefresh()
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        if (!this.own()) this.refreshSocial();
+      });
+    this.socialRefresh.pipe(auditTime(0), takeUntilDestroyed()).subscribe(() => this.loadSocial());
+    this.friends.changes$.pipe(takeUntilDestroyed()).subscribe(() => this.refreshSocial());
+    afterNextRender(() => this.title()?.nativeElement.focus());
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      this.request?.unsubscribe();
+      this.socialRequest?.unsubscribe();
+      this.editor?.close();
+      this.status.set(null);
+      this.warning.set(null);
+      const username = params.get('username');
+      if (username && username.toLowerCase() === this.auth.currentUser()?.username.toLowerCase()) {
+        void this.router.navigate(['/profile'], { replaceUrl: true });
+        return;
+      }
+      this.own.set(!username);
+      this.load();
+      this.title()?.nativeElement.focus();
+    });
+    this.destroyRef.onDestroy(() => {
+      this.request?.unsubscribe();
+      this.socialRequest?.unsubscribe();
+      this.editor?.close();
+    });
+  }
+
+  protected selectTab(tab: 'profile' | 'timeline'): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  protected tabKey(event: KeyboardEvent, tab: 'profile' | 'timeline'): void {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const next =
+      event.key === 'Home'
+        ? 'profile'
+        : event.key === 'End'
+          ? 'timeline'
+          : tab === 'profile'
+            ? 'timeline'
+            : 'profile';
+    this.selectTab(next);
+    const list = (event.currentTarget as HTMLElement).closest('[role="tablist"]');
+    list?.querySelector<HTMLButtonElement>(`#profile-tab-${next}`)?.focus();
+  }
+
+  protected relationship(): RelationshipDto | null {
+    const profile = this.profile();
+    return profile && 'relationship' in profile ? profile.relationship : null;
+  }
+
+  protected showFriends(): boolean {
+    const profile = this.profile();
+    return !!profile && 'isRestricted' in profile && !profile.isRestricted;
+  }
+
+  protected restricted(): boolean {
+    const profile = this.profile();
+    return !!profile && 'isRestricted' in profile && profile.isRestricted;
+  }
+
+  protected restriction() {
+    const profile = this.profile();
+    return profile && 'restriction' in profile ? profile.restriction : null;
+  }
+
+  protected blocked(): void {
+    this.request?.unsubscribe();
+    this.socialRequest?.unsubscribe();
+    this.profile.set(null);
+    this.loading.set(true);
+    void this.router.navigate(['/profile/settings/blocked'], { queryParams: { done: 'blocked' } });
+  }
+
+  protected refreshSocial(): void {
+    this.socialRefresh.next();
+  }
+
+  private loadSocial(): void {
+    if (!this.profile() || this.cooldown.remaining()) return;
+    this.socialRequest?.unsubscribe();
+    const username = this.route.snapshot.paramMap.get('username');
+    const request: Observable<MyProfileDto | ProfileDto> = username
+      ? this.users.getProfile(username)
+      : this.users.getMe();
+    this.socialRequest = request.subscribe({
+      next: (profile) => {
+        this.profile.set(profile);
+        if (this.own() && 'id' in profile)
+          this.auth.updateCurrentAvatar(profile.id, profile.avatarUrl);
+        this.warning.set(null);
+      },
+      error: (error) => {
+        if (profileError(error).code === 'user_not_found') {
+          this.profile.set(null);
+          this.notFound.set(true);
+          this.warning.set(null);
+          return;
+        }
+        this.cooldown.handle(error);
+        this.warning.set('No pudimos actualizar el perfil. Volvé a intentarlo.');
+      },
+    });
+  }
+
+  protected joined(date: string): string {
+    return new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(
+      new Date(date),
+    );
+  }
+
+  protected load(): void {
+    if (this.cooldown.remaining()) {
+      this.profile.set(null);
+      this.loading.set(false);
+      return;
+    }
+    this.request?.unsubscribe();
+    this.loading.set(true);
+    this.profile.set(null);
+    this.error.set(null);
+    this.notFound.set(false);
+    const username = this.route.snapshot.paramMap.get('username');
+    const request: Observable<MyProfileDto | ProfileDto> = username
+      ? this.users.getProfile(username)
+      : this.users.getMe();
+    this.request = request.subscribe({
+      next: (profile) => {
+        this.profile.set(profile);
+        if (this.own() && 'id' in profile)
+          this.auth.updateCurrentAvatar(profile.id, profile.avatarUrl);
+        this.loading.set(false);
+      },
+      error: (error) => {
+        this.loading.set(false);
+        if (this.cooldown.handle(error)) return;
+        if (profileError(error).code === 'user_not_found') {
+          this.notFound.set(true);
+          return;
+        }
+        this.error.set('No pudimos cargar el perfil. Revisá tu conexión e intentá de nuevo.');
+      },
+    });
+  }
+
+  protected edit(origin: HTMLButtonElement): void {
+    const profile = this.profile();
+    if (!this.own() || !profile || !('id' in profile) || this.editor) return;
+    this.editor = this.dialogs.open<ProfileEditResult, MyProfileDto, ProfileEditComponent>(
+      ProfileEditComponent,
+      {
+        data: profile,
+        ariaLabelledBy: 'profile-edit-title',
+        ariaModal: true,
+        backdropClass: 'cdk-overlay-dark-backdrop',
+        autoFocus: 'first-tabbable',
+        restoreFocus: origin,
+        width: 'calc(100vw - 2rem)',
+        maxWidth: '36rem',
+      },
+    );
+    this.editor.closed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((result) => {
+      this.editor = undefined;
+      const current = this.profile();
+      const avatarUrl = this.auth.currentUser()?.avatarUrl;
+      if (current && avatarUrl !== undefined) this.profile.set({ ...current, avatarUrl });
+      if (!result) return;
+      this.profile.set(result.profile);
+      this.status.set('Perfil actualizado');
+      this.warning.set(result.warning);
+      if (result.renamed) void this.router.navigate(['/profile'], { replaceUrl: true });
+    });
+  }
 
   protected logout(): void {
     if (this.loggingOut()) return;

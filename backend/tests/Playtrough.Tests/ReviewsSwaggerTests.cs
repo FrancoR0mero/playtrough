@@ -94,7 +94,7 @@ public class ReviewsSwaggerTests
         Assert.True(Assert.Single(operation.GetProperty("security").EnumerateArray()).TryGetProperty("Bearer", out _));
         var parameters = operation.GetProperty("parameters").EnumerateArray().ToArray();
         var sort = Assert.Single(parameters, parameter => parameter.GetProperty("name").GetString() == "sort").GetProperty("schema");
-        Assert.Equal(new[] { "recent", "top", "low" }, sort.GetProperty("enum").EnumerateArray().Select(value => value.GetString()).ToArray());
+        Assert.Equal(new[] { "recent", "top", "low", "helpful" }, sort.GetProperty("enum").EnumerateArray().Select(value => value.GetString()).ToArray());
         Assert.Equal("recent", sort.GetProperty("default").GetString());
         var page = Assert.Single(parameters, parameter => parameter.GetProperty("name").GetString() == "page").GetProperty("schema");
         Assert.Equal(1, page.GetProperty("default").GetInt32());

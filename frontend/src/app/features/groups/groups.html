@@ -1,0 +1,142 @@
+<section class="page-container" aria-labelledby="groups-title">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 id="groups-title" class="page-heading text-white">Grupos</h1>
+    <a
+      routerLink="/groups/new"
+      class="ui-button inline-flex min-h-11 items-center justify-center bg-accent px-5 text-white"
+      >Crear grupo</a
+    >
+  </div>
+
+  <form
+    [formGroup]="form"
+    (ngSubmit)="search()"
+    class="mt-7 grid items-end gap-3 border-y border-white/10 py-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]"
+  >
+    <label class="flex min-w-0 flex-col gap-2 text-sm font-medium text-slate-200">
+      Buscar grupos
+      <input
+        type="search"
+        formControlName="q"
+        maxlength="100"
+        placeholder="Nombre o descripción"
+        class="min-h-11 rounded-lg border border-slate-600 bg-slate-900 px-3 text-base text-white"
+      />
+    </label>
+    <label class="flex min-w-0 flex-col gap-2 text-sm font-medium text-slate-200">
+      Género principal
+      <select
+        formControlName="genreId"
+        (change)="form.controls.subgenreId.reset()"
+        [attr.disabled]="catalog() ? null : ''"
+        class="min-h-11 rounded-lg border border-slate-600 bg-slate-900 px-3 text-base text-white"
+      >
+        <option value="">Todos los géneros</option>
+        @for (genre of catalog()?.genres; track genre.id) {
+          <option [value]="genre.id">{{ genre.name }}</option>
+        }
+      </select>
+    </label>
+    <label class="flex min-w-0 flex-col gap-2 text-sm font-medium text-slate-200">
+      Subgénero
+      <select
+        formControlName="subgenreId"
+        [attr.disabled]="genreId() ? null : ''"
+        class="min-h-11 rounded-lg border border-slate-600 bg-slate-900 px-3 text-base text-white disabled:text-slate-400"
+      >
+        <option value="">
+          {{ genreId() ? 'Todos los subgéneros' : 'Elegí un género primero' }}
+        </option>
+        @for (subgenre of subgenres(); track subgenre.id) {
+          <option [value]="subgenre.id">{{ subgenre.name }}</option>
+        }
+      </select>
+    </label>
+    @if (catalog(); as classification) {
+      <details class="sm:col-span-full lg:row-start-2">
+        <summary class="min-h-11 cursor-pointer py-3 text-sm font-medium text-indigo-300 underline">
+          Filtrar por etiquetas
+          @if (form.controls.tagIds.value.length; as selected) {
+            <span class="text-slate-300">({{ selected }})</span>
+          }
+        </summary>
+        <p class="mb-3 text-sm text-slate-300">
+          Los resultados deben incluir todas las etiquetas elegidas.
+        </p>
+        <app-group-tag-picker
+          [tags]="classification.tags"
+          [selected]="form.controls.tagIds.value"
+          (selectedChange)="form.controls.tagIds.setValue($event)"
+        />
+      </details>
+    }
+    <button
+      type="submit"
+      [disabled]="form.invalid"
+      class="ui-button min-h-11 border border-slate-600 px-5 text-white disabled:opacity-50 lg:col-start-4 lg:row-start-1"
+    >
+      Buscar
+    </button>
+  </form>
+
+  @if (catalogLoading()) {
+    <p role="status" class="mt-3 text-sm text-slate-300">Cargando filtros de clasificación…</p>
+  } @else if (catalogError()) {
+    <p role="alert" class="mt-3 text-sm text-red-300">
+      No pudimos cargar los filtros de clasificación.
+      <button type="button" (click)="loadCatalog()" class="min-h-11 underline">Reintentar</button>
+    </p>
+  }
+
+  <ul
+    aria-label="Resultados de grupos"
+    [attr.aria-busy]="loading()"
+    class="divide-y divide-white/10"
+  >
+    @for (group of items(); track group.id) {
+      <li>
+        <a
+          [routerLink]="['/groups', group.id]"
+          class="block rounded py-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-6"
+        >
+          <div class="min-w-0">
+            <h2 class="text-lg font-semibold wrap-anywhere text-white">{{ group.name }}</h2>
+            <p
+              class="mt-1 line-clamp-2 max-w-prose wrap-anywhere text-sm leading-relaxed text-slate-300"
+            >
+              {{ group.description }}
+            </p>
+            <app-group-classification-summary class="mt-3 block" [group]="group" [compact]="true" />
+          </div>
+          <p class="mt-2 text-sm text-slate-300 sm:mt-1">
+            {{ group.privacy === 'private' ? 'Privado' : 'Público' }}
+          </p>
+        </a>
+      </li>
+    }
+  </ul>
+  @if (loading()) {
+    <p role="status" class="mt-5 text-sm text-slate-300">Cargando grupos…</p>
+  } @else if (error()) {
+    <p role="alert" class="mt-5 text-sm text-red-300">{{ error() }}</p>
+    <button
+      type="button"
+      (click)="load(cursor())"
+      class="ui-button mt-2 min-h-11 border border-slate-600 px-4 text-white"
+    >
+      Reintentar
+    </button>
+  } @else if (!items().length) {
+    <p role="status" class="mt-5 text-sm text-slate-300">
+      No encontramos grupos. Probá con otra búsqueda o creá un grupo.
+    </p>
+  } @else if (cursor() !== null) {
+    <button
+      type="button"
+      (click)="load(cursor())"
+      class="ui-button mt-5 min-h-11 border border-slate-600 px-4 text-white"
+    >
+      Cargar más
+    </button>
+  }
+</section>

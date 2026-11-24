@@ -17,6 +17,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Internal;
 using Moq;
 using Playtrough.Api.Data;
+using Playtrough.Api.Events;
 using Playtrough.Api.Models;
 using Playtrough.Api.Services.Implementations;
 using Playtrough.Api.Services.Interfaces;
@@ -44,11 +45,14 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
     public Mock<IEmailSender> EmailSender { get; } = new();
     public Mock<IPasswordResetQueue> ResetQueue { get; } = new();
     public Mock<ILogger<AuthService>> AuthLogger { get; } = new();
-    public string SigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+    public string SigningKey { get; }
 
     public LoginApiFactory(bool useIndependentConnections = false, bool runPasswordResetWorker = true, bool runConfirmationWorker = true,
-        string environment = "Testing", bool includeSecurityEndpoints = false)
+        string environment = "Testing", bool includeSecurityEndpoints = false, byte[]? signingKeyBytes = null)
     {
+        // Hex preserves all 512 random bits and cannot spell any reserved
+        // placeholder word checked by the real startup validator.
+        SigningKey = Convert.ToHexString(signingKeyBytes ?? RandomNumberGenerator.GetBytes(64));
         _environment = environment;
         _includeSecurityEndpoints = includeSecurityEndpoints;
         ClientOptions.BaseAddress = new Uri("https://localhost");
@@ -111,6 +115,11 @@ public sealed class LoginApiFactory : WebApplicationFactory<Program>
             services.AddSingleton(EmailSender.Object);
             services.AddSingleton(AuthLogger.Object);
             services.Configure<MemoryCacheOptions>(options => options.Clock = CacheClock);
+            // The in-memory fixture shares a single connection with all requests.
+            // Worker integration uses the independent SQLite connections instead.
+            if (_connectionString is null)
+                services.Remove(services.Single(service => service.ServiceType == typeof(IHostedService) &&
+                    service.ImplementationType == typeof(OutboxWorker)));
             if (!_runConfirmationWorker)
             {
                 services.Remove(services.Single(service => service.ServiceType == typeof(IHostedService) &&

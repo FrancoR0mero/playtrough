@@ -96,6 +96,31 @@ export class AuthService {
   readonly currentUser = computed(() => this.session()?.user ?? null);
   readonly isAuthenticated = computed(() => this.session() !== null);
 
+  /** Keep the current account name in sync after a persisted profile update. */
+  updateCurrentUsername(userId: number, username: string): void {
+    const current = this.session();
+    if (!current || current.user.id !== userId) return;
+    const updated = { ...current, user: { ...current.user, username } };
+    try {
+      this.storage.save(updated);
+    } catch {
+      // A storage failure must not undo an already persisted profile change.
+    }
+    this.setSession(updated);
+  }
+
+  updateCurrentAvatar(userId: number, avatarUrl: string | null): void {
+    const current = this.session();
+    if (!current || current.user.id !== userId || current.user.avatarUrl === avatarUrl) return;
+    const updated = { ...current, user: { ...current.user, avatarUrl } };
+    try {
+      this.storage.save(updated);
+    } catch {
+      /* Preserve an already persisted avatar. */
+    }
+    this.setSession(updated);
+  }
+
   hasRole(role: AppRole): boolean {
     return this.isAuthenticated() && this.currentUser()?.role === role;
   }

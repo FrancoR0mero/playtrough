@@ -22,18 +22,18 @@
   @if (editing()) {
     <form [formGroup]="form" (ngSubmit)="save()" class="space-y-5">
       <div>
-        <p class="mb-2 text-sm font-medium">Tu puntuación (obligatoria)</p>
+        <p class="mb-2 text-sm font-medium">Tu puntuación</p>
         <app-star-rating
           mode="input"
           formControlName="rating"
-          label="Tu puntuación (obligatoria)"
+          label="Tu puntuación"
         />
         @if (form.controls.rating.invalid) {
           <p class="mt-2 text-sm text-slate-300">Elegí una puntuación</p>
         }
       </div>
       <div>
-        <label for="review-text" class="mb-2 block text-sm font-medium">Tu reseña (opcional)</label>
+        <label for="review-text" class="mb-2 block text-sm font-medium">Tu reseña</label>
         <textarea
           id="review-text"
           data-action="review-text"

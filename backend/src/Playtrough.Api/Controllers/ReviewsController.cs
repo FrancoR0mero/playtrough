@@ -22,10 +22,12 @@ namespace Playtrough.Api.Controllers;
 public sealed class ReviewsController(IReviewService reviews) : ControllerBase
 {
     /// <summary>Listar las reseñas de un juego local.</summary>
-    /// <remarks>Requiere un token válido de cualquier rol. Incluye todas las reseñas, también la propia.
-    /// sort: recent (predeterminado, creación descendente), top (puntuación descendente), low (puntuación ascendente).
+    /// <remarks>Requiere un token válido de cualquier rol. Incluye la propia y las reseñas de cuentas visibles:
+    /// públicas o de amigos, excluyendo bloqueos en ambos sentidos.
+    /// sort: recent (predeterminado, creación descendente), top (puntuación descendente), low (puntuación ascendente),
+    /// helpful (diferencia entre me gusta y no me gusta descendente, luego más me gusta).
     /// Los empates usan creación descendente e ID descendente. page empieza en 1; pageSize es 10 por defecto y admite 1–30.
-    /// El autor solo contiene userId y username; isMine se calcula desde el token. No requiere biblioteca.
+    /// El autor contiene userId y username; isMine y myReaction se calculan desde el token. No requiere biblioteca.
     /// El resumen y la página comparten una transacción consistente. Las escrituras entre peticiones pueden desplazar páginas.</remarks>
     /// <response code="200">Reseñas paginadas, ratingSummary global del juego y hasMore. Sin reseñas: items vacío, average null y count 0.</response>
     /// <response code="400">Orden o paginación inválidos; extensions.code: invalid_query.</response>

@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -26,8 +27,12 @@ using Playtrough.Api.Controllers;
 using Playtrough.Api.Middleware;
 using Playtrough.Api.RateLimiting;
 using Playtrough.Api.Catalog;
+using Playtrough.Api.Events;
+using Playtrough.Api.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
+// Hosting's request-start log includes the query string used by browser WebSockets.
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
 
 // One-off command: bypass web startup, Identity seeding, JWT/email validation and hosted workers.
 if (args.Contains("--backfill-gamebrain", StringComparer.Ordinal))
@@ -56,6 +61,22 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     var defaultResponse = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (context.ActionDescriptor is ControllerActionDescriptor commentAction && commentAction.ControllerTypeInfo.AsType() == typeof(TimelineCommentsController))
+        {
+            var isRead = HttpMethods.IsGet(context.HttpContext.Request.Method);
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Solicitud de comentarios inválida",
+                Extensions = { ["code"] = isRead ? "invalid_filter" : "invalid_comment" } });
+        }
+        if (context.ActionDescriptor is ControllerActionDescriptor reactionAction && reactionAction.ControllerTypeInfo.AsType() == typeof(ReactionsController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Reacción inválida", Extensions = { ["code"] = "invalid_reaction" } });
+        if (context.ActionDescriptor is ControllerActionDescriptor feedAction && feedAction.ControllerTypeInfo.AsType() == typeof(FeedController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Consulta de feed inválida", Extensions = { ["code"] = "invalid_filter" } });
+        if (context.ActionDescriptor is ControllerActionDescriptor visibilityAction && visibilityAction.ControllerTypeInfo.AsType() == typeof(TimelineVisibilityController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Visibilidad de entrada inválida", Extensions = { ["code"] = "invalid_body" } });
+        if (context.ActionDescriptor is ControllerActionDescriptor timelineAction && timelineAction.ControllerTypeInfo.AsType() == typeof(TimelineController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Consulta de línea de tiempo inválida", Extensions = { ["code"] = "invalid_filter" } });
+        if (context.ActionDescriptor is ControllerActionDescriptor blocksAction && blocksAction.ControllerTypeInfo.AsType() == typeof(BlocksController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Solicitud inválida", Extensions = { ["code"] = "invalid_query" } });
         if (context.ActionDescriptor is ControllerActionDescriptor friendsAction &&
             friendsAction.ControllerTypeInfo.AsType() == typeof(FriendsController))
         {
@@ -63,12 +84,14 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
             friendsProblem.Extensions["code"] = "invalid_query";
             return new BadRequestObjectResult(friendsProblem);
         }
+        if (context.ActionDescriptor is ControllerActionDescriptor avatarAction && avatarAction.ControllerTypeInfo.AsType() == typeof(AvatarsController))
+            return new BadRequestObjectResult(new ProblemDetails { Status = 400, Title = "Avatar inválido", Extensions = { ["code"] = "invalid_avatar" } });
         if (context.ActionDescriptor is ControllerActionDescriptor profileAction &&
             profileAction.ControllerTypeInfo.AsType() == typeof(UsersController))
         {
             var profileProblem = new ProblemDetails { Status = 400, Title = "Perfil inválido" };
             profileProblem.Extensions["code"] = profileAction.ActionName == nameof(UsersController.UpdatePrivacy) ? "invalid_visibility" :
-                profileAction.ActionName is nameof(UsersController.Search) or nameof(UsersController.Friends) ? "invalid_query" : context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
+                profileAction.ActionName is nameof(UsersController.Search) or nameof(UsersController.Friends) or nameof(UsersController.Library) ? "invalid_query" : context.ModelState.Any(entry => entry.Value?.Errors.Count > 0 &&
                 entry.Key.Contains("bio", StringComparison.OrdinalIgnoreCase)) ? "invalid_bio" : "invalid_username";
             return new BadRequestObjectResult(profileProblem);
         }
@@ -255,6 +278,18 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var request = context.Request;
+                // Negotiate and the REST API keep using Authorization headers.
+                if (HttpMethods.IsGet(request.Method)
+                    && (request.Path.Equals(ChatHub.Path, StringComparison.OrdinalIgnoreCase)
+                        || request.Path.Equals(NotificationHub.Path, StringComparison.OrdinalIgnoreCase))
+                    && !request.Headers.ContainsKey("Authorization")
+                    && request.Query.TryGetValue("access_token", out var token) && token.Count == 1)
+                    context.Token = token[0];
+                return Task.CompletedTask;
+            },
             OnChallenge = async context =>
             {
                 context.HandleResponse();
@@ -292,17 +327,42 @@ builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 builder.Services.AddScoped<ILibraryRepository, LibraryRepository>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<TimelineWriter>();
+builder.Services.AddScoped<TimelineBackfillService>();
+builder.Services.AddSingleton<TimelineCursorCodec>();
+builder.Services.AddScoped<TimelineQuery>();
+builder.Services.AddScoped<TimelineEntryAccess>();
+builder.Services.AddScoped<TimelineReactionTarget>();
+builder.Services.AddScoped<TimelineCommentReactionTarget>();
+builder.Services.AddScoped<ReactionService>();
+builder.Services.AddScoped<TimelineCommentService>();
+builder.Services.AddScoped<ITimelineService, TimelineService>();
+builder.Services.AddScoped<GroupService>();
+builder.Services.AddScoped<GroupClassificationService>();
+builder.Services.AddScoped<GroupAccess>();
+builder.Services.AddScoped<GroupMembershipService>();
+builder.Services.AddScoped<IFeedService, FeedService>();
+builder.Services.AddOptions<TimelineSettings>().BindConfiguration(TimelineSettings.SectionName)
+    .ValidateDataAnnotations().Validate(s => s.DefaultLimit <= s.MaxLimit,
+        "Timeline:DefaultLimit must not exceed MaxLimit.").ValidateOnStart();
+builder.Services.AddOptions<FeedSettings>().BindConfiguration(FeedSettings.SectionName)
+    .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddOptions<AvatarSettings>().BindConfiguration(AvatarSettings.SectionName).ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddSingleton<IAvatarStorage, LocalAvatarStorage>();
+builder.Services.AddSingleton<AvatarImageProcessor>();
+builder.Services.AddScoped<IAvatarService, AvatarService>();
 builder.Services.AddScoped<IPrivacyService, PrivacyService>();
 builder.Services.AddScoped<IUserSearchService, UserSearchService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddScoped<IBlockService, BlockService>();
 builder.Services.AddSingleton<Playtrough.Api.Events.IDomainEventPublisher, Playtrough.Api.Events.InMemoryDomainEventPublisher>();
 builder.Services.AddOptions<FriendsSettings>().BindConfiguration(FriendsSettings.SectionName)
     .ValidateDataAnnotations().ValidateOnStart();
 builder.Services.AddOptions<ProfileSettings>()
     .BindConfiguration(ProfileSettings.SectionName).ValidateDataAnnotations()
-    .Validate(settings => Enum.IsDefined(settings.DefaultProfileVisibility) && Enum.IsDefined(settings.DefaultHistoryVisibility),
-        "Profile visibility defaults must be Public, Friends or Private.")
+    .Validate(settings => settings.DefaultVisibility is Visibility.Public or Visibility.Private,
+        "Profile default visibility must be Public or Private.")
     .Validate(settings => settings.ReservedUsernames is not null &&
         settings.ReservedUsernames.All(name => !string.IsNullOrWhiteSpace(name)), "Reserved usernames cannot be blank.")
     .ValidateOnStart();
@@ -347,6 +407,8 @@ builder.Services.AddSwaggerGen(options =>
     options.OperationFilter<UsersExamplesFilter>();
     options.SchemaFilter<FriendsExamplesFilter>();
     options.OperationFilter<FriendsExamplesFilter>();
+    options.SchemaFilter<TimelineExamplesFilter>();
+    options.OperationFilter<TimelineExamplesFilter>();
     options.OperationFilter<ApiDocumentationFilter>();
     options.OperationFilter<JsonOnlyContentFilter>();
     options.DocumentFilter<ApiDocumentationFilter>();
@@ -361,16 +423,52 @@ builder.Services.AddOptions<CorsSettings>()
 builder.Services.AddCors();
 builder.Services.AddOptions<CorsOptions>().Configure<IOptions<CorsSettings>>((options, settings) =>
 {
+    var origins = settings.Value.AllowedOrigins.Select(origin => origin.TrimEnd('/')).ToArray();
     options.AddPolicy("AngularDev", policy =>
     {
-        policy.WithOrigins(settings.Value.AllowedOrigins.Select(origin => origin.TrimEnd('/')).ToArray())
+        policy.WithOrigins(origins)
             .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-            .WithHeaders("Authorization", "Content-Type");
+            .WithHeaders("Authorization", "Content-Type", "If-Match")
+            .WithExposedHeaders("ETag");
     });
+    options.AddPolicy("Realtime", policy => policy.WithOrigins(origins)
+        .WithMethods("GET", "POST", "DELETE", "OPTIONS")
+        .WithHeaders("Authorization", "Content-Type", "X-Requested-With", "X-SignalR-User-Agent"));
 });
 
-// SignalR services (no hub yet — Sprint 0 registers the framework only)
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, JwtHubUserIdProvider>();
+builder.Services.AddOptions<ChatSettings>().BindConfiguration("Chat")
+    .Validate(settings => settings.WindowSeconds is >= 1 and <= 60 && settings.MessagesPerUser > 0
+        && settings.GlobalMessages >= settings.MessagesPerUser, "Los límites del chat deben ser válidos.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<ChatSendLimits>();
+builder.Services.AddSingleton<ChatConnections>();
+builder.Services.AddScoped<ChatMessageService>();
+builder.Services.AddScoped<ChatHistoryService>();
+builder.Services.AddScoped<NotificationStore>();
+builder.Services.AddScoped<NotificationDelivery>();
+builder.Services.AddScoped<NotificationCenter>();
+builder.Services.AddScoped<NotificationPreferences>();
+builder.Services.AddScoped<SocialNotifications>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<FriendRequestSent>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<FriendRequestAccepted>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<TimelineEntryLiked>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<TimelineEntryCommented>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<GroupJoinRequested>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<GroupJoinResolved>>();
+builder.Services.AddScoped<IOutboxHandler, SocialNotificationHandler<GroupMemberRemoved>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<ModerationDecisionApplied>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<ModerationAppealResolved>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<SubscriptionActivated>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<PaymentFailed>>();
+builder.Services.AddScoped<IOutboxHandler, EssentialNotificationHandler<SubscriptionExpired>>();
+builder.Services.AddScoped<IOutboxHandler>(services =>
+    ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageCreated)));
+builder.Services.AddScoped<IOutboxHandler>(services =>
+    ActivatorUtilities.CreateInstance<ChatMessageDelivery>(services, nameof(ChatMessageRemoved)));
+builder.Services.AddScoped<OutboxProcessor>();
+builder.Services.AddHostedService<OutboxWorker>();
 
 // Health checks
 builder.Services.AddHealthChecks();
@@ -396,6 +494,7 @@ app.UseMiddleware<GameCatalogExceptionMiddleware>();
 app.UseMiddleware<LibraryExceptionMiddleware>();
 app.UseMiddleware<ReviewExceptionMiddleware>();
 app.UseMiddleware<ProfileExceptionMiddleware>();
+app.UseMiddleware<TimelineExceptionMiddleware>();
 app.UseMiddleware<FriendExceptionMiddleware>();
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
@@ -436,6 +535,11 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+var realtime = app.MapGroup("").RequireCors("Realtime")
+    .RequireAuthorization(policy => policy.RequireAuthenticatedUser()
+        .RequireAssertion(context => JwtHubUserIdProvider.GetUserId(context.User) is not null));
+realtime.MapHub<ChatHub>(ChatHub.Path, options => options.CloseOnAuthenticationExpiration = true);
+realtime.MapHub<NotificationHub>(NotificationHub.Path, options => options.CloseOnAuthenticationExpiration = true);
 if (app.Environment.IsDevelopment())
 {
     app.MapGet("/api/test/user", () => Results.Ok(new { message = "User access granted." }))

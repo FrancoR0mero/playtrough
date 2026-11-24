@@ -15,23 +15,27 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subscription, combineLatest, finalize } from 'rxjs';
+import { EMPTY, Subscription, combineLatest, expand, finalize, find, map } from 'rxjs';
 import { createRateLimitCooldown } from '../auth/rate-limit-cooldown';
 import { GameImageComponent } from '../games/game-image';
 import { GameDetail } from '../games/models/game';
 import { GameCatalogService } from '../games/services/game-catalog';
+import { ReactionButtonsComponent } from '../reactions/reaction-buttons';
 import { MyReviewDto, PublicReviewDto, RatingSummary, ReviewSort } from './models/review';
 import { RatingSummaryComponent } from './rating-summary';
 import { ReviewContentComponent } from './review-content';
 import { reviewErrorCode } from './review-error';
 import { ReviewService } from './services/review';
+import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar';
 
 type Section = 'detail' | 'mine' | 'list';
 const SORTS = [
   { value: 'recent', label: 'Más recientes' },
   { value: 'top', label: 'Mejor puntuadas' },
   { value: 'low', label: 'Peor puntuadas' },
+  { value: 'helpful', label: 'Más útiles' },
 ] as const;
+const PAGE_SIZE = 20;
 
 @Component({
   selector: 'app-game-reviews',
@@ -41,6 +45,8 @@ const SORTS = [
     GameImageComponent,
     RatingSummaryComponent,
     ReviewContentComponent,
+    UserAvatarComponent,
+    ReactionButtonsComponent,
   ],
   templateUrl: './game-reviews.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,17 +60,24 @@ export class GameReviewsComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
   private readonly title = viewChild<ElementRef<HTMLElement>>('title');
+  private readonly listTitle = viewChild<ElementRef<HTMLElement>>('listTitle');
   // Capture entry history once. Replacing ?sort must not turn a direct entry into a back target.
   private readonly hasPrevious = !!this.router.currentNavigation()?.previousNavigation;
   private detailRequest?: Subscription;
   private mineRequest?: Subscription;
   private listRequest?: Subscription;
+  private ownReactionsRequest?: Subscription;
+  private readonly missingReviews = new Set<number>();
   private externalId = '';
   private localIdentity = false;
   private page = 0;
   private failedPage = 1;
   protected readonly detail = signal<GameDetail | null>(null);
   protected readonly mine = signal<MyReviewDto | null>(null);
+  protected readonly ownReactions = signal<PublicReviewDto | null>(null);
+  protected readonly loadingOwnReactions = signal(false);
+  protected readonly ownReactionsError = signal(false);
+  protected readonly reactionNotice = signal('');
   protected readonly items = signal<PublicReviewDto[]>([]);
   protected readonly summary = signal<RatingSummary>({ average: null, count: 0 });
   protected readonly sorts = SORTS;
@@ -80,6 +93,7 @@ export class GameReviewsComponent implements OnInit {
     detail: createRateLimitCooldown(),
     mine: createRateLimitCooldown(),
     list: createRateLimitCooldown(),
+    ownReactions: createRateLimitCooldown(),
   };
   protected readonly notFound = signal(false);
   protected readonly listLoaded = signal(false);
@@ -113,6 +127,7 @@ export class GameReviewsComponent implements OnInit {
       if (change.gameId !== this.detail()?.id) return;
       this.mineRequest?.unsubscribe();
       this.mine.set(change.type === 'deleted' ? null : change.review);
+      if (this.ownReactions()?.id !== this.mine()?.id) this.ownReactions.set(null);
       this.errors.mine.set(null);
       this.summary.set(change.ratingSummary);
       this.resetList();
@@ -129,6 +144,11 @@ export class GameReviewsComponent implements OnInit {
     this.detailRequest?.unsubscribe();
     this.mineRequest?.unsubscribe();
     this.listRequest?.unsubscribe();
+    this.ownReactionsRequest?.unsubscribe();
+    this.ownReactions.set(null);
+    this.ownReactionsError.set(false);
+    this.reactionNotice.set('');
+    this.missingReviews.clear();
     this.detail.set(null);
     this.mine.set(null);
     this.items.set([]);
@@ -150,7 +170,11 @@ export class GameReviewsComponent implements OnInit {
       return;
     }
     this.loading.detail.set(true);
-    this.detailRequest = (this.localIdentity ? this.catalog.getLocalDetail(Number(this.externalId)) : this.catalog.getDetail(Number(this.externalId)))
+    this.detailRequest = (
+      this.localIdentity
+        ? this.catalog.getLocalDetail(Number(this.externalId))
+        : this.catalog.getDetail(Number(this.externalId))
+    )
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.detail.set(false)),
@@ -183,7 +207,10 @@ export class GameReviewsComponent implements OnInit {
         finalize(() => this.loading.mine.set(false)),
       )
       .subscribe({
-        next: (review) => this.mine.set(review),
+        next: (review) => {
+          this.mine.set(review);
+          this.resolveOwnReactions();
+        },
         error: (error: unknown) => {
           if (reviewErrorCode(error) === 'review_not_found') this.mine.set(null);
           else this.handleError('mine', error);
@@ -200,6 +227,8 @@ export class GameReviewsComponent implements OnInit {
 
   private resetList(): void {
     this.listRequest?.unsubscribe();
+    this.ownReactionsRequest?.unsubscribe();
+    this.ownReactionsError.set(false);
     this.items.set([]);
     this.page = 0;
     this.failedPage = 1;
@@ -220,7 +249,7 @@ export class GameReviewsComponent implements OnInit {
     this.loading.list.set(true);
     this.errors.list.set(null);
     this.listRequest = this.reviews
-      .list(game.id, this.selectedSort, page, 20)
+      .list(game.id, this.selectedSort, page, PAGE_SIZE)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.list.set(false)),
@@ -229,15 +258,79 @@ export class GameReviewsComponent implements OnInit {
         next: (response) => {
           const unique = new Map(this.items().map((item) => [item.id, item]));
           for (const item of response.items) {
-            if (!item.isMine) unique.set(item.id, item);
+            if (!this.missingReviews.has(item.id)) unique.set(item.id, item);
           }
           this.items.set([...unique.values()]);
           this.summary.set(response.ratingSummary);
           this.page = response.page;
           this.hasMore.set(response.hasMore);
           this.listLoaded.set(true);
+          this.resolveOwnReactions();
         },
         error: (error: unknown) => this.handleError('list', error),
+      });
+  }
+
+  protected retryOwnReactions(): void {
+    this.ownReactionsError.set(false);
+    this.resolveOwnReactions();
+  }
+
+  protected reviewUnavailable(id: number, row: HTMLElement): void {
+    const restoreFocus = row.contains(row.ownerDocument.activeElement);
+    this.missingReviews.add(id);
+    this.items.update((items) => items.filter((item) => item.id !== id));
+    this.reactionNotice.set('Esta reseña ya no está disponible.');
+    if (restoreFocus)
+      afterNextRender(() => this.listTitle()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  private resolveOwnReactions(): void {
+    const mine = this.mine();
+    const game = this.detail();
+    if (!mine || !game || !this.listLoaded()) return;
+    const listed = this.items().find((item) => item.id === mine.id && item.isMine);
+    if (listed) {
+      this.ownReactionsRequest?.unsubscribe();
+      this.ownReactionsError.set(false);
+      this.ownReactions.set(listed);
+      return;
+    }
+    if (
+      this.ownReactions()?.id === mine.id ||
+      this.loadingOwnReactions() ||
+      this.ownReactionsError() ||
+      this.cooldowns.ownReactions.remaining() ||
+      !this.hasMore()
+    )
+      return;
+
+    // The /me DTO has no reaction counts. Search pages beyond the loaded list without
+    // changing the user's page or sort, and stop as soon as the review is found.
+    const sort = this.selectedSort;
+    const match = (item: PublicReviewDto) => item.id === mine.id && item.isMine;
+    this.loadingOwnReactions.set(true);
+    this.ownReactionsRequest = this.reviews
+      .list(game.id, sort, this.page + 1, PAGE_SIZE)
+      .pipe(
+        expand(
+          (page) =>
+            page.hasMore && !page.items.some(match)
+              ? this.reviews.list(game.id, sort, page.page + 1, PAGE_SIZE)
+              : EMPTY,
+          1,
+        ),
+        map((page) => page.items.find(match)),
+        find((item) => item !== undefined),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loadingOwnReactions.set(false)),
+      )
+      .subscribe({
+        next: (item) => this.ownReactions.set(item ?? null),
+        error: (error: unknown) => {
+          this.cooldowns.ownReactions.handle(error);
+          this.ownReactionsError.set(true);
+        },
       });
   }
 

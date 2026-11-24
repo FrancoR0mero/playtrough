@@ -9,7 +9,7 @@ using Playtrough.Api.Services.Interfaces;
 
 namespace Playtrough.Api.Services.Implementations;
 
-public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewService
+public sealed class ReviewService(AppDbContext db, TimeProvider time, TimelineWriter timeline) : IReviewService
 {
     public Task<ReviewResult> UpsertAsync(int userId, int gameId, decimal rating, string? text, CancellationToken ct = default)
     {
@@ -108,12 +108,16 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewS
             // the isolation level already used by the library on both MySQL and SQLite.
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var summary = await GetSummaryAsync(gameId, ct);
+            var viewerReactions = db.ReviewReactions.AsNoTracking().Where(reaction => reaction.UserId == userId);
             var query = from review in db.Reviews.AsNoTracking()
-                        join author in db.Users.AsNoTracking() on review.UserId equals author.Id
+                        join author in PrivacyService.VisibleUsers(db, userId) on review.UserId equals author.Id
+                        join reaction in viewerReactions on review.Id equals reaction.ReviewId into reactions
+                        from reaction in reactions.DefaultIfEmpty()
                         where review.GameId == gameId
                         select new
                         {
-                            review.Id, review.Rating, review.Text, review.CreatedAt, review.EditedAt,
+                            review.Id, review.Rating, review.Text, review.CreatedAt, review.EditedAt, review.LikeCount, review.DislikeCount,
+                            MyReaction = (ReactionValue?)reaction.Value,
                             AuthorId = author.Id, Username = author.UserName,
                         };
             // Half-star units are exact integers. The integral ordering key works
@@ -124,12 +128,17 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewS
                     .ThenByDescending(review => review.CreatedAt).ThenByDescending(review => review.Id),
                 "low" => query.OrderBy(review => (int)(review.Rating * 2m))
                     .ThenByDescending(review => review.CreatedAt).ThenByDescending(review => review.Id),
+                "helpful" => query.OrderByDescending(review => review.LikeCount - review.DislikeCount)
+                    .ThenByDescending(review => review.LikeCount)
+                    .ThenByDescending(review => review.CreatedAt).ThenByDescending(review => review.Id),
                 _ => query.OrderByDescending(review => review.CreatedAt).ThenByDescending(review => review.Id),
             };
             var offset = ((long)request.Page - 1) * request.PageSize;
             var rows = offset > int.MaxValue ? [] : await ordered.Skip((int)offset).Take(request.PageSize + 1)
                 .Select(review => new ReviewListItemDto(review.Id, review.Rating, review.Text, review.CreatedAt, review.EditedAt,
-                    new ReviewAuthorDto(review.AuthorId, review.Username!), review.AuthorId == userId)).ToListAsync(ct);
+                    new ReviewAuthorDto(review.AuthorId, review.Username!), review.AuthorId == userId)
+                { LikeCount = review.LikeCount, DislikeCount = review.DislikeCount, MyReaction = ReactionService.Name(review.MyReaction) })
+                .ToListAsync(ct);
             await transaction.CommitAsync(ct);
             return new ReviewListResponse(rows.Take(request.PageSize).ToArray(), summary,
                 request.Page, request.PageSize, rows.Count > request.PageSize);
@@ -139,10 +148,21 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewS
         bool created, bool delete, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        TimelineEntry? timelineEntry = null;
         try
         {
-            if (created) db.Reviews.Add(review);
-            else if (delete) db.Reviews.Remove(review);
+            if (created)
+            {
+                db.Reviews.Add(review);
+                timelineEntry = timeline.AddReview(review);
+            }
+            else if (delete)
+            {
+                // Explicitly delete in this transaction; the FK cascade also protects
+                // deletes performed outside this service (including account removal).
+                await db.TimelineEntries.Where(entry => entry.ReviewId == review.Id).ExecuteDeleteAsync(ct);
+                db.Reviews.Remove(review);
+            }
             else
             {
                 var entry = db.Reviews.Attach(review);
@@ -183,6 +203,7 @@ public sealed class ReviewService(AppDbContext db, TimeProvider time) : IReviewS
         finally
         {
             // Failed writes, execution-strategy retries and later saves cannot reuse stale state.
+            if (timelineEntry is not null) db.Entry(timelineEntry).State = EntityState.Detached;
             db.Entry(review).State = EntityState.Detached;
         }
     }

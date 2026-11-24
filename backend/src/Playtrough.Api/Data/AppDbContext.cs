@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Playtrough.Api.Models;
 using Playtrough.Api.Authorization;
+using Playtrough.Api.Events;
 
 namespace Playtrough.Api.Data;
 
@@ -13,20 +14,54 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RoleChangeLog> RoleChangeLogs => Set<RoleChangeLog>();
     public DbSet<Game> Games => Set<Game>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<ReviewReaction> ReviewReactions => Set<ReviewReaction>();
     public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
+    public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<LibraryEntry> LibraryEntries => Set<LibraryEntry>();
     public DbSet<LibraryEvent> LibraryEvents => Set<LibraryEvent>();
+    public DbSet<TimelineEntry> TimelineEntries => Set<TimelineEntry>();
+    public DbSet<TimelineEntryReaction> TimelineEntryReactions => Set<TimelineEntryReaction>();
+    public DbSet<TimelineEntryComment> TimelineEntryComments => Set<TimelineEntryComment>();
+    public DbSet<TimelineEntryCommentReaction> TimelineEntryCommentReactions => Set<TimelineEntryCommentReaction>();
+    public DbSet<SocialGroup> SocialGroups => Set<SocialGroup>();
+    public DbSet<GroupGenre> GroupGenres => Set<GroupGenre>();
+    public DbSet<GroupSubgenre> GroupSubgenres => Set<GroupSubgenre>();
+    public DbSet<GroupTag> GroupTags => Set<GroupTag>();
+    public DbSet<GroupSubgenreAssignment> GroupSubgenreAssignments => Set<GroupSubgenreAssignment>();
+    public DbSet<GroupTagAssignment> GroupTagAssignments => Set<GroupTagAssignment>();
+    public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
+    public DbSet<GroupJoinRequest> GroupJoinRequests => Set<GroupJoinRequest>();
+    public DbSet<GroupMessage> GroupMessages => Set<GroupMessage>();
+    public DbSet<GroupMessageReceipt> GroupMessageReceipts => Set<GroupMessageReceipt>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
         builder.ApplyConfiguration(new GameConfiguration());
         builder.ApplyConfiguration(new ReviewConfiguration());
+        builder.ApplyConfiguration(new ReviewReactionConfiguration());
         builder.ApplyConfiguration(new FriendRequestConfiguration());
         builder.ApplyConfiguration(new FriendshipConfiguration());
+        builder.ApplyConfiguration(new UserBlockConfiguration());
         builder.ApplyConfiguration(new LibraryEntryConfiguration());
         builder.ApplyConfiguration(new LibraryEventConfiguration());
+        builder.ApplyConfiguration(new TimelineEntryConfiguration());
+        builder.ApplyConfiguration(new TimelineEntryReactionConfiguration());
+        builder.ApplyConfiguration(new TimelineEntryCommentConfiguration());
+        builder.ApplyConfiguration(new TimelineEntryCommentReactionConfiguration());
+        builder.ApplyConfiguration(new SocialGroupConfiguration());
+        GroupClassificationConfiguration.Configure(builder);
+        builder.ApplyConfiguration(new GroupMemberConfiguration());
+        builder.ApplyConfiguration(new GroupJoinRequestConfiguration());
+        builder.ApplyConfiguration(new GroupMessageConfiguration());
+        builder.ApplyConfiguration(new GroupMessageReceiptConfiguration());
+        builder.ApplyConfiguration(new OutboxMessageConfiguration());
+        builder.ApplyConfiguration(new NotificationConfiguration());
+        builder.ApplyConfiguration(new NotificationPreferenceConfiguration());
 
         // Identity tables use domain names, not the framework's AspNet* prefix.
         // Data is preserved by RENAME TABLE (never recreated) in migrations.
@@ -64,6 +99,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         // Identity makes NormalizedUserName unique but not NormalizedEmail.
         builder.Entity<ApplicationUser>(entity =>
         {
+            entity.Property(u => u.AvatarFileName).HasMaxLength(37);
             entity.Property(u => u.Bio).HasMaxLength(300).HasAnnotation("MySQL:Charset", "utf8mb4");
             // Always write explicit values, including Public=0 for history, rather
             // than treating enum zero as a sentinel for the database's Friends default.

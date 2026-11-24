@@ -1,0 +1,140 @@
+<div class="mt-8 grid gap-8 lg:grid-cols-2">
+  <section aria-labelledby="group-members-title">
+    <h2 id="group-members-title" class="text-xl font-semibold text-white">Miembros</h2>
+    @let memberPage = members();
+    <ul [attr.aria-busy]="memberPage.loading" class="mt-3 divide-y divide-white/10">
+      @for (member of memberPage.items; track member.userId) {
+        <li class="flex flex-wrap items-center justify-between gap-2 py-3">
+          <div class="flex min-w-0 items-center gap-3">
+            <app-user-avatar
+              [username]="member.username"
+              [avatarUrl]="member.avatarUrl"
+              size="sm"
+            />
+            <div class="min-w-0">
+              <a
+                [routerLink]="['/profile', member.username]"
+                class="wrap-anywhere font-medium text-white hover:underline"
+                >{{ member.username }}</a
+              >
+              @if (member.isOwner) {
+                <span class="ml-2 text-xs text-indigo-300">Propietario</span>
+              }
+              <p class="text-sm text-slate-300">
+                Se unió el
+                <time [attr.datetime]="member.joinedAt">{{
+                  member.joinedAt | date: 'dd/MM/yyyy'
+                }}</time>
+              </p>
+            </div>
+          </div>
+          @if (owner() && !member.isOwner) {
+            <button
+              type="button"
+              (click)="remove(member)"
+              [disabled]="saving() || memberPage.loading || requests().loading"
+              [attr.aria-label]="'Expulsar a ' + member.username"
+              class="ui-button min-h-11 border border-slate-600 px-3 text-sm text-red-200 disabled:opacity-50"
+            >
+              Expulsar
+            </button>
+          }
+        </li>
+      }
+    </ul>
+    @if (memberPage.loading) {
+      <p role="status" class="mt-3 text-sm text-slate-300">Cargando miembros…</p>
+    } @else if (memberPage.error) {
+      <p role="alert" class="mt-3 text-sm text-red-300">No pudimos cargar los miembros.</p>
+      <button
+        type="button"
+        (click)="loadMembers(null)"
+        class="min-h-11 text-sm text-indigo-300 underline"
+      >
+        Reintentar
+      </button>
+    } @else if (memberPage.nextCursor !== null) {
+      <button
+        type="button"
+        (click)="loadMembers(memberPage.nextCursor)"
+        [disabled]="saving()"
+        class="ui-button mt-2 min-h-11 border border-slate-600 px-3 text-sm text-white disabled:opacity-50"
+      >
+        Cargar más miembros
+      </button>
+    }
+  </section>
+  @if (owner()) {
+    <section aria-labelledby="group-requests-title">
+      <h2 id="group-requests-title" class="text-xl font-semibold text-white">
+        Solicitudes de ingreso
+      </h2>
+      @let requestPage = requests();
+      <ul [attr.aria-busy]="requestPage.loading" class="mt-3 divide-y divide-white/10">
+        @for (request of requestPage.items; track request.id) {
+          <li class="flex flex-wrap items-center justify-between gap-2 py-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <app-user-avatar
+                [username]="request.username"
+                [avatarUrl]="request.avatarUrl"
+                size="sm"
+              />
+              <a
+                [routerLink]="['/profile', request.username]"
+                class="wrap-anywhere font-medium text-white hover:underline"
+                >{{ request.username }}</a
+              >
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                (click)="decide(request, 'approve')"
+                [disabled]="saving() || requestPage.loading || memberPage.loading"
+                [attr.aria-label]="'Aprobar solicitud de ' + request.username"
+                class="ui-button min-h-11 bg-accent px-3 text-sm text-white disabled:opacity-50"
+              >
+                Aprobar
+              </button>
+              <button
+                type="button"
+                (click)="decide(request, 'reject')"
+                [disabled]="saving() || requestPage.loading || memberPage.loading"
+                [attr.aria-label]="'Rechazar solicitud de ' + request.username"
+                class="ui-button min-h-11 border border-slate-600 px-3 text-sm text-white disabled:opacity-50"
+              >
+                Rechazar
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+      @if (requestPage.loading) {
+        <p role="status" class="mt-3 text-sm text-slate-300">Cargando solicitudes…</p>
+      } @else if (requestPage.error) {
+        <p role="alert" class="mt-3 text-sm text-red-300">No pudimos cargar las solicitudes.</p>
+        <button
+          type="button"
+          (click)="loadRequests(null)"
+          class="min-h-11 text-sm text-indigo-300 underline"
+        >
+          Reintentar
+        </button>
+      } @else if (!requestPage.items.length) {
+        <p class="mt-3 text-sm text-slate-300">No hay solicitudes pendientes.</p>
+      } @else if (requestPage.nextCursor !== null) {
+        <button
+          type="button"
+          (click)="loadRequests(requestPage.nextCursor)"
+          [disabled]="saving()"
+          class="ui-button mt-2 min-h-11 border border-slate-600 px-3 text-sm text-white disabled:opacity-50"
+        >
+          Cargar más solicitudes
+        </button>
+      }
+      @if (actionError()) {
+        <p role="alert" class="mt-3 text-sm text-red-300">{{ actionError() }}</p>
+      }
+      <p role="status" class="sr-only">{{ status() }}</p>
+    </section>
+  }
+</div>

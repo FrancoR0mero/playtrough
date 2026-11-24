@@ -45,7 +45,7 @@ public sealed class IdentitySeeder(
         var admin = new ApplicationUser
         {
             UserName = username, Email = email, EmailConfirmed = true,
-            ProfileVisibility = defaults.DefaultProfileVisibility, HistoryVisibility = defaults.DefaultHistoryVisibility,
+            ProfileVisibility = defaults.DefaultVisibility, HistoryVisibility = defaults.DefaultVisibility,
         };
         if (!(await users.CreateAsync(admin, settings.Password)).Succeeded ||
             !(await users.AddToRoleAsync(admin, AppRoles.Admin)).Succeeded)

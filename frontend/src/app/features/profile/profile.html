@@ -1,35 +1,248 @@
 <section class="page-container" aria-labelledby="profile-title">
-  <h1 id="profile-title" class="page-heading text-white">Mi perfil</h1>
-  @if (auth.currentUser(); as user) {
-    <div class="mt-7 max-w-xl">
-      <div class="flex items-center gap-4">
-        <span class="account-avatar" aria-hidden="true">{{ user.username.slice(0, 2) }}</span>
-        <h2 class="min-w-0 break-words text-xl font-semibold text-white">{{ user.username }}</h2>
-      </div>
-      <dl class="mt-6 border-y border-white/10 py-5">
-        <dt class="text-sm text-slate-400">Email</dt>
-        <dd class="mt-2 break-words text-base text-slate-200">{{ user.email }}</dd>
-      </dl>
-      @if (auth.hasRole('Admin')) {
-        <a
-          routerLink="/admin/roles"
-          class="ui-button mt-6 inline-flex items-center border border-slate-600 px-4 py-2 text-white"
-          >Administrar roles</a
-        >
-      }
+  <h1
+    #title
+    id="profile-title"
+    tabindex="-1"
+    class="page-heading w-fit max-w-full break-words text-white"
+  >
+    {{ own() ? 'Mi perfil' : 'Perfil de ' + (profile()?.username ?? 'jugador') }}
+  </h1>
+  <div role="status" aria-live="polite" class="mt-3 text-sm text-emerald-300">
+    {{ loggingOut() ? 'Cerrando sesión…' : status() }}
+  </div>
+  @if (warning(); as message) {
+    <p role="status" class="mt-3 text-sm text-amber-200">{{ cooldown.message() || message }}</p>
+    @if (!own()) {
       <button
         type="button"
-        data-action="profile-logout"
-        (click)="logout()"
-        [disabled]="loggingOut()"
-        [attr.aria-busy]="loggingOut()"
-        class="ui-button mt-6 block border border-slate-600 px-5 py-3 text-white disabled:opacity-60"
+        (click)="refreshSocial()"
+        [disabled]="cooldown.remaining() > 0"
+        class="ui-button mt-3 min-h-11 border border-slate-600 px-4 py-2 text-white disabled:opacity-50"
       >
-        {{ loggingOut() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
+        Actualizar perfil
       </button>
-      <p role="status" aria-live="polite" class="sr-only">
-        {{ loggingOut() ? 'Cerrando sesión…' : '' }}
+    }
+  }
+  @if (loading()) {
+    <div
+      class="mt-8 max-w-2xl space-y-5 motion-safe:animate-pulse"
+      role="status"
+      aria-label="Cargando perfil"
+      data-profile-skeleton
+    >
+      <div class="h-24 w-24 rounded-full bg-slate-800"></div>
+      <div class="h-7 w-48 rounded bg-slate-800"></div>
+      <div class="h-16 rounded bg-slate-800"></div>
+    </div>
+  } @else if (notFound()) {
+    <div class="mt-8">
+      <p role="alert" class="text-lg text-slate-200">No encontramos a este jugador</p>
+      <a
+        routerLink="/games"
+        class="ui-button mt-5 inline-flex min-h-11 items-center border border-slate-600 px-5 py-3 text-white"
+        >Explorar juegos</a
+      >
+    </div>
+  } @else if (profile(); as user) {
+    @if (!restricted()) {
+      <div
+        role="tablist"
+        [attr.aria-label]="own() ? timelineText.ownSections : timelineText.otherSections"
+        class="mt-6 flex border-b border-slate-700"
+      >
+        <button
+          id="profile-tab-profile"
+          type="button"
+          role="tab"
+          aria-controls="profile-panel-profile"
+          [attr.aria-selected]="tab() === 'profile'"
+          [attr.tabindex]="tab() === 'profile' ? 0 : -1"
+          (click)="selectTab('profile')"
+          (keydown)="tabKey($event, 'profile')"
+          class="min-h-11 border-b-2 px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-accent"
+          [class.border-violet-300]="tab() === 'profile'"
+          [class.border-transparent]="tab() !== 'profile'"
+          [class.text-white]="tab() === 'profile'"
+          [class.text-slate-400]="tab() !== 'profile'"
+        >
+          {{ timelineText.profile }}
+        </button>
+        <button
+          id="profile-tab-timeline"
+          type="button"
+          role="tab"
+          aria-controls="profile-panel-timeline"
+          [attr.aria-selected]="tab() === 'timeline'"
+          [attr.tabindex]="tab() === 'timeline' ? 0 : -1"
+          (click)="selectTab('timeline')"
+          (keydown)="tabKey($event, 'timeline')"
+          class="min-h-11 border-b-2 px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-accent"
+          [class.border-violet-300]="tab() === 'timeline'"
+          [class.border-transparent]="tab() !== 'timeline'"
+          [class.text-white]="tab() === 'timeline'"
+          [class.text-slate-400]="tab() !== 'timeline'"
+        >
+          {{ timelineText.timeline }}
+        </button>
+      </div>
+    }
+    <div
+      class="mt-7 max-w-2xl"
+      [hidden]="!restricted() && tab() !== 'profile'"
+      [attr.role]="!restricted() ? 'tabpanel' : null"
+      [attr.id]="!restricted() ? 'profile-panel-profile' : null"
+      [attr.aria-labelledby]="!restricted() ? 'profile-tab-profile' : null"
+    >
+      <div class="flex flex-wrap items-center gap-5">
+        <app-user-avatar
+          [username]="user.username"
+          [avatarUrl]="
+            own() && auth.currentUser()?.avatarUrl !== undefined
+              ? (auth.currentUser()?.avatarUrl ?? null)
+              : user.avatarUrl
+          "
+          size="lg"
+        />
+        <div class="flex min-w-0 flex-1 basis-72 items-center gap-5" data-profile-identity>
+          <div class="min-w-0">
+            <h2 class="break-words text-2xl font-semibold text-white">{{ user.username }}</h2>
+            @if (!restricted() && user.createdAt) {
+              <p class="mt-2 text-sm text-slate-400">Se unió en {{ joined(user.createdAt) }}</p>
+            }
+          </div>
+          @if (!restricted() && user.friendsCount !== undefined && user.friendsCount !== null) {
+            <a
+              [routerLink]="own() ? ['/friends'] : ['/profile', user.username, 'friends']"
+              [attr.aria-label]="'Ver amigos de ' + user.username + ': ' + user.friendsCount"
+              class="group mx-auto flex min-h-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded px-2 text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+              data-profile-friends
+            >
+              <span class="text-sm font-medium group-hover:underline">Amigos</span>
+              <span class="text-sm tabular-nums text-slate-300">{{ user.friendsCount }}</span>
+            </a>
+          }
+        </div>
+        @if (own()) {
+          <button
+            #editButton
+            type="button"
+            data-action="edit-profile"
+            (click)="edit(editButton)"
+            class="ui-button min-h-11 border border-slate-600 px-5 py-3 text-white"
+          >
+            Editar perfil
+          </button>
+          <a
+            routerLink="/profile/settings/privacy"
+            aria-label="Configuración de privacidad"
+            title="Configuración de privacidad"
+            data-action="privacy-settings"
+            class="ui-button inline-flex min-h-11 min-w-11 items-center justify-center border border-slate-600 text-white"
+          >
+            <svg
+              aria-hidden="true"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="m9 3-.6 2.4-2 .9L4 5.6 2 9l1.8 1.7v2.6L2 15l2 3.4 2.4-.7 2 .9L9 21h4l.6-2.4 2-.9 2.4.7 2-3.4-1.8-1.7v-2.6L20 9l-2-3.4-2.4.7-2-.9L13 3Z"
+              />
+              <circle cx="11" cy="12" r="3" />
+            </svg>
+          </a>
+        }
+        @if (relationship(); as relation) {
+          <app-friendship-button
+            [username]="user.username"
+            [relationship]="relation"
+            (relationshipChanged)="refreshSocial()"
+          />
+        }
+      </div>
+      <a
+        [routerLink]="own() ? ['/library'] : ['/profile', user.username, 'library']"
+        data-action="view-library"
+        class="ui-button mt-6 inline-flex min-h-11 items-center border border-slate-600 px-5 py-3 text-white"
+        >{{ own() ? 'Ver mi biblioteca' : 'Ver biblioteca' }}</a
+      >
+      @if (!own()) {
+        <div class="mt-4">
+          <app-block-user-button [username]="user.username" (blocked)="blocked()" />
+        </div>
+      }
+      @if (restricted()) {
+        <app-profile-restriction [restriction]="restriction()" />
+      } @else {
+        @if (user.bio) {
+          <p class="mt-7 whitespace-pre-line break-words text-slate-200">{{ user.bio }}</p>
+        } @else if (own()) {
+          <p class="mt-7 text-slate-400">Agregá una biografía para contar qué te gusta jugar.</p>
+        }
+        @if (showFriends()) {
+          <app-friends-preview [username]="user.username" (accessChanged)="refreshSocial()" />
+        }
+      }
+      @if (own()) {
+        <dl class="mt-8 border-y border-white/10 py-5">
+          <dt class="text-sm text-slate-400">Email</dt>
+          <dd class="mt-2 break-words text-slate-200">{{ auth.currentUser()?.email }}</dd>
+        </dl>
+        @if (auth.hasRole('Admin')) {
+          <a
+            routerLink="/admin/roles"
+            class="ui-button mt-6 inline-flex min-h-11 items-center border border-slate-600 px-4 py-2 text-white"
+            >Administrar roles</a
+          >
+        }
+        <button
+          type="button"
+          data-action="profile-logout"
+          (click)="logout()"
+          [disabled]="loggingOut()"
+          [attr.aria-busy]="loggingOut()"
+          class="ui-button mt-6 block min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-60"
+        >
+          {{ loggingOut() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
+        </button>
+      }
+    </div>
+    @if (!restricted()) {
+      <div
+        id="profile-panel-timeline"
+        role="tabpanel"
+        aria-labelledby="profile-tab-timeline"
+        [hidden]="tab() !== 'timeline'"
+      >
+        @if (timelineVisited()) {
+          <app-timeline
+            [source]="own() ? 'me' : user.username"
+            [readonly]="!own()"
+            [relationship]="relationship()"
+            [active]="tab() === 'timeline'"
+            (accessChanged)="refreshSocial()"
+          />
+        }
+      </div>
+    }
+  } @else {
+    <div class="mt-8">
+      <p role="alert" class="text-red-300">
+        {{ cooldown.message() || error() || 'Ya podés volver a intentar.' }}
       </p>
+      <button
+        type="button"
+        (click)="load()"
+        [disabled]="cooldown.remaining() > 0"
+        class="ui-button mt-5 min-h-11 border border-slate-600 px-5 py-3 text-white disabled:opacity-50"
+      >
+        Reintentar
+      </button>
     </div>
   }
 </section>

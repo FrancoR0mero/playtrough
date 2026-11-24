@@ -72,6 +72,17 @@ export class LibraryService {
     return this.http.get<LibraryResponse>(this.url, { params });
   }
 
+  forUser(username: string, query: LibraryQuery = {}): Observable<LibraryResponse> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== '') params = params.set(key, value);
+    }
+    return this.http.get<LibraryResponse>(
+      `${environment.apiUrl}/users/${encodeURIComponent(username)}/library`,
+      { params },
+    );
+  }
+
   private statusBody(status: LibraryStatus, occurredOn?: string | Date) {
     return {
       status,
